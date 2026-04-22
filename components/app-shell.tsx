@@ -3,7 +3,7 @@
 import type React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, LayoutGrid, Wallet, History, User, Gift, Menu } from "lucide-react"
+import { Home, LayoutGrid, Wallet, History, User, Menu } from "lucide-react"
 import { useState } from "react"
 import { cn } from "@/lib/utils"
 import { DesktopSidebar } from "./desktop-sidebar"
@@ -15,7 +15,6 @@ interface AppShellProps {
 const tabs = [
   { name: "Home", href: "/dashboard", icon: Home },
   { name: "Services", href: "/dashboard/services", icon: LayoutGrid },
-  { name: "Referral", href: "/dashboard/referral", icon: Gift },
   { name: "History", href: "/dashboard/transactions", icon: History },
   { name: "Profile", href: "/dashboard/profile", icon: User },
 ]

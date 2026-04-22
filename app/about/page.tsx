@@ -149,6 +149,8 @@ export default function AboutPage() {
                         src={n.src || "/placeholder.svg"}
                         alt={n.name}
                         className="w-full h-full object-cover"
+                        loading="lazy"
+                        crossOrigin="anonymous"
                       />
                     </span>
                     <span className="text-xs font-semibold text-slate-700">{n.name}</span>

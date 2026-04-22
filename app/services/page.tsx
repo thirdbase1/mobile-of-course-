@@ -174,6 +174,8 @@ export default function ServicesPage() {
                           src={n.src || "/placeholder.svg"}
                           alt={n.name}
                           className="w-full h-full object-cover"
+                          loading="lazy"
+                          crossOrigin="anonymous"
                         />
                       </span>
                     ))}

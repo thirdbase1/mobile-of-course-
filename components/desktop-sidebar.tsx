@@ -3,7 +3,7 @@
 import type React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, LayoutGrid, Wallet, History, User, Gift, X } from "lucide-react"
+import { Home, LayoutGrid, Wallet, History, User, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface DesktopSidebarProps {
@@ -14,7 +14,6 @@ interface DesktopSidebarProps {
 const tabs = [
   { name: "Home", href: "/dashboard", icon: Home },
   { name: "Services", href: "/dashboard/services", icon: LayoutGrid },
-  { name: "Referral", href: "/dashboard/referral", icon: Gift },
   { name: "History", href: "/dashboard/transactions", icon: History },
   { name: "Wallet", href: "/dashboard/deposit", icon: Wallet },
   { name: "Profile", href: "/dashboard/profile", icon: User },
