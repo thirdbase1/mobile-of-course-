@@ -15,36 +15,38 @@ interface WalletCardProps {
   bvn?: string
 }
 
-export function WalletCard({ balance, userId, accountNumber: initialAccountNumber, bankName: initialBankName, bvn }: WalletCardProps) {
+export function WalletCard({
+  balance: _ignoredInitialBalance,
+  userId,
+  accountNumber: initialAccountNumber,
+  bankName: initialBankName,
+  bvn,
+}: WalletCardProps) {
   const [isHidden, setIsHidden] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [copied, setCopied] = useState(false)
-  const [verifiedBalance, setVerifiedBalance] = useState(balance)
-  const [verifying, setVerifying] = useState(true)
+  const [liveBalance, setLiveBalance] = useState<number | null>(null)
+  const [loading, setLoading] = useState(true)
   const { toast } = useToast()
 
-  // Verify balance is from authenticated user on mount
+  // Always fetch balance directly from DB and poll every 2 seconds.
+  // This ensures it ALWAYS stays in sync with the database, whether
+  // the admin credits the user or any other update happens.
   useEffect(() => {
-    const verifyBalance = async () => {
-      if (typeof window === 'undefined') {
-        setVerifying(false)
-        return
-      }
-
+    const fetchBalance = async () => {
       try {
         const supabase = createClient()
-        
-        // Verify the logged-in user matches the userId prop
-        const { data: { user } } = await supabase.auth.getUser()
-        
-        if (!user || user.id !== userId) {
-          console.error("[v0] Balance verification failed: user mismatch")
-          toast({ title: "Security Error", description: "Unable to verify balance owner", variant: "destructive" })
-          setVerifying(false)
+
+        // Get current user to verify auth
+        const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+        if (authError || !user) {
+          console.error("[v0] Auth error or no user:", authError)
+          setLoading(false)
           return
         }
 
-        // Fetch balance directly from DB to ensure it's current
+        // ALWAYS fetch balance fresh from DB for this user
         const { data: profile, error } = await supabase
           .from("profiles")
           .select("wallet_balance")
@@ -53,117 +55,125 @@ export function WalletCard({ balance, userId, accountNumber: initialAccountNumbe
 
         if (error) {
           console.error("[v0] Error fetching balance:", error)
-          setVerifying(false)
+          setLoading(false)
           return
         }
 
         const currentBalance = profile?.wallet_balance ?? 0
-        console.log("[v0] Balance verified:", {
+        console.log("[v0] Balance fetched:", {
           userId: user.id,
           balance: currentBalance,
-          matches: currentBalance === balance,
+          timestamp: new Date().toISOString(),
         })
-        
-        setVerifiedBalance(currentBalance)
-        setVerifying(false)
 
-        // Subscribe to real-time balance updates. When admin credits this user,
-        // the balance updates in the DB, and this listener fires immediately.
-        const subscription = supabase
-          .channel(`profile:${user.id}`)
-          .on(
-            'postgres_changes',
-            {
-              event: 'UPDATE',
-              schema: 'public',
-              table: 'profiles',
-              filter: `id=eq.${user.id}`,
-            },
-            (payload) => {
-              const newBalance = payload.new?.wallet_balance ?? 0
-              console.log("[v0] Balance updated via realtime:", { newBalance })
-              setVerifiedBalance(newBalance)
-            }
-          )
-          .subscribe()
-
-        // Cleanup subscription on unmount
-        return () => {
-          supabase.removeChannel(subscription)
-        }
+        setLiveBalance(currentBalance)
+        setLoading(false)
       } catch (error) {
-        console.error("[v0] Balance verification error:", error)
-        setVerifying(false)
+        console.error("[v0] Balance fetch error:", error)
+        setLoading(false)
       }
     }
 
-    verifyBalance()
+    // Fetch immediately on mount
+    fetchBalance()
 
-    // Load balance visibility state from localStorage on mount
-    const savedHidden = localStorage.getItem('walletBalanceHidden') === 'true'
+    // Poll every 2 seconds to stay in sync with DB
+    const interval = setInterval(fetchBalance, 2000)
+
+    // Load balance visibility from localStorage
+    const savedHidden = localStorage.getItem("walletBalanceHidden") === "true"
     setIsHidden(savedHidden)
     setMounted(true)
-  }, [userId, balance, toast])
 
-  // Save balance visibility state to localStorage when it changes
-  const handleToggleBalance = (newState: boolean) => {
-    setIsHidden(newState)
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('walletBalanceHidden', String(newState))
-    }
-  }
+    return () => clearInterval(interval)
+  }, [userId])
 
-  const formattedBalance = verifiedBalance.toLocaleString("en-NG", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })
-
-  const handleCopy = async () => {
-    if (initialAccountNumber) {
-      await navigator.clipboard.writeText(initialAccountNumber.replace(/\s/g, ""))
-      setCopied(true)
-      toast({ title: "Copied!", description: "Account number copied to clipboard" })
-      setTimeout(() => setCopied(false), 2000)
-    }
-  }
-
-  const bankLogo = getBankLogo(initialBankName)
-
-  if (verifying) {
-    return (
-      <div className="wallet-card">
-        <div className="relative z-10">
-          <div className="flex items-center justify-between mb-1">
-            <span className="balance-label">Wallet Balance</span>
-          </div>
-          <div className="balance-amount mb-4">Loading...</div>
-        </div>
-      </div>
-    )
-  }
+  const displayBalance = liveBalance ?? 0
+  const balanceDisplay = isHidden ? "••••" : `₦${displayBalance.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
   return (
-    <div className="wallet-card">
+    <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-700 rounded-xl shadow-lg p-6 text-white overflow-hidden relative">
+      {/* Background elements */}
+      <div className="absolute top-0 right-0 w-40 h-40 bg-blue-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
+      <div className="absolute bottom-0 left-0 w-32 h-32 bg-purple-500/10 rounded-full blur-2xl -ml-16 -mb-16"></div>
+
       <div className="relative z-10">
-        <div className="flex items-center justify-between mb-1">
-          <span className="balance-label">Wallet Balance</span>
-          <button onClick={() => handleToggleBalance(!isHidden)} className="eye-btn">
-            {isHidden ? <EyeOff style={{ width: 15, height: 15 }} /> : <Eye style={{ width: 15, height: 15 }} />}
+        {/* Header */}
+        <div className="flex items-start justify-between mb-8">
+          <div>
+            <p className="text-slate-400 text-sm font-medium mb-1">Wallet Balance</p>
+            <p className="text-3xl font-bold tracking-tight">
+              {loading ? <span className="animate-pulse">Loading...</span> : balanceDisplay}
+            </p>
+          </div>
+
+          {/* Toggle visibility */}
+          <button
+            onClick={() => {
+              const newHidden = !isHidden
+              setIsHidden(newHidden)
+              localStorage.setItem("walletBalanceHidden", String(newHidden))
+            }}
+            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+            aria-label={isHidden ? "Show balance" : "Hide balance"}
+          >
+            {isHidden ? <EyeOff size={20} /> : <Eye size={20} />}
           </button>
         </div>
 
-        <div className="balance-amount mb-4">{isHidden ? "********" : `₦${formattedBalance}`}</div>
+        {/* Account details */}
+        {initialAccountNumber && initialBankName && (
+          <div className="mb-6 pb-6 border-t border-slate-700/50">
+            <div className="flex items-center gap-2 mb-3">
+              {getBankLogo(initialBankName) && (
+                <img
+                  src={getBankLogo(initialBankName) || ""}
+                  alt={formatBankName(initialBankName)}
+                  className="w-5 h-5 rounded"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement
+                    target.style.display = "none"
+                  }}
+                />
+              )}
+              <p className="text-xs font-medium text-slate-300">{formatBankName(initialBankName)}</p>
+            </div>
 
-        <div className="flex items-end justify-between">
-          <div className="flex-1">
-            <p className="account-label">Quick Actions</p>
-            <Link
-              href="/dashboard/deposit"
-              className="w-full py-2 px-3 mt-3 bg-[#10b981] hover:bg-[#059669] rounded-lg text-xs text-white font-semibold transition-colors block text-center"
-            >
-              Deposit Funds
-            </Link>
+            <div className="flex items-center justify-between gap-3 bg-white/5 rounded-lg p-3">
+              <p className="text-sm font-mono tracking-wider">{initialAccountNumber}</p>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(initialAccountNumber)
+                  setCopied(true)
+                  setTimeout(() => setCopied(false), 2000)
+                  toast({ title: "Copied!", description: "Account number copied to clipboard" })
+                }}
+                className="p-1.5 hover:bg-white/10 rounded transition-colors"
+              >
+                {copied ? (
+                  <Check size={16} className="text-green-400" />
+                ) : (
+                  <Copy size={16} className="text-slate-400" />
+                )}
+              </button>
+            </div>
           </div>
+        )}
+
+        {/* Action buttons */}
+        <div className="flex gap-3">
+          <Link
+            href="/deposit"
+            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-4 rounded-lg transition-colors text-center text-sm"
+          >
+            Fund Wallet
+          </Link>
+          <Link
+            href="/dashboard/transactions"
+            className="flex-1 bg-white/10 hover:bg-white/20 text-white font-semibold py-2.5 px-4 rounded-lg transition-colors text-center text-sm"
+          >
+            History
+          </Link>
         </div>
       </div>
     </div>
