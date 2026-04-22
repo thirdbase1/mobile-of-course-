@@ -66,6 +66,31 @@ export function WalletCard({ balance, userId, accountNumber: initialAccountNumbe
         
         setVerifiedBalance(currentBalance)
         setVerifying(false)
+
+        // Subscribe to real-time balance updates. When admin credits this user,
+        // the balance updates in the DB, and this listener fires immediately.
+        const subscription = supabase
+          .channel(`profile:${user.id}`)
+          .on(
+            'postgres_changes',
+            {
+              event: 'UPDATE',
+              schema: 'public',
+              table: 'profiles',
+              filter: `id=eq.${user.id}`,
+            },
+            (payload) => {
+              const newBalance = payload.new?.wallet_balance ?? 0
+              console.log("[v0] Balance updated via realtime:", { newBalance })
+              setVerifiedBalance(newBalance)
+            }
+          )
+          .subscribe()
+
+        // Cleanup subscription on unmount
+        return () => {
+          supabase.removeChannel(subscription)
+        }
       } catch (error) {
         console.error("[v0] Balance verification error:", error)
         setVerifying(false)
