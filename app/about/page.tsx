@@ -5,10 +5,14 @@ import {
   Check,
   Lock,
   Wallet,
-  RefreshCw,
-  FileText,
   ShieldCheck,
+  FileText,
   Zap,
+  Smartphone,
+  Wifi,
+  Tv,
+  Lightbulb,
+  CreditCard,
 } from "lucide-react"
 import { SiteHeader } from "@/components/site-header"
 import { Footer } from "@/components/footer"
@@ -158,6 +162,36 @@ export default function AboutPage() {
                 ))}
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Services overview */}
+      <section className="px-4 sm:px-6 lg:px-8 py-16 md:py-20 bg-slate-50 border-y border-slate-200">
+        <div className="max-w-6xl mx-auto">
+          <div className="max-w-2xl mb-12">
+            <p className="text-sm font-semibold text-blue-600 mb-3 uppercase tracking-wider">Five core services</p>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-balance">
+              Everything a bill-paying Nigerian needs.
+            </h2>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-4">
+            {[
+              { icon: Smartphone, label: "Airtime", desc: "MTN, Glo, Airtel, 9mobile" },
+              { icon: Wifi, label: "Data", desc: "Live plans from all networks" },
+              { icon: Tv, label: "Cable TV", desc: "DStv, GOtv, Startimes" },
+              { icon: Lightbulb, label: "Electricity", desc: "All 12 Nigerian DISCOs" },
+              { icon: CreditCard, label: "Recharge pins", desc: "Print in bulk, PDF-ready" },
+            ].map((svc) => (
+              <div key={svc.label} className="rounded-xl bg-white border border-slate-200 p-4 text-center">
+                <div className="w-12 h-12 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center mx-auto mb-3">
+                  <svc.icon className="w-6 h-6" />
+                </div>
+                <h3 className="font-bold text-slate-900 text-sm">{svc.label}</h3>
+                <p className="text-[11px] text-slate-600 mt-1 leading-snug">{svc.desc}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
