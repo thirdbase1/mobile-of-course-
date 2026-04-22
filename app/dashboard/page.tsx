@@ -107,7 +107,7 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 w-full overflow-y-auto">
+      <div className="bg-slate-50 w-full">
         <div className="sticky top-0 z-40 bg-white border-b border-slate-200 px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="h-8 w-32 bg-slate-200 rounded animate-pulse"></div>
@@ -135,7 +135,7 @@ export default function DashboardPage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-slate-50 w-full flex items-center justify-center">
+      <div className="bg-slate-50 w-full flex items-center justify-center py-20">
         <p className="text-slate-600">Not authenticated</p>
       </div>
     )
@@ -147,7 +147,7 @@ export default function DashboardPage() {
   const bankName = profile?.monnify_bank_name
 
   return (
-    <div className="min-h-screen bg-slate-50 w-full overflow-y-auto">
+    <div className="bg-slate-50 w-full min-h-full">
       {/* Header */}
       <header className="sticky top-0 z-40 bg-white border-b border-slate-200 px-4 sm:px-6 lg:px-8 py-4 shadow-sm">
         <div className="flex items-center justify-between">

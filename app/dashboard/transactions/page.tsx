@@ -31,10 +31,10 @@ export default async function TransactionsPage({
       : transactions.filter((t) => t.category === filter)
 
   return (
-    <div className="min-h-screen bg-background overflow-y-auto flex flex-col">
-      <div className="w-full flex-1 overflow-y-auto px-4 md:px-6 lg:px-8 pb-20 md:pb-8">
+    <div className="bg-background min-h-full">
+      <div className="w-full px-4 md:px-6 lg:px-8 pb-20 md:pb-8">
         {/* Header */}
-        <div className="sticky top-0 bg-background z-10 pb-4 pt-4 -mx-4 md:-mx-6 lg:-mx-8 px-4 md:px-6 lg:px-8 mb-4 border-b border-muted-foreground/5">
+        <div className="sticky top-0 bg-background z-40 pb-4 pt-4 -mx-4 md:-mx-6 lg:-mx-8 px-4 md:px-6 lg:px-8 mb-4 border-b border-muted-foreground/5 shadow-sm">
           <div className="flex items-center gap-3 mb-6">
             <a href="/dashboard" className="p-2 hover:bg-muted rounded-lg transition-colors">
               <ArrowLeft className="w-5 h-5" />

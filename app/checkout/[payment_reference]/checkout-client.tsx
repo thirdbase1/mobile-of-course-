@@ -13,7 +13,6 @@ import {
   ShieldCheck,
   Loader2,
   ArrowRight,
-  Info,
 } from "lucide-react"
 
 interface Transaction {
@@ -37,9 +36,6 @@ interface CheckoutClientProps {
   onCancel: (ref: string) => Promise<any>
   onVerify: (ref: string) => Promise<any>
 }
-
-// Must match the TTL set in /api/deposit/start (currently 20 minutes)
-const TOTAL_DURATION_MS = 20 * 60 * 1000
 
 export function CheckoutClient({ paymentReference, transaction: initialTransaction }: CheckoutClientProps) {
   const expiresAtMs = new Date(initialTransaction.expiresAt).getTime()
@@ -114,8 +110,6 @@ export function CheckoutClient({ paymentReference, transaction: initialTransacti
     warn: { text: "text-amber-600", ring: "stroke-amber-500", bg: "bg-amber-50", border: "border-amber-200" },
     danger: { text: "text-red-600", ring: "stroke-red-600", bg: "bg-red-50", border: "border-red-200" },
   }[timerTone]
-
-  const progressPercent = Math.max(0, Math.min(100, (timeLeft / TOTAL_DURATION_MS) * 100))
 
   const handleCopy = async (text: string, field: string) => {
     try {
@@ -277,21 +271,21 @@ export function CheckoutClient({ paymentReference, transaction: initialTransacti
       </header>
 
       <main className="max-w-xl mx-auto px-4 sm:px-6 py-6 pb-40 md:pb-24">
-        {/* Amount card */}
-        <section className="bg-white border border-slate-200 rounded-2xl p-6 mb-4 relative overflow-hidden">
-          {/* Decorative ring timer — desktop visible, mobile hidden to save space */}
-          <div className="hidden sm:block absolute top-5 right-5">
-            <TimerRing percent={progressPercent} colorClass={timerColors.ring} />
-          </div>
+        {/* Amount hero */}
+        <section className="relative bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl p-6 sm:p-7 mb-4 text-white overflow-hidden shadow-lg shadow-blue-600/20">
+          <div className="absolute -right-10 -top-10 w-40 h-40 rounded-full bg-white/5 pointer-events-none" />
+          <div className="absolute -right-20 -bottom-20 w-56 h-56 rounded-full bg-white/5 pointer-events-none" />
 
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Transfer exactly</p>
-          <div className="flex items-baseline gap-1 mb-3">
-            <span className="text-2xl font-bold text-slate-500">₦</span>
-            <span className="text-4xl sm:text-5xl font-bold text-slate-900 tabular-nums">{amountStr}</span>
+          <p className="text-[11px] font-semibold text-blue-100 uppercase tracking-wider mb-2 relative">
+            Transfer exactly
+          </p>
+          <div className="flex items-baseline gap-1 mb-4 relative">
+            <span className="text-2xl font-bold text-blue-100">₦</span>
+            <span className="text-4xl sm:text-5xl font-bold tabular-nums">{amountStr}</span>
           </div>
           <button
             onClick={() => handleCopy(amountCopyStr, "amount")}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700 transition"
+            className="relative inline-flex items-center gap-1.5 bg-white/15 hover:bg-white/25 backdrop-blur text-xs font-semibold px-3 py-1.5 rounded-full transition"
           >
             {copied === "amount" ? (
               <>
@@ -305,45 +299,20 @@ export function CheckoutClient({ paymentReference, transaction: initialTransacti
               </>
             )}
           </button>
-
-          {/* One-time account reassurance */}
-          <div className="mt-5 flex items-start gap-2.5 text-[11px] text-slate-600 bg-slate-50 border border-slate-100 rounded-lg p-3">
-            <Info className="w-3.5 h-3.5 text-slate-500 flex-shrink-0 mt-0.5" />
-            <span>
-              This is a one-time account. Transfer the <span className="font-semibold text-slate-900">exact amount</span>{" "}
-              — if you send a different amount, the payment will not be recognized.
-            </span>
-          </div>
         </section>
-
-        {/* Polling indicator */}
-        <div
-          className="flex items-center justify-center gap-2 py-3 mb-2 text-xs font-medium text-slate-600"
-          aria-live="polite"
-        >
-          <span className="relative flex h-2 w-2">
-            <span
-              className={`animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 ${
-                isPolling ? "" : "hidden"
-              }`}
-            />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-          </span>
-          Watching for your transfer — this page updates automatically
-        </div>
 
         {/* Bank details card */}
         {transaction.accountNumber && (
-          <section className="bg-white border border-slate-200 rounded-2xl overflow-hidden mb-4">
-            <div className="px-5 py-3 border-b border-slate-100 flex items-center gap-2">
-              <Building2 className="w-4 h-4 text-slate-500" />
-              <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Bank details</h2>
-            </div>
-
+          <section className="bg-white border border-slate-200 rounded-2xl overflow-hidden mb-4 shadow-sm">
             {/* Bank */}
-            <div className="px-5 py-4 border-b border-slate-100">
-              <p className="text-xs text-slate-500 mb-1">Bank</p>
-              <p className="text-base font-bold text-slate-900">{transaction.bankName}</p>
+            <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
+                <Building2 className="w-4.5 h-4.5 text-slate-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] text-slate-500 mb-0.5">Bank</p>
+                <p className="text-base font-bold text-slate-900 truncate">{transaction.bankName}</p>
+              </div>
             </div>
 
             {/* Account number — tap entire row to copy */}
@@ -352,8 +321,8 @@ export function CheckoutClient({ paymentReference, transaction: initialTransacti
               className="w-full px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3 hover:bg-slate-50 transition text-left group"
             >
               <div className="flex-1 min-w-0">
-                <p className="text-xs text-slate-500 mb-1">Account number</p>
-                <p className="text-xl font-mono font-bold text-slate-900 tracking-wider tabular-nums truncate">
+                <p className="text-[11px] text-slate-500 mb-1">Account number</p>
+                <p className="text-xl sm:text-2xl font-mono font-bold text-slate-900 tracking-wider tabular-nums truncate">
                   {transaction.accountNumber}
                 </p>
               </div>
@@ -381,33 +350,28 @@ export function CheckoutClient({ paymentReference, transaction: initialTransacti
             {/* Account name */}
             {transaction.accountName && (
               <div className="px-5 py-4">
-                <p className="text-xs text-slate-500 mb-1">Account name</p>
+                <p className="text-[11px] text-slate-500 mb-1">Account name</p>
                 <p className="text-sm font-semibold text-slate-900">{transaction.accountName}</p>
               </div>
             )}
           </section>
         )}
 
-        {/* How to pay */}
-        <section className="bg-white border border-slate-200 rounded-2xl p-5 mb-4">
-          <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">How to pay</h2>
-          <ol className="space-y-3">
-            {[
-              "Open your bank app or dial your transfer USSD code.",
-              <>
-                Transfer <span className="font-bold text-slate-900">exactly ₦{amountStr}</span> to the account above.
-              </>,
-              "Tap 'I've made the payment' — your wallet credits in seconds.",
-            ].map((step, i) => (
-              <li key={i} className="flex gap-3 text-sm text-slate-700">
-                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-600 text-white text-[11px] font-bold flex items-center justify-center mt-0.5">
-                  {i + 1}
-                </span>
-                <span className="leading-relaxed">{step}</span>
-              </li>
-            ))}
-          </ol>
-        </section>
+        {/* Polling indicator */}
+        <div
+          className="flex items-center justify-center gap-2 py-3 text-xs font-medium text-slate-600"
+          aria-live="polite"
+        >
+          <span className="relative flex h-2 w-2">
+            <span
+              className={`animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 ${
+                isPolling ? "" : "hidden"
+              }`}
+            />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+          </span>
+          Watching for your transfer
+        </div>
 
         {/* Danger / info banner */}
         {statusMessage && (
@@ -497,30 +461,6 @@ export function CheckoutClient({ paymentReference, transaction: initialTransacti
 // ──────────────────────────────────────────────
 // Sub-components
 // ──────────────────────────────────────────────
-
-function TimerRing({ percent, colorClass }: { percent: number; colorClass: string }) {
-  const size = 56
-  const stroke = 5
-  const radius = (size - stroke) / 2
-  const circumference = 2 * Math.PI * radius
-  const offset = circumference - (percent / 100) * circumference
-
-  return (
-    <svg width={size} height={size} className="transform -rotate-90">
-      <circle cx={size / 2} cy={size / 2} r={radius} strokeWidth={stroke} className="stroke-slate-100 fill-none" />
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={radius}
-        strokeWidth={stroke}
-        className={`fill-none transition-[stroke-dashoffset] duration-1000 ease-linear ${colorClass}`}
-        strokeDasharray={circumference}
-        strokeDashoffset={offset}
-        strokeLinecap="round"
-      />
-    </svg>
-  )
-}
 
 function ResultShell({ children }: { children: React.ReactNode }) {
   return (
