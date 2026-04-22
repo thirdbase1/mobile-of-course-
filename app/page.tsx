@@ -793,20 +793,23 @@ export default function HomePage() {
             Create your free Mozosubz account today and pay for airtime, data, cable, electricity and pins from one
             wallet.
           </p>
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <div className="flex flex-col items-center gap-4">
             <Link
               href="/register"
-              className="inline-flex items-center justify-center px-7 py-3.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition"
+              className="inline-flex items-center justify-center px-7 py-3.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition shadow-sm"
             >
               Create free account
               <ArrowRight className="w-4 h-4 ml-2" />
             </Link>
-            <Link
-              href="/login"
-              className="inline-flex items-center justify-center px-7 py-3.5 border border-slate-300 text-slate-900 font-semibold rounded-lg hover:border-slate-400 hover:bg-white transition"
-            >
-              I already have an account
-            </Link>
+            <p className="text-sm text-slate-600">
+              Already have an account?{" "}
+              <Link
+                href="/login"
+                className="font-semibold text-blue-600 hover:text-blue-700 underline-offset-4 hover:underline transition"
+              >
+                Log in
+              </Link>
+            </p>
           </div>
         </div>
       </section>
