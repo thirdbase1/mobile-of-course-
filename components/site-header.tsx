@@ -107,6 +107,22 @@ export function SiteHeader() {
                 </Link>
               )
             })}
+
+            {/* Auth actions */}
+            <div className="mt-3 pt-3 border-t border-slate-200 flex flex-col gap-2">
+              <Link
+                href="/register"
+                className="px-3 py-3 rounded-lg bg-blue-600 text-white text-sm font-semibold text-center hover:bg-blue-700 transition"
+              >
+                Create free account
+              </Link>
+              <Link
+                href="/login"
+                className="px-3 py-3 rounded-lg border border-slate-200 text-slate-900 text-sm font-semibold text-center hover:bg-slate-50 transition"
+              >
+                Log in
+              </Link>
+            </div>
           </nav>
         </div>
       )}
