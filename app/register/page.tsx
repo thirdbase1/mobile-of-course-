@@ -151,7 +151,7 @@ function RegisterFormContent() {
         body: JSON.stringify({ email: email.trim(), fullName: fullName.trim() }),
       }).catch(() => {})
 
-      router.push("/register-success")
+      router.push(`/register-success?email=${encodeURIComponent(email.trim())}`)
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred")
     } finally {

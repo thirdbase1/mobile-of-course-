@@ -2,7 +2,8 @@
 
 import Link from "next/link"
 import { useState, useEffect } from "react"
-import { Bell, Settings, ChevronRight } from "lucide-react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { Settings, ChevronRight, CheckCircle2, X } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { isHardcodedAdmin } from "@/lib/utils/hardcoded-admin"
 import { ServiceGrid } from "@/components/service-grid"
@@ -12,11 +13,28 @@ import { Logo } from "@/components/logo"
 import { WalletCard } from "@/components/wallet-card"
 
 export default function DashboardPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const [isAdmin, setIsAdmin] = useState(false)
   const [user, setUser] = useState<any>(null)
   const [profile, setProfile] = useState<any>(null)
   const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(true)
+  const [showConfirmedBanner, setShowConfirmedBanner] = useState(false)
+
+  // When the proxy middleware completes a Supabase email-confirmation code
+  // exchange, it redirects here with ?confirmed=1. Show a one-time welcome
+  // banner and clean the URL so refreshing doesn't re-trigger it.
+  useEffect(() => {
+    if (searchParams.get("confirmed") === "1") {
+      setShowConfirmedBanner(true)
+      // Clean the URL without adding a history entry
+      router.replace("/dashboard", { scroll: false })
+      // Auto-dismiss after 6s
+      const id = setTimeout(() => setShowConfirmedBanner(false), 6000)
+      return () => clearTimeout(id)
+    }
+  }, [searchParams, router])
 
   // Skeleton components
   const SkeletonCard = () => (
@@ -170,6 +188,33 @@ export default function DashboardPage() {
 
       {/* Main Content */}
       <main className="px-4 sm:px-6 lg:px-8 py-8 w-full">
+        {/* Email-confirmed welcome banner (one-time) */}
+        {showConfirmedBanner && (
+          <div
+            role="status"
+            className="mb-6 flex items-start gap-3 rounded-xl border border-green-200 bg-green-50 p-4 shadow-sm animate-in fade-in slide-in-from-top-2 duration-500"
+          >
+            <div className="flex-shrink-0 w-9 h-9 rounded-full bg-green-500 flex items-center justify-center">
+              <CheckCircle2 className="w-5 h-5 text-white" strokeWidth={2.5} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-green-900">
+                Email confirmed — welcome to Mozosubz!
+              </p>
+              <p className="text-xs text-green-700/90 mt-0.5">
+                Fund your wallet to start buying airtime, data, and more.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowConfirmedBanner(false)}
+              className="flex-shrink-0 p-1 rounded-md text-green-700 hover:bg-green-100 transition-colors"
+              aria-label="Dismiss"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
         {/* Wallet Card */}
         <div className="mb-8 md:mb-12">
           <WalletCard 
