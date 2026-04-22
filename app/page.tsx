@@ -292,22 +292,6 @@ export default function HomePage() {
               </div>
             ))}
           </div>
-
-          {/* Real coverage numbers — from the codebase, not made up */}
-          <div className="mt-12 grid grid-cols-2 md:grid-cols-4 gap-px bg-slate-200 rounded-2xl overflow-hidden border border-slate-200">
-            {[
-              { value: "4", label: "Networks", sub: "MTN · Glo · Airtel · 9mobile" },
-              { value: "12", label: "DISCOs", sub: "Every Nigerian electricity provider" },
-              { value: "3", label: "Cable providers", sub: "DStv · GOtv · Startimes" },
-              { value: "₦100", label: "Min deposit", sub: "Fund from any bank" },
-            ].map((stat) => (
-              <div key={stat.label} className="bg-white px-4 py-5 text-center">
-                <div className="text-2xl md:text-3xl font-bold text-slate-900 tabular-nums">{stat.value}</div>
-                <div className="mt-1 text-xs font-semibold text-slate-700">{stat.label}</div>
-                <div className="mt-0.5 text-[11px] text-slate-500 leading-snug">{stat.sub}</div>
-              </div>
-            ))}
-          </div>
         </div>
       </section>
 
