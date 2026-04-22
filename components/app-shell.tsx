@@ -3,8 +3,7 @@
 import type React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, LayoutGrid, Wallet, History, User, Menu } from "lucide-react"
-import { useState } from "react"
+import { Home, LayoutGrid, History, User } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { DesktopSidebar } from "./desktop-sidebar"
 
@@ -21,7 +20,6 @@ const tabs = [
 
 export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const isActive = (href: string) => {
     if (href === "/dashboard") {
@@ -32,20 +30,8 @@ export function AppShell({ children }: AppShellProps) {
 
   return (
     <div className="app-shell">
-      <DesktopSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <DesktopSidebar isOpen={false} onClose={() => {}} />
       <div className="app-content">
-        {/* Top bar with hamburger button - mobile only */}
-        <div className="md:hidden sticky top-0 z-20 bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="p-2 hover:bg-slate-100 rounded-lg transition"
-            aria-label="Open sidebar"
-          >
-            <Menu className="w-6 h-6 text-slate-900" />
-          </button>
-          <span className="font-bold text-slate-900">Mozosubz</span>
-          <div className="w-10" /> {/* Spacer for layout */}
-        </div>
         {children}
       </div>
 
