@@ -20,20 +20,11 @@ interface Input {
 }
 
 /**
- * All transaction emails link to the same transactions history page,
- * filtered by category.
+ * All transaction emails link directly to the specific transaction detail page.
+ * Deep-links to /dashboard/transactions/<transactionId> for full receipt view.
  */
 function buildActionUrl(base: string, input: Input): string {
-  const filterMap: Record<TxCategory, string> = {
-    AIRTIME: "airtime",
-    DATA: "data",
-    CABLE: "cable",
-    ELECTRICITY: "electricity",
-    WALLET_FUND: "funding",
-    RECHARGE_PINS: "pins",
-  }
-  const filter = filterMap[input.category] || "all"
-  return `${base}/dashboard/transactions?filter=${filter}`
+  return `${base}/dashboard/transactions/${encodeURIComponent(input.transactionId)}`
 }
 
 function getAppUrl(): string {
