@@ -9,6 +9,11 @@ import {
   FileText,
   ShieldCheck,
   Zap,
+  Smartphone,
+  Wifi,
+  Tv,
+  Lightbulb,
+  CreditCard,
 } from "lucide-react"
 import { SiteHeader } from "@/components/site-header"
 import { Footer } from "@/components/footer"
@@ -24,6 +29,13 @@ const NETWORKS = [
   { name: "Glo", src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/42956634-nOjllh52FNYREDYTf03gDOtne94gwJ.jpg" },
   { name: "Airtel", src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/1978024544-1ZeyeoeytXpZgqsiA9JxNHTtwq6ssJ.png" },
   { name: "9mobile", src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/1278367722-Z4x8KeGQMdLmbhtx0YDANy81gaZY7R.png" },
+]
+
+const DATA_LOGOS = [
+  { name: "MTN", src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/363626242-rBdgomkgtOMLfkDzQnGdyi7hj8KqMC.png" },
+  { name: "Glo", src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/543724522-BFrD8xRMXoODvmSGYgmNtxtdIWNhB4.png" },
+  { name: "Airtel", src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/310824042-EQvhgU84dsiLhqgJHpvFjMpPwk5r4L.png" },
+  { name: "9mobile", src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/2125146808-0Hh3X6Ls4H9FiSup84yFTJgTN0fITE.png" },
 ]
 
 const FACTS = [
@@ -221,6 +233,79 @@ export default function AboutPage() {
               </li>
             ))}
           </ul>
+        </div>
+      </section>
+
+      {/* Services with network logos */}
+      <section className="px-4 sm:px-6 lg:px-8 py-16 md:py-20 bg-white">
+        <div className="max-w-6xl mx-auto">
+          <div className="max-w-2xl mb-12">
+            <p className="text-sm font-semibold text-blue-600 mb-3 uppercase tracking-wider">Five core services</p>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-balance">
+              Everything a bill-paying Nigerian needs.
+            </h2>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-4">
+            {/* Airtime */}
+            <div className="rounded-xl bg-slate-50 border border-slate-200 p-5">
+              <div className="w-12 h-12 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center mb-3">
+                <Smartphone className="w-6 h-6" />
+              </div>
+              <h3 className="font-bold text-slate-900 text-sm mb-1">Airtime</h3>
+              <p className="text-[11px] text-slate-600 mb-3 leading-snug">MTN, Glo, Airtel, 9mobile</p>
+              <div className="flex items-center gap-2">
+                {NETWORKS.map((n) => (
+                  <span key={n.name} className="w-5 h-5 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0">
+                    <img src={n.src} alt={n.name} className="w-full h-full object-cover" loading="lazy" crossOrigin="anonymous" />
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Data */}
+            <div className="rounded-xl bg-slate-50 border border-slate-200 p-5">
+              <div className="w-12 h-12 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center mb-3">
+                <Wifi className="w-6 h-6" />
+              </div>
+              <h3 className="font-bold text-slate-900 text-sm mb-1">Data</h3>
+              <p className="text-[11px] text-slate-600 mb-3 leading-snug">Live plans from all networks</p>
+              <div className="flex items-center gap-2">
+                {DATA_LOGOS.map((n) => (
+                  <span key={n.name} className="w-5 h-5 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0">
+                    <img src={n.src} alt={n.name} className="w-full h-full object-cover" loading="lazy" crossOrigin="anonymous" />
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Cable */}
+            <div className="rounded-xl bg-slate-50 border border-slate-200 p-5">
+              <div className="w-12 h-12 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center mb-3">
+                <Tv className="w-6 h-6" />
+              </div>
+              <h3 className="font-bold text-slate-900 text-sm mb-1">Cable TV</h3>
+              <p className="text-[11px] text-slate-600 leading-snug">DStv, GOtv, Startimes</p>
+            </div>
+
+            {/* Electricity */}
+            <div className="rounded-xl bg-slate-50 border border-slate-200 p-5">
+              <div className="w-12 h-12 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center mb-3">
+                <Lightbulb className="w-6 h-6" />
+              </div>
+              <h3 className="font-bold text-slate-900 text-sm mb-1">Electricity</h3>
+              <p className="text-[11px] text-slate-600 leading-snug">All 12 Nigerian DISCOs</p>
+            </div>
+
+            {/* Recharge pins */}
+            <div className="rounded-xl bg-slate-50 border border-slate-200 p-5">
+              <div className="w-12 h-12 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center mb-3">
+                <CreditCard className="w-6 h-6" />
+              </div>
+              <h3 className="font-bold text-slate-900 text-sm mb-1">Recharge pins</h3>
+              <p className="text-[11px] text-slate-600 leading-snug">Print in bulk, PDF-ready</p>
+            </div>
+          </div>
         </div>
       </section>
 
