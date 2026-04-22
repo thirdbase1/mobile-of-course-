@@ -20,10 +20,10 @@ export const metadata: Metadata = {
 }
 
 const NETWORKS = [
-  { name: "MTN", src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/MTN-TT2ISy9AFZjFlbZkxY0yqiGZJXkpgG.png" },
-  { name: "Glo", src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Glo-Q4DP6z4IXAGdvlR1KadNkYYgK0Aki7.png" },
-  { name: "Airtel", src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Airtel-vyojaI4XwtVmFF5mIsMRCAGBd3vPGE.png" },
-  { name: "9mobile", src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/9mobile-v3Dfq2WJkhshVeyCwFF0TRQD4iywdw.png" },
+  { name: "MTN", src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/1445124671-C7H3UNXD6gyAJSKidQr3Q7JEeo5XJx.png" },
+  { name: "Glo", src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/42956634-nOjllh52FNYREDYTf03gDOtne94gwJ.jpg" },
+  { name: "Airtel", src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/1978024544-1ZeyeoeytXpZgqsiA9JxNHTtwq6ssJ.png" },
+  { name: "9mobile", src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/1278367722-Z4x8KeGQMdLmbhtx0YDANy81gaZY7R.png" },
 ]
 
 const FACTS = [
