@@ -140,8 +140,17 @@ export default function AboutPage() {
               </p>
               <div className="flex items-center gap-3 flex-wrap">
                 {NETWORKS.map((n) => (
-                  <div key={n.name} className="flex items-center gap-2">
-                    <img src={n.src || "/placeholder.svg"} alt={n.name} className="w-7 h-7 rounded-full" />
+                  <div
+                    key={n.name}
+                    className="flex items-center gap-2 rounded-full bg-slate-50 border border-slate-200 pl-1 pr-3 py-1"
+                  >
+                    <span className="w-7 h-7 rounded-full bg-white border border-slate-200 overflow-hidden flex items-center justify-center flex-shrink-0">
+                      <img
+                        src={n.src || "/placeholder.svg"}
+                        alt={n.name}
+                        className="w-full h-full object-cover"
+                      />
+                    </span>
                     <span className="text-xs font-semibold text-slate-700">{n.name}</span>
                   </div>
                 ))}
@@ -203,7 +212,6 @@ export default function AboutPage() {
               "Recharge pin printing in ₦100, ₦200, ₦400 and ₦500 denominations.",
               "One-time-account deposits from ₦100 up to ₦100,000.",
               "Automatic refunds to your wallet on any failed provider transaction.",
-              "Searchable transaction history with downloadable receipts.",
             ].map((item) => (
               <li key={item} className="flex items-start gap-3 text-sm text-slate-700">
                 <Check className="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0" />

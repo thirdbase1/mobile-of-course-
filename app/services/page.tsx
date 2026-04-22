@@ -159,15 +159,25 @@ export default function ServicesPage() {
               </ul>
 
               {s.networks && (
-                <div className="flex items-center gap-2 mb-5">
-                  {NETWORK_LOGOS.map((n) => (
-                    <img
-                      key={n.name}
-                      src={n.src || "/placeholder.svg"}
-                      alt={n.name}
-                      className="w-6 h-6 rounded-full"
-                    />
-                  ))}
+                <div className="flex items-center gap-3 mb-5 pt-4 border-t border-slate-100">
+                  <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                    Works with
+                  </span>
+                  <div className="flex items-center -space-x-2">
+                    {NETWORK_LOGOS.map((n) => (
+                      <span
+                        key={n.name}
+                        title={n.name}
+                        className="w-8 h-8 rounded-full bg-white border-2 border-white ring-1 ring-slate-200 overflow-hidden flex items-center justify-center"
+                      >
+                        <img
+                          src={n.src || "/placeholder.svg"}
+                          alt={n.name}
+                          className="w-full h-full object-cover"
+                        />
+                      </span>
+                    ))}
+                  </div>
                 </div>
               )}
 
