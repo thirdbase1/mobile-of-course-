@@ -1,0 +1,113 @@
+"use server"
+
+import { createClient } from "@/lib/supabase/server"
+import { processReferralEarning } from "@/lib/referral"
+
+export type TransactionCategory = "AIRTIME" | "DATA" | "CABLE" | "ELECTRICITY" | "WALLET_FUND" | "RECHARGE_PINS"
+export type TransactionStatus = "SUCCESS" | "FAILED" | "PENDING"
+
+export interface SaveTransactionPayload {
+  userId: string
+  transactionId: string
+  category: TransactionCategory
+  serviceId: string
+  serviceName: string
+  amount: number
+  phone: string
+  balanceBefore: number
+  balanceAfter: number
+  description: string
+  status: TransactionStatus
+  apiResponse?: Record<string, any>
+}
+
+/**
+ * UNIFIED TRANSACTION LOGGING
+ * This is the ONLY place where transactions are saved to database
+ * All services (airtime, data, cable, electricity, wallet) must use this
+ */
+export async function saveTransaction(payload: SaveTransactionPayload) {
+  try {
+    const supabase = await createClient()
+
+    const transactionData = {
+      user_id: payload.userId,
+      transaction_id: payload.transactionId,
+      category: payload.category,
+      service_id: payload.serviceId,
+      service_name: payload.serviceName,
+      amount: payload.amount,
+      phone: payload.phone || "",
+      status: payload.status,
+      description: payload.description,
+      balance_before: payload.balanceBefore,
+      balance_after: payload.balanceAfter,
+      api_response: payload.apiResponse ? JSON.stringify(payload.apiResponse) : null,
+      created_at: new Date().toISOString(),
+    }
+
+    const { error } = await supabase.from("transactions").insert([transactionData])
+
+    if (error) {
+      console.error("[v0] Failed to save transaction:", error)
+      throw error
+    }
+
+    console.log("[v0] Transaction saved:", {
+      transactionId: payload.transactionId,
+      category: payload.category,
+      amount: payload.amount,
+      status: payload.status,
+    })
+
+    // Process referral earning if transaction is successful
+    processReferralEarning({
+      id: payload.transactionId,
+      user_id: payload.userId,
+      category: payload.category,
+      status: payload.status,
+    }).catch(() => {})
+
+    return {
+      success: true,
+    }
+  } catch (error) {
+    console.error("[v0] saveTransaction error:", error)
+    return {
+      success: false,
+      error: String(error),
+    }
+  }
+}
+
+/**
+ * UPDATE WALLET BALANCE
+ * After a successful transaction, ALWAYS call this to update user wallet
+ */
+export async function updateWalletBalance(userId: string, newBalance: number) {
+  try {
+    const supabase = await createClient()
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ wallet_balance: newBalance, updated_at: new Date().toISOString() })
+      .eq("id", userId)
+
+    if (error) {
+      console.error("[v0] Failed to update wallet:", error)
+      throw error
+    }
+
+    console.log("[v0] Wallet updated:", { userId, newBalance })
+
+    return {
+      success: true,
+    }
+  } catch (error) {
+    console.error("[v0] updateWalletBalance error:", error)
+    return {
+      success: false,
+      error: String(error),
+    }
+  }
+}

@@ -1,0 +1,88 @@
+/* Processing Overlay Styles */
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes spin-rev {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+@keyframes pulse-logo {
+  0%,
+  100% {
+    transform: scale(0.96);
+  }
+  50% {
+    transform: scale(1.04);
+  }
+}
+
+.proc-ov {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  background: rgba(11, 17, 32, 0.35);
+  backdrop-filter: blur(3px);
+  z-index: 200;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.proc-ov.show {
+  display: flex;
+}
+
+.spinner-wrap {
+  position: relative;
+  width: 110px;
+  height: 110px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Outer ring - clockwise, blue→orange gradient */
+.ring-outer {
+  position: absolute;
+  inset: 0;
+  animation: spin 1s linear infinite;
+}
+
+/* Inner ring - counter-clockwise, faint orange */
+.ring-inner {
+  position: absolute;
+  inset: 16px;
+  animation: spin-rev 1.6s linear infinite;
+}
+
+/* Logo icon - still, center, gentle pulse */
+.logo-still {
+  position: relative;
+  z-index: 2;
+  width: 56px;
+  height: 56px;
+  border-radius: 17px;
+  overflow: hidden;
+  animation: pulse-logo 1.8s ease infinite;
+}
+
+.proc-text {
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  letter-spacing: 0.1px;
+}
