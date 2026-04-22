@@ -18,6 +18,7 @@ import {
   FileText,
 } from "lucide-react"
 import { Footer } from "@/components/footer"
+import { SiteHeader } from "@/components/site-header"
 
 export const metadata = {
   title: "Mozosubz — Pay for Airtime, Data, Cable & Electricity from One Wallet",
@@ -138,37 +139,32 @@ const FAQS = [
 export default function HomePage() {
   return (
     <div className="w-full bg-white text-slate-900 font-sans">
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur border-b border-slate-200">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5">
-            <img src="/icon.svg" alt="Mozosubz" className="w-9 h-9 rounded-lg" />
-            <span className="text-xl font-bold text-slate-900">Mozosubz</span>
-          </Link>
-
-          <nav className="hidden md:flex items-center gap-8">
-            <Link href="#services" className="text-sm font-medium text-slate-600 hover:text-slate-900 transition">
-              Services
-            </Link>
-            <Link href="#pricing" className="text-sm font-medium text-slate-600 hover:text-slate-900 transition">
-              Data plans
-            </Link>
-            <Link href="#faq" className="text-sm font-medium text-slate-600 hover:text-slate-900 transition">
-              FAQ
-            </Link>
-          </nav>
-
-          <Link
-            href="/login"
-            className="text-sm font-semibold text-slate-900 hover:text-blue-600 transition"
-          >
-            Login
-          </Link>
-        </div>
-      </header>
+      <SiteHeader />
 
       {/* Hero */}
-      <section className="px-4 sm:px-6 lg:px-8 pt-14 pb-16 md:pt-20 md:pb-24">
+      <section className="relative px-4 sm:px-6 lg:px-8 pt-14 pb-16 md:pt-20 md:pb-24 overflow-hidden">
+        {/* Subtle background decoration — breaks up the plain white */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 -z-10"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle at 15% 0%, rgba(37,99,235,0.10), transparent 55%), radial-gradient(circle at 85% 30%, rgba(16,185,129,0.06), transparent 55%)",
+          }}
+        />
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 -z-10 opacity-[0.35]"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle at 1px 1px, rgb(226 232 240) 1px, transparent 0)",
+            backgroundSize: "24px 24px",
+            maskImage:
+              "radial-gradient(ellipse at top, black 20%, transparent 70%)",
+            WebkitMaskImage:
+              "radial-gradient(ellipse at top, black 20%, transparent 70%)",
+          }}
+        />
         <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
           {/* Left — copy */}
           <div>
@@ -293,6 +289,22 @@ export default function HomePage() {
                   className="w-20 h-20 rounded-full object-cover shadow-sm border border-slate-200"
                 />
                 <span className="text-sm font-semibold text-slate-700">{n.name}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Real coverage numbers — from the codebase, not made up */}
+          <div className="mt-12 grid grid-cols-2 md:grid-cols-4 gap-px bg-slate-200 rounded-2xl overflow-hidden border border-slate-200">
+            {[
+              { value: "4", label: "Networks", sub: "MTN · Glo · Airtel · 9mobile" },
+              { value: "12", label: "DISCOs", sub: "Every Nigerian electricity provider" },
+              { value: "3", label: "Cable providers", sub: "DStv · GOtv · Startimes" },
+              { value: "₦100", label: "Min deposit", sub: "Fund from any bank" },
+            ].map((stat) => (
+              <div key={stat.label} className="bg-white px-4 py-5 text-center">
+                <div className="text-2xl md:text-3xl font-bold text-slate-900 tabular-nums">{stat.value}</div>
+                <div className="mt-1 text-xs font-semibold text-slate-700">{stat.label}</div>
+                <div className="mt-0.5 text-[11px] text-slate-500 leading-snug">{stat.sub}</div>
               </div>
             ))}
           </div>

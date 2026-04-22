@@ -1,318 +1,211 @@
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Smartphone, Wifi, Tv, Lightbulb, CreditCard, CheckCircle, ArrowRight, Zap } from "lucide-react"
 import Link from "next/link"
+import type { Metadata } from "next"
+import { ArrowRight, Check, Smartphone, Wifi, Tv, Lightbulb, CreditCard } from "lucide-react"
+import { SiteHeader } from "@/components/site-header"
 import { Footer } from "@/components/footer"
-import { Metadata } from "next"
 
 export const metadata: Metadata = {
-  title: "Services | Mozosubz - Data, Airtime, Cable TV, Electricity",
-  description: "Complete VTU solutions. Buy data, airtime, pay cable TV and electricity bills instantly. All networks supported. Best rates guaranteed.",
+  title: "Services | Mozosubz — Airtime, Data, Cable, Electricity, Pins",
+  description:
+    "Every service Mozosubz offers: airtime and data on all four networks, DStv/GOtv/Startimes renewals, electricity for all 12 DISCOs, and recharge pin printing.",
 }
+
+const NETWORK_LOGOS = [
+  { name: "MTN", src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/MTN-TT2ISy9AFZjFlbZkxY0yqiGZJXkpgG.png" },
+  { name: "Glo", src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Glo-Q4DP6z4IXAGdvlR1KadNkYYgK0Aki7.png" },
+  { name: "Airtel", src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Airtel-vyojaI4XwtVmFF5mIsMRCAGBd3vPGE.png" },
+  { name: "9mobile", src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/9mobile-v3Dfq2WJkhshVeyCwFF0TRQD4iywdw.png" },
+]
+
+const SERVICES = [
+  {
+    icon: Smartphone,
+    title: "Airtime",
+    href: "/dashboard/airtime",
+    tag: "All four networks",
+    blurb:
+      "Recharge MTN, Glo, Airtel or 9mobile in a few taps. Any amount between ₦100 and ₦50,000 per transaction.",
+    points: [
+      "MTN, Glo, Airtel, 9mobile",
+      "₦100 minimum · ₦50,000 maximum",
+      "Direct to the network — no reseller",
+      "Auto-refund if the network rejects the top-up",
+    ],
+    cta: "Buy airtime",
+    networks: true,
+  },
+  {
+    icon: Wifi,
+    title: "Data",
+    href: "/dashboard/data",
+    tag: "Live plans",
+    blurb:
+      "Every plan type the networks currently sell: SME, Data Share, Gifting, AWOOF and standard bundles — fetched live so you always see what's available.",
+    points: [
+      "MTN: SME · Data Share · Gifting · AWOOF",
+      "Glo: Data · SME",
+      "Airtel: SME · Gifting",
+      "9mobile: SME data bundles",
+    ],
+    cta: "Browse data plans",
+    networks: true,
+  },
+  {
+    icon: Tv,
+    title: "Cable TV",
+    href: "/dashboard/cable",
+    tag: "DStv · GOtv · Startimes",
+    blurb:
+      "Renew your TV subscription in seconds. Enter your smartcard number, pick the package, and the provider activates it directly.",
+    points: [
+      "DStv — every package",
+      "GOtv — every package",
+      "Startimes — every package",
+      "Smartcard validated before you pay",
+    ],
+    cta: "Renew subscription",
+    networks: false,
+  },
+  {
+    icon: Lightbulb,
+    title: "Electricity",
+    href: "/dashboard/electricity",
+    tag: "All 12 DISCOs",
+    blurb:
+      "Prepaid or postpaid, every Nigerian distribution company. Prepaid tokens appear on screen the moment the payment settles.",
+    points: [
+      "Abuja, Benin, Eko, Enugu, Ibadan, Ikeja",
+      "Jos, Kaduna, Kano, Port Harcourt, Yola, Bauchi",
+      "Prepaid and postpaid supported",
+      "Minimum ₦1,000 per purchase",
+    ],
+    cta: "Pay electricity",
+    networks: false,
+  },
+  {
+    icon: CreditCard,
+    title: "Recharge pin printing",
+    href: "/dashboard/recharge-pins",
+    tag: "Bulk-ready",
+    blurb:
+      "Generate recharge pins in bulk and print a clean PDF. Perfect for retail stands, offices and events.",
+    points: [
+      "₦100 pins — up to 50 per batch",
+      "₦200 pins — up to 25 per batch",
+      "₦400 pins — up to 15 per batch",
+      "₦500 pins — up to 10 per batch",
+    ],
+    cta: "Generate pins",
+    networks: true,
+  },
+]
 
 export default function ServicesPage() {
   return (
-    <div className="min-h-screen bg-white flex flex-col">
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-white border-b border-slate-200/50">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center">
-              <Zap className="w-5 h-5 text-white" />
+    <div className="min-h-screen bg-white text-slate-900 font-sans flex flex-col">
+      <SiteHeader />
+
+      {/* Hero */}
+      <section className="relative px-4 sm:px-6 lg:px-8 pt-16 pb-14 md:pt-24 md:pb-20 overflow-hidden">
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 -z-10"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle at 15% 0%, rgba(37,99,235,0.08), transparent 55%), radial-gradient(circle at 85% 20%, rgba(16,185,129,0.05), transparent 55%)",
+          }}
+        />
+        <div className="max-w-4xl mx-auto text-center">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-50 border border-blue-100 text-xs font-semibold text-blue-700 mb-6">
+            Services
+          </div>
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 leading-[1.08] text-balance">
+            Every service. One <span className="text-blue-600">wallet.</span>
+          </h1>
+          <p className="text-lg text-slate-600 leading-relaxed text-pretty max-w-2xl mx-auto">
+            Fund your Mozosubz wallet once, then pay for anything on this page in seconds. Everything below is live in
+            the dashboard today.
+          </p>
+        </div>
+      </section>
+
+      {/* Service cards */}
+      <section className="px-4 sm:px-6 lg:px-8 pb-16 md:pb-20">
+        <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-5">
+          {SERVICES.map((s) => (
+            <div
+              key={s.title}
+              className="group rounded-2xl bg-white border border-slate-200 p-6 md:p-7 hover:border-blue-200 hover:shadow-md transition flex flex-col"
+            >
+              <div className="flex items-start justify-between mb-5">
+                <div className="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                  <s.icon className="w-5 h-5" />
+                </div>
+                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider bg-slate-50 border border-slate-100 rounded-full px-2.5 py-1">
+                  {s.tag}
+                </span>
+              </div>
+
+              <h3 className="text-xl font-bold text-slate-900 mb-2">{s.title}</h3>
+              <p className="text-sm text-slate-600 leading-relaxed mb-5">{s.blurb}</p>
+
+              <ul className="space-y-2.5 mb-6">
+                {s.points.map((point) => (
+                  <li key={point} className="flex items-start gap-2.5 text-sm text-slate-700">
+                    <Check className="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0" />
+                    <span className="leading-relaxed">{point}</span>
+                  </li>
+                ))}
+              </ul>
+
+              {s.networks && (
+                <div className="flex items-center gap-2 mb-5">
+                  {NETWORK_LOGOS.map((n) => (
+                    <img
+                      key={n.name}
+                      src={n.src || "/placeholder.svg"}
+                      alt={n.name}
+                      className="w-6 h-6 rounded-full"
+                    />
+                  ))}
+                </div>
+              )}
+
+              <div className="mt-auto">
+                <Link
+                  href={s.href}
+                  className="inline-flex items-center text-sm font-semibold text-blue-600 hover:text-blue-700 transition"
+                >
+                  {s.cta}
+                  <ArrowRight className="w-4 h-4 ml-1.5 group-hover:translate-x-0.5 transition-transform" />
+                </Link>
+              </div>
             </div>
-            <span className="text-xl font-bold text-slate-900">Mozosubz</span>
-          </Link>
-          <nav className="hidden md:flex items-center gap-8">
-            <Link href="/" className="text-slate-600 hover:text-slate-900 text-sm font-medium transition">
-              Home
-            </Link>
-            <Link href="/services" className="text-slate-600 hover:text-slate-900 text-sm font-medium transition">
-              Services
-            </Link>
-            <Link href="/about" className="text-slate-600 hover:text-slate-900 text-sm font-medium transition">
-              About
-            </Link>
-          </nav>
+          ))}
+        </div>
+      </section>
+
+      {/* How deposits work */}
+      <section className="px-4 sm:px-6 lg:px-8 py-16 md:py-20 bg-slate-50 border-y border-slate-200">
+        <div className="max-w-4xl mx-auto text-center">
+          <p className="text-sm font-semibold text-blue-600 mb-3 uppercase tracking-wider">Funding your wallet</p>
+          <h2 className="text-3xl md:text-4xl font-bold mb-4 text-balance">
+            One-time accounts. Exact amount. Done.
+          </h2>
+          <p className="text-lg text-slate-600 leading-relaxed max-w-2xl mx-auto mb-8">
+            Tap Deposit Funds in the dashboard, enter any amount from ₦100, and we generate a single-use bank account.
+            Transfer the exact amount shown — your wallet credits instantly and the account is retired.
+          </p>
           <Link
             href="/register"
-            className="px-6 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-full transition-colors"
+            className="inline-flex items-center justify-center px-7 py-3.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition"
           >
-            Get Started
+            Create free account
+            <ArrowRight className="w-4 h-4 ml-2" />
           </Link>
         </div>
-      </header>
-
-      {/* Hero Section */}
-      <section className="px-4 sm:px-6 lg:px-8 py-16 sm:py-24 bg-gradient-to-br from-blue-50 to-indigo-50">
-        <div className="max-w-6xl text-center">
-          <Badge className="mb-4 bg-blue-100 text-blue-700 border-blue-300 hover:bg-blue-100">OUR SERVICES</Badge>
-          <h1 className="text-4xl md:text-6xl font-bold text-slate-900 mb-6 text-balance">Comprehensive VTU Solutions</h1>
-          <p className="text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed">
-            Everything you need in one place. From data bundles to electricity payments, all at the most competitive prices in Nigeria.
-          </p>
-        </div>
       </section>
 
-      {/* Main Services */}
-      <section className="px-4 sm:px-6 lg:px-8 py-20 sm:py-28">
-        <div className="max-w-6xl">
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
-            {/* Data Bundles */}
-            <Card className="border border-slate-200 hover:border-blue-300 hover:shadow-lg transition-all group">
-              <CardHeader>
-                <div className="w-16 h-16 rounded-lg bg-blue-100 flex items-center justify-center mb-4 group-hover:bg-blue-600 transition">
-                  <Wifi className="w-8 h-8 text-blue-600 group-hover:text-white transition" />
-                </div>
-                <CardTitle className="text-2xl text-slate-900">Data Bundles</CardTitle>
-                <CardDescription className="text-slate-600">All Networks - MTN, Airtel, Glo, 9mobile</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-slate-600 leading-relaxed">
-                  Purchase affordable data bundles for all Nigerian networks at the cheapest rates. Instant delivery to your number.
-                </p>
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3 text-slate-700">
-                    <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-                    <span>Instant delivery within seconds</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-slate-700">
-                    <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-                    <span>Great discounts on all data plans</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-slate-700">
-                    <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-                    <span>Daily, weekly & monthly plans</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-slate-700">
-                    <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-                    <span>Perfect for personal & business use</span>
-                  </div>
-                </div>
-                <Link href="/register">
-                  <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white group-hover:shadow-lg transition">
-                    Buy Data Now <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-
-            {/* Airtime Top-Up */}
-            <Card className="border border-slate-200 hover:border-blue-300 hover:shadow-lg transition-all group">
-              <CardHeader>
-                <div className="w-16 h-16 rounded-lg bg-purple-100 flex items-center justify-center mb-4 group-hover:bg-purple-600 transition">
-                  <Smartphone className="w-8 h-8 text-purple-600 group-hover:text-white transition" />
-                </div>
-                <CardTitle className="text-2xl text-slate-900">Airtime Top-Up</CardTitle>
-                <CardDescription className="text-slate-600">Instant Recharge - All Networks</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-slate-600 leading-relaxed">
-                  Recharge airtime instantly for all Nigerian networks at the best prices available.
-                </p>
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3 text-slate-700">
-                    <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-                    <span>All networks supported</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-slate-700">
-                    <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-                    <span>Instant delivery guaranteed</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-slate-700">
-                    <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-                    <span>VTU services available</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-slate-700">
-                    <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-                    <span>Bulk purchases supported</span>
-                  </div>
-                </div>
-                <Link href="/register">
-                  <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white group-hover:shadow-lg transition">
-                    Buy Airtime <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-
-            {/* Cable TV Subscription */}
-            <Card className="border border-slate-200 hover:border-blue-300 hover:shadow-lg transition-all group">
-              <CardHeader>
-                <div className="w-16 h-16 rounded-lg bg-indigo-100 flex items-center justify-center mb-4 group-hover:bg-indigo-600 transition">
-                  <Tv className="w-8 h-8 text-indigo-600 group-hover:text-white transition" />
-                </div>
-                <CardTitle className="text-2xl text-slate-900">Cable TV Subscriptions</CardTitle>
-                <CardDescription className="text-slate-600">DSTV, GOTV, Startimes</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-slate-600 leading-relaxed">
-                  Subscribe to your favorite cable TV packages. Never miss your shows with instant activation.
-                </p>
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3 text-slate-700">
-                    <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-                    <span>All DSTV packages available</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-slate-700">
-                    <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-                    <span>GOTV & Startimes subscriptions</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-slate-700">
-                    <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-                    <span>Real-time activation</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-slate-700">
-                    <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-                    <span>Competitive pricing</span>
-                  </div>
-                </div>
-                <Link href="/register">
-                  <Button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white group-hover:shadow-lg transition">
-                    Subscribe Now <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-
-            {/* Electricity Bills */}
-            <Card className="border border-slate-200 hover:border-blue-300 hover:shadow-lg transition-all group">
-              <CardHeader>
-                <div className="w-16 h-16 rounded-lg bg-yellow-100 flex items-center justify-center mb-4 group-hover:bg-yellow-600 transition">
-                  <Lightbulb className="w-8 h-8 text-yellow-600 group-hover:text-white transition" />
-                </div>
-                <CardTitle className="text-2xl text-slate-900">Electricity Bills</CardTitle>
-                <CardDescription className="text-slate-600">All DISCOs - Pay Instantly</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-slate-600 leading-relaxed">
-                  Pay your electricity bills instantly for all distribution companies across Nigeria.
-                </p>
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3 text-slate-700">
-                    <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-                    <span>All DISCOs supported</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-slate-700">
-                    <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-                    <span>Instant token delivery</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-slate-700">
-                    <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-                    <span>No extra charges or fees</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-slate-700">
-                    <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-                    <span>24/7 availability</span>
-                  </div>
-                </div>
-                <Link href="/register">
-                  <Button className="w-full bg-yellow-600 hover:bg-yellow-700 text-white group-hover:shadow-lg transition">
-                    Pay Bills Now <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-
-            {/* Recharge Cards */}
-            <Card className="border border-slate-200 opacity-75 relative">
-              <div className="absolute top-4 right-4 z-10">
-                <Badge className="bg-yellow-500 text-slate-900 font-bold">Coming Soon</Badge>
-              </div>
-              <CardHeader>
-                <div className="w-16 h-16 rounded-lg bg-pink-100 flex items-center justify-center mb-4">
-                  <CreditCard className="w-8 h-8 text-pink-600" />
-                </div>
-                <CardTitle className="text-2xl text-slate-900">Recharge Card Printing</CardTitle>
-                <CardDescription className="text-slate-600">Bulk Printing - Coming Soon</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-slate-600 leading-relaxed">
-                  Generate and print recharge cards for retail. Perfect for business owners.
-                </p>
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3 text-slate-700">
-                    <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-                    <span>Instant card generation</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-slate-700">
-                    <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-                    <span>Bulk orders supported</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-slate-700">
-                    <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-                    <span>All denominations</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-slate-700">
-                    <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-                    <span>Wholesale pricing</span>
-                  </div>
-                </div>
-                <Button className="w-full bg-slate-300 text-slate-600 cursor-not-allowed" disabled>
-                  Coming Soon
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </section>
-
-      {/* Why Services Stand Out */}
-      <section className="px-4 sm:px-6 lg:px-8 py-20 sm:py-28 bg-slate-50">
-        <div className="max-w-6xl mx-auto">
-          <h2 className="text-4xl font-bold text-slate-900 text-center mb-16 text-balance">Why Our Services Stand Out</h2>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            <Card className="border border-slate-200">
-              <CardContent className="pt-8 text-center">
-                <div className="text-5xl font-bold text-blue-600 mb-3">{'< 5sec'}</div>
-                <p className="text-lg font-semibold text-slate-900 mb-2">Fastest Delivery</p>
-                <p className="text-slate-600">All transactions processed and delivered instantly without delays.</p>
-              </CardContent>
-            </Card>
-            <Card className="border border-slate-200">
-              <CardContent className="pt-8 text-center">
-                <div className="text-5xl font-bold text-purple-600 mb-3">₦</div>
-                <p className="text-lg font-semibold text-slate-900 mb-2">Most Affordable</p>
-                <p className="text-slate-600">Best rates in the Nigerian market with zero hidden charges.</p>
-              </CardContent>
-            </Card>
-            <Card className="border border-slate-200">
-              <CardContent className="pt-8 text-center">
-                <div className="text-5xl font-bold text-green-600 mb-3">99.9%</div>
-                <p className="text-lg font-semibold text-slate-900 mb-2">Highly Reliable</p>
-                <p className="text-slate-600">Excellent success rate with redundant backup systems.</p>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
-        <div className="max-w-4xl mx-auto bg-gradient-to-br from-blue-600 to-blue-700 rounded-3xl p-8 sm:p-16 text-center text-white">
-          <h2 className="text-4xl lg:text-5xl font-bold mb-6">Ready to Get Started?</h2>
-          <p className="text-xl text-blue-100 mb-10 max-w-2xl mx-auto leading-relaxed">
-            Join Mozosubz today and enjoy seamless VTU services at unbeatable prices. Your satisfaction is our priority!
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
-              href="/register"
-              className="px-8 py-4 text-base font-bold text-blue-600 bg-white hover:bg-slate-100 rounded-xl transition-colors"
-            >
-              Create Free Account
-            </Link>
-            <Link
-              href="/about"
-              className="px-8 py-4 text-base font-bold text-white border-2 border-white hover:bg-white/10 rounded-xl transition-colors"
-            >
-              Learn More About Us
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Footer */}
       <Footer />
     </div>
   )
