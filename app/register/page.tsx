@@ -143,6 +143,14 @@ function RegisterFormContent() {
         return
       }
 
+      // Fire-and-forget branded welcome email. We don't await so slow email
+      // delivery never blocks navigation to the success screen.
+      fetch("/api/email/welcome", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), fullName: fullName.trim() }),
+      }).catch(() => {})
+
       router.push("/register-success")
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred")

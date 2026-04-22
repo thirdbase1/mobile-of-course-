@@ -2,6 +2,7 @@
 
 import { createServerClient } from '@/lib/supabase/server'
 import { getMonnifyAccessToken } from './monnify'
+import { sendTransactionEmail } from '@/lib/email/send-transaction-email'
 
 /**
  * Get a transaction by payment_reference
@@ -398,6 +399,24 @@ export async function verifyAndCreditPayment(paymentReference: string) {
       paymentReference,
       amount: transaction.amount,
       newBalance: balanceAfter,
+    })
+
+    // Fire-and-forget receipt. This path only runs for NEWLY credited deposits
+    // (the idempotency check above returns early for duplicates), so the email
+    // will only be sent once per successful deposit.
+    sendTransactionEmail({
+      userId: transaction.user_id,
+      category: 'WALLET_FUND',
+      serviceName: transaction.bank_name || 'Bank Transfer',
+      amount: creditAmount,
+      status: 'SUCCESS',
+      transactionId: paymentReference,
+      paymentMethod: 'Bank Transfer',
+      extras: [
+        { label: 'New balance', value: `₦${balanceAfter.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
+      ],
+    }).catch((err) => {
+      console.error('[TRANSACTION] deposit email failed (swallowed):', err)
     })
 
     return { success: true, credited: true }

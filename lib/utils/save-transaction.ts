@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { processReferralEarning } from "@/lib/referral"
+import { sendTransactionEmail } from "@/lib/email/send-transaction-email"
 
 export type TransactionCategory = "AIRTIME" | "DATA" | "CABLE" | "ELECTRICITY" | "WALLET_FUND" | "RECHARGE_PINS"
 export type TransactionStatus = "SUCCESS" | "FAILED" | "PENDING"
@@ -67,6 +68,20 @@ export async function saveTransaction(payload: SaveTransactionPayload) {
       category: payload.category,
       status: payload.status,
     }).catch(() => {})
+
+    // Fire-and-forget receipt email. Email failures MUST NOT affect the
+    // transaction flow — sendTransactionEmail is non-throwing internally.
+    sendTransactionEmail({
+      userId: payload.userId,
+      category: payload.category,
+      serviceName: payload.serviceName,
+      amount: payload.amount,
+      status: payload.status,
+      transactionId: payload.transactionId,
+      extras: payload.phone ? [{ label: "Recipient", value: payload.phone }] : undefined,
+    }).catch((err) => {
+      console.error("[v0] sendTransactionEmail failed (swallowed):", err)
+    })
 
     return {
       success: true,
