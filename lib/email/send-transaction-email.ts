@@ -17,6 +17,37 @@ interface Input {
   transactionId: string
   paymentMethod?: string
   extras?: Array<{ label: string; value: string }>
+  /**
+   * For WALLET_FUND transactions, pass the Monnify payment_reference here so
+   * the "View Transaction" link deep-links to the permanent success screen
+   * at /checkout/[payment_reference].
+   */
+  paymentReference?: string
+}
+
+/**
+ * Pick the deepest-linkable URL for this transaction.
+ *  - Deposits: /checkout/<paymentReference>  — permanent success screen
+ *  - Everything else: /dashboard/transactions?filter=<category> — the
+ *    transactions list pre-filtered to the matching tab.
+ */
+function buildActionUrl(base: string, input: Input): string {
+  if (input.category === "WALLET_FUND" && input.paymentReference) {
+    return `${base}/checkout/${encodeURIComponent(input.paymentReference)}`
+  }
+
+  const filterMap: Record<TxCategory, string | null> = {
+    AIRTIME: "airtime",
+    DATA: "data",
+    CABLE: "cable",
+    ELECTRICITY: "electricity",
+    WALLET_FUND: "funding",
+    RECHARGE_PINS: "pins",
+  }
+  const filter = filterMap[input.category]
+  return filter
+    ? `${base}/dashboard/transactions?filter=${filter}`
+    : `${base}/dashboard/transactions`
 }
 
 function getAppUrl(): string {
@@ -88,7 +119,7 @@ export async function sendTransactionEmail(input: Input): Promise<void> {
     reference: input.transactionId,
     paymentMethod: input.paymentMethod || (input.category === "WALLET_FUND" ? "Bank Transfer" : "Wallet"),
     createdAt: new Date(),
-    actionUrl: `${base}/dashboard/transactions`,
+    actionUrl: buildActionUrl(base, input),
     unsubscribeUrl: buildUnsubscribeUrl(input.userId, "transactional"),
     extras: input.extras,
   })

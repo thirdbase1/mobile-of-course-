@@ -29,6 +29,15 @@ export default function LoginPage() {
         },
       })
       if (error) throw error
+
+      // Fire-and-forget sign-in alert email. We don't await so email latency
+      // never blocks the navigation to the dashboard.
+      fetch("/api/email/login-alert", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim() }),
+      }).catch(() => {})
+
       router.push("/dashboard")
       router.refresh()
     } catch (error: unknown) {
