@@ -139,7 +139,6 @@ export async function creditUserWallet(userId: string, amount: number, reason: s
 
   revalidatePath('/admin/users')
   revalidatePath('/admin/transactions')
-  revalidatePath('/dashboard')
   
   console.log('[v0] Credit complete, returning success')
   return { success: true, newBalance }
@@ -190,7 +189,6 @@ export async function debitUserWallet(userId: string, amount: number, reason: st
 
   revalidatePath('/admin/users')
   revalidatePath('/admin/transactions')
-  revalidatePath('/dashboard')
   return { success: true, newBalance }
 }
 
