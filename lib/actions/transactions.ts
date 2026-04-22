@@ -411,7 +411,6 @@ export async function verifyAndCreditPayment(paymentReference: string) {
       amount: creditAmount,
       status: 'SUCCESS',
       transactionId: paymentReference,
-      paymentReference, // deep-links receipt CTA to /checkout/<ref>
       paymentMethod: 'Bank Transfer',
       extras: [
         { label: 'New balance', value: `₦${balanceAfter.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
