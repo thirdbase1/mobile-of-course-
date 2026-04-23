@@ -297,18 +297,22 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-6 lg:p-8">
+    <div className="min-h-screen bg-background">
       <div className="w-full md:max-w-2xl md:mx-auto lg:max-w-3xl">
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-8">
-          <button
-            onClick={() => router.back()}
-            className="p-2 hover:bg-muted rounded-lg transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <h1 className="text-xl font-bold">Profile</h1>
+        {/* Sticky Header */}
+        <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-md border-b border-border/50">
+          <div className="flex items-center gap-3 px-4 md:px-6 lg:px-8 py-4">
+            <button
+              onClick={() => router.back()}
+              className="p-2 hover:bg-muted rounded-lg transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <h1 className="text-xl font-bold">Profile</h1>
+          </div>
         </div>
+
+        <div className="px-4 md:px-6 lg:px-8 py-6 pb-20 md:pb-8">
 
         {/* Avatar Section */}
         <div className="flex flex-col items-center mb-8">
@@ -600,8 +604,9 @@ export default function ProfilePage() {
           </button>
         </div>
 
-        {/* Version Text */}
-        <p className="text-center text-xs text-muted-foreground">Mozosubz v1.0</p>
+          {/* Version Text */}
+          <p className="text-center text-xs text-muted-foreground">Mozosubz v1.0</p>
+        </div>
       </div>
     </div>
   );

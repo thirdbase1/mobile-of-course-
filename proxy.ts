@@ -35,21 +35,20 @@ export async function proxy(request: NextRequest) {
 
     // Handle Supabase email confirmation PKCE code exchange.
     // When a user clicks the email confirmation link, Supabase redirects back
-    // with ?code=xxx. We exchange it for a session here BEFORE the auth check
-    // below, so the user lands authenticated on the target page (e.g. /dashboard).
+    // with ?code=xxx (on any path - could be landing page). We exchange it for
+    // a session here and ALWAYS redirect to /dashboard so the user lands on
+    // their dashboard authenticated, regardless of where the link pointed to.
     const code = request.nextUrl.searchParams.get("code")
     if (code) {
       const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
       if (!exchangeError) {
-        // Build a clean redirect URL that strips the code and any error params.
-        const cleanUrl = request.nextUrl.clone()
-        cleanUrl.searchParams.delete("code")
-        cleanUrl.searchParams.delete("error")
-        cleanUrl.searchParams.delete("error_code")
-        cleanUrl.searchParams.delete("error_description")
-        cleanUrl.searchParams.set("confirmed", "1")
+        // Always redirect to /dashboard after successful email confirmation,
+        // stripping all auth-related query params.
+        const dashboardUrl = request.nextUrl.clone()
+        dashboardUrl.pathname = "/dashboard"
+        dashboardUrl.search = "?confirmed=1"
 
-        const redirectResponse = NextResponse.redirect(cleanUrl)
+        const redirectResponse = NextResponse.redirect(dashboardUrl)
         // Preserve the auth cookies set by exchangeCodeForSession.
         supabaseResponse.cookies.getAll().forEach((cookie) => {
           redirectResponse.cookies.set(cookie.name, cookie.value)

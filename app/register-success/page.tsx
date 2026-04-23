@@ -10,7 +10,6 @@ import {
   ShieldCheck,
   AlertCircle,
   CheckCircle2,
-  ChevronRight,
   Inbox,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
@@ -143,23 +142,6 @@ function RegisterSuccessInner() {
       </div>
 
       <div className="w-full max-w-md relative z-10 mx-auto">
-        {/* Step indicator */}
-        <div className="flex items-center justify-center gap-2 mb-6">
-          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-green-300">
-            <div className="w-5 h-5 rounded-full bg-green-500/20 border border-green-400/40 flex items-center justify-center">
-              <CheckCircle2 className="w-3 h-3" />
-            </div>
-            <span>Account created</span>
-          </div>
-          <ChevronRight className="w-3.5 h-3.5 text-blue-200/50" />
-          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-blue-100">
-            <div className="w-5 h-5 rounded-full bg-blue-500/30 border border-blue-300/60 flex items-center justify-center animate-pulse">
-              <span className="text-[10px]">2</span>
-            </div>
-            <span>Confirm email</span>
-          </div>
-        </div>
-
         {/* Main card */}
         <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 shadow-2xl overflow-hidden">
           {/* Animated envelope header */}

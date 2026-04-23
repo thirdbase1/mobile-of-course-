@@ -107,7 +107,7 @@ export async function POST(request: Request) {
       signInAt: new Date(),
       ipAddress: ip,
       device,
-      secureAccountUrl: `${base}/dashboard/change-password`,
+      secureAccountUrl: `${base}/dashboard/profile`,
       unsubscribeUrl: buildUnsubscribeUrl(profile.id as string, "transactional"),
     })
 

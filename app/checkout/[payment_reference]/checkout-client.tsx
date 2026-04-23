@@ -14,6 +14,16 @@ import {
   Loader2,
   ArrowRight,
 } from "lucide-react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 interface Transaction {
   id: string
@@ -48,6 +58,7 @@ export function CheckoutClient({ paymentReference, transaction: initialTransacti
   const [isCancelling, setIsCancelling] = useState(false)
   const [statusMessage, setStatusMessage] = useState<{ kind: "error" | "info"; text: string } | null>(null)
   const [isPolling, setIsPolling] = useState(false)
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
 
   // Countdown
   useEffect(() => {
@@ -146,8 +157,12 @@ export function CheckoutClient({ paymentReference, transaction: initialTransacti
     }
   }
 
-  const handleCancel = async () => {
-    if (!confirm("Cancel this payment? You can always start a new deposit.")) return
+  const handleCancelClick = () => {
+    setCancelDialogOpen(true)
+  }
+
+  const handleCancelConfirm = async () => {
+    setCancelDialogOpen(false)
     setIsCancelling(true)
     try {
       const res = await fetch(`/api/checkout/${paymentReference}/cancel`, { method: "POST" })
@@ -412,7 +427,7 @@ export function CheckoutClient({ paymentReference, transaction: initialTransacti
             )}
           </button>
           <button
-            onClick={handleCancel}
+            onClick={handleCancelClick}
             disabled={isCancelling}
             className="w-full py-3 text-slate-600 hover:text-slate-900 font-semibold rounded-lg transition text-sm"
           >
@@ -447,13 +462,41 @@ export function CheckoutClient({ paymentReference, transaction: initialTransacti
           )}
         </button>
         <button
-          onClick={handleCancel}
+          onClick={handleCancelClick}
           disabled={isCancelling}
           className="w-full py-2.5 mt-1 text-slate-600 hover:text-slate-900 font-semibold text-xs"
         >
           {isCancelling ? "Cancelling..." : "Cancel payment"}
         </button>
       </div>
+
+      {/* Cancel confirmation dialog */}
+      <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <AlertDialogContent className="max-w-sm rounded-2xl">
+          <AlertDialogHeader>
+            <div className="mx-auto mb-3 w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+              <XCircle className="w-6 h-6 text-red-600" />
+            </div>
+            <AlertDialogTitle className="text-center text-lg font-bold">
+              Cancel this payment?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-center text-sm text-slate-600">
+              You can always start a new deposit. Your account won&apos;t be charged.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-col gap-2 sm:gap-2">
+            <AlertDialogAction
+              onClick={handleCancelConfirm}
+              className="bg-red-600 hover:bg-red-700 text-white w-full rounded-xl h-11"
+            >
+              Yes, cancel payment
+            </AlertDialogAction>
+            <AlertDialogCancel className="w-full rounded-xl h-11 mt-0">
+              Keep payment open
+            </AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
