@@ -1,8 +1,9 @@
 "use server"
 
-import { buyData, getDataPlans } from "@/lib/api/gsubz"
+import { buyData } from "@/lib/api/gsubz"
 import { createClient } from "@/lib/supabase/server"
 import { saveTransaction, updateWalletBalance } from "@/lib/utils/save-transaction"
+import { sendTransactionEmail } from "@/lib/email/send-transaction-email"
 
 export async function purchaseData(formData: FormData) {
   const serviceID = formData.get("serviceID") as string
@@ -116,6 +117,22 @@ export async function purchaseData(formData: FormData) {
       balanceBefore,
       balanceAfter: balanceBefore,
       apiResponse: response,
+    })
+
+    // Send failure email
+    await sendTransactionEmail({
+      userId: user.id,
+      category: "DATA",
+      serviceName: `${networkName} Data`,
+      amount: userAmount,
+      status: "FAILED",
+      transactionId: failedTransactionId,
+      extras: [
+        { label: "Phone", value: phone },
+        { label: "Plan", value: plan },
+        { label: "Status", value: "Failed" },
+        { label: "Reason", value: response.description || "Transaction could not be processed" },
+      ],
     })
 
     return {

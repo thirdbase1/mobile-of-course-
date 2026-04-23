@@ -3,6 +3,7 @@
 import { buyAirtime } from "@/lib/api/gsubz"
 import { createClient } from "@/lib/supabase/server"
 import { saveTransaction, updateWalletBalance } from "@/lib/utils/save-transaction"
+import { sendTransactionEmail } from "@/lib/email/send-transaction-email"
 
 export async function purchaseAirtime(formData: FormData) {
   const network = formData.get("network") as string
@@ -114,6 +115,21 @@ export async function purchaseAirtime(formData: FormData) {
       balanceBefore,
       balanceAfter: balanceBefore, // No deduction on failed
       apiResponse: response,
+    })
+
+    // Send failure email
+    await sendTransactionEmail({
+      userId: user.id,
+      category: "AIRTIME",
+      serviceName: `${network} Airtime`,
+      amount: userAmount,
+      status: "FAILED",
+      transactionId: failedTransactionId,
+      extras: [
+        { label: "Phone", value: phone },
+        { label: "Status", value: "Failed" },
+        { label: "Reason", value: response.description || "Transaction could not be processed" },
+      ],
     })
 
     return {

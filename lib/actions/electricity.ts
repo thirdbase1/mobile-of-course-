@@ -3,6 +3,7 @@
 import { buyElectricityToken } from "@/lib/api/gsubz"
 import { createClient } from "@/lib/supabase/server"
 import { saveTransaction, updateWalletBalance } from "@/lib/utils/save-transaction"
+import { sendTransactionEmail } from "@/lib/email/send-transaction-email"
 
 export async function payElectricity(formData: FormData) {
   const disco = formData.get("disco") as string
@@ -127,6 +128,23 @@ export async function payElectricity(formData: FormData) {
       balanceBefore,
       balanceAfter: balanceBefore,
       apiResponse: response,
+    })
+
+    // Send failure email
+    await sendTransactionEmail({
+      userId: user.id,
+      category: "ELECTRICITY",
+      serviceName: "Electricity",
+      amount: purchaseAmount,
+      status: "FAILED",
+      transactionId: failedTransactionId,
+      extras: [
+        { label: "Provider", value: disco },
+        { label: "Meter Type", value: meterType },
+        { label: "Meter Number", value: meterNumber },
+        { label: "Status", value: "Failed" },
+        { label: "Reason", value: response.description || "Transaction could not be processed" },
+      ],
     })
 
     return {

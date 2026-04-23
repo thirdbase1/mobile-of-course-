@@ -3,6 +3,7 @@
 import { buyCableSubscription, getCablePlans } from "@/lib/api/gsubz"
 import { createClient } from "@/lib/supabase/server"
 import { saveTransaction, updateWalletBalance } from "@/lib/utils/save-transaction"
+import { sendTransactionEmail } from "@/lib/email/send-transaction-email"
 
 export async function subscribeCable(formData: FormData) {
   const provider = formData.get("provider") as string
@@ -116,6 +117,23 @@ export async function subscribeCable(formData: FormData) {
       balanceBefore,
       balanceAfter: balanceBefore,
       apiResponse: response,
+    })
+
+    // Send failure email
+    await sendTransactionEmail({
+      userId: user.id,
+      category: "CABLE",
+      serviceName: `${provider} TV`,
+      amount: purchaseAmount,
+      status: "FAILED",
+      transactionId: failedTransactionId,
+      extras: [
+        { label: "Provider", value: provider },
+        { label: "Package", value: package_name },
+        { label: "Smartcard", value: smartcard },
+        { label: "Status", value: "Failed" },
+        { label: "Reason", value: response.description || "Transaction could not be processed" },
+      ],
     })
 
     return {

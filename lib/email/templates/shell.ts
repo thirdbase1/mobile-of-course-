@@ -44,7 +44,7 @@ export function renderShell(opts: ShellOptions): string {
 
   <tr>
     <td align="center" style="background:linear-gradient(135deg,#1a56db,#3b82f6);padding:40px 30px;">
-      <img src="${LOGO_URL}" width="160" alt="Mozosubz" style="display:block;margin:auto;">
+      <img src="${LOGO_URL}" width="120" alt="Mozosubz" style="display:block;margin:auto;height:auto;">
       <p style="margin:16px 0 0 0;color:#e0e7ff;font-size:14px;">${escapeHtml(headerSubtitle)}</p>
     </td>
   </tr>

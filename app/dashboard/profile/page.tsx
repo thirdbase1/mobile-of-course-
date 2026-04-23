@@ -605,7 +605,7 @@ export default function ProfilePage() {
         </div>
 
           {/* Version Text */}
-          <p className="text-center text-xs text-muted-foreground">Mozosubz v1.0</p>
+          {/* Removed - no longer needed */}
         </div>
       </div>
     </div>
