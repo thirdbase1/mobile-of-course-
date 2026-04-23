@@ -3,7 +3,7 @@
 import type React from "react"
 import Link from "next/link"
 import { useState } from "react"
-import { Mail, Loader2, CheckCircle2, AlertCircle } from "lucide-react"
+import { Loader2, CheckCircle2, AlertCircle } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 
 export default function ForgotPasswordPage() {
@@ -36,28 +36,27 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/40 to-slate-50 flex items-center justify-center px-4 py-8">
-      <div className="w-full max-w-md">
-        {!success ? (
-          <div className="bg-white rounded-2xl shadow-xl border border-slate-200/60 overflow-hidden">
-            {/* Header */}
-            <div className="px-7 pt-8 pb-6 text-center border-b border-slate-100">
-              <div className="relative inline-flex items-center justify-center mb-4">
-                <div className="absolute inset-0 bg-blue-500/10 blur-xl rounded-full" />
-                <div className="relative w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center shadow-lg shadow-blue-500/30">
-                  <Mail className="w-7 h-7 text-white" strokeWidth={2.25} />
-                </div>
-              </div>
-              <h1 className="text-2xl font-bold text-slate-900 mb-1.5">Reset your password</h1>
-              <p className="text-sm text-slate-600">
-                Enter your email and we&apos;ll send you a reset link.
-              </p>
-            </div>
+    <div className="min-h-screen w-full bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center p-4">
+      {/* Background blobs */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute top-0 -left-40 w-80 h-80 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
+        <div className="absolute top-40 -right-40 w-80 h-80 bg-blue-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
+        <div className="absolute -bottom-8 left-20 w-80 h-80 bg-blue-600 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000"></div>
+      </div>
 
-            {/* Form */}
-            <form onSubmit={handleResetPassword} className="p-7 space-y-5">
+      <div className="w-full max-w-sm relative z-10 mx-auto">
+        {!success ? (
+          <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6 shadow-2xl">
+            <h1 className="text-xl font-bold text-white text-center mb-1">Reset your password</h1>
+            <p className="text-blue-100 text-center text-xs mb-5">Enter your email and we&apos;ll send you a reset link.</p>
+
+            <form onSubmit={handleResetPassword} className="space-y-3">
               <div>
+                <label htmlFor="email" className="block text-xs font-semibold text-blue-100 mb-1">
+                  Email
+                </label>
                 <input
+                  id="email"
                   type="email"
                   placeholder="you@example.com"
                   required
@@ -65,36 +64,30 @@ export default function ForgotPasswordPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   disabled={isLoading}
-                  className="w-full h-12 px-4 bg-slate-50 border border-slate-200 text-slate-900 text-sm rounded-xl placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 focus:bg-white transition-all disabled:opacity-60"
+                  className="w-full h-9 px-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder:text-white/50 text-xs font-medium outline-none focus:border-blue-400/50 focus:bg-white/20 transition-all disabled:opacity-50"
                 />
               </div>
 
               {error && (
-                <div role="alert" className="flex items-start gap-2.5 p-3.5 bg-red-50 border border-red-200 rounded-xl">
-                  <AlertCircle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
-                  <p className="text-sm text-red-800">{error}</p>
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-red-500/20 border border-red-500/30">
+                  <AlertCircle className="w-4 h-4 text-red-300 mt-0.5 flex-shrink-0" />
+                  <p className="text-xs text-red-200">{error}</p>
                 </div>
               )}
 
               <button
                 type="submit"
                 disabled={isLoading || !email.trim()}
-                className="w-full h-12 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md shadow-blue-500/25"
+                className="w-full h-9 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Sending...
-                  </>
-                ) : (
-                  "Send reset link"
-                )}
+                {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                {isLoading ? "Sending..." : "Send reset link"}
               </button>
 
-              <div className="text-center pt-1">
-                <p className="text-sm text-slate-600">
+              <div className="text-center pt-2">
+                <p className="text-xs text-blue-200">
                   Remember your password?{" "}
-                  <Link href="/login" className="font-semibold text-blue-600 hover:text-blue-700">
+                  <Link href="/login" className="text-blue-300 hover:text-blue-200 font-semibold">
                     Sign in
                   </Link>
                 </p>
@@ -102,26 +95,21 @@ export default function ForgotPasswordPage() {
             </form>
           </div>
         ) : (
-          <div className="bg-white rounded-2xl shadow-xl border border-slate-200/60 overflow-hidden animate-in fade-in zoom-in-95 duration-300">
-            <div className="px-7 pt-8 pb-6 text-center">
-              <div className="relative inline-flex items-center justify-center mb-5">
-                <div className="absolute inset-0 bg-emerald-500/20 blur-2xl rounded-full animate-pulse" />
-                <div className="relative w-16 h-16 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/30">
-                  <CheckCircle2 className="w-8 h-8 text-white" strokeWidth={2.5} />
-                </div>
-              </div>
-              <h1 className="text-2xl font-bold text-slate-900 mb-2">Check your email</h1>
-              <p className="text-sm text-slate-600 mb-6">
-                We sent a reset link to <strong>{email}</strong>
-              </p>
-
-              <Link
-                href="/login"
-                className="inline-flex items-center justify-center w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all"
-              >
-                Back to login
-              </Link>
+          <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6 shadow-2xl text-center animate-in fade-in zoom-in-95 duration-300">
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-emerald-500/20 border border-emerald-500/30 mb-4">
+              <CheckCircle2 className="w-6 h-6 text-emerald-300" />
             </div>
+            <h1 className="text-xl font-bold text-white mb-2">Check your email</h1>
+            <p className="text-blue-100 text-xs mb-6">
+              We sent a password reset link to <strong>{email}</strong>. Click the link to set a new password.
+            </p>
+
+            <Link
+              href="/login"
+              className="inline-flex items-center justify-center w-full h-9 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors"
+            >
+              Back to login
+            </Link>
           </div>
         )}
       </div>

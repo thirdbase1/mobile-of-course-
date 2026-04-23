@@ -1,6 +1,6 @@
 "use server"
 
-import { buyData } from "@/lib/api/gsubz"
+import { buyData, getDataPlans } from "@/lib/api/gsubz"
 import { createClient } from "@/lib/supabase/server"
 import { saveTransaction, updateWalletBalance } from "@/lib/utils/save-transaction"
 import { sendTransactionEmail } from "@/lib/email/send-transaction-email"

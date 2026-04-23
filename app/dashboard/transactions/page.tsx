@@ -31,7 +31,7 @@ export default async function TransactionsPage({
       : transactions.filter((t) => t.category === filter)
 
   return (
-    <div className="h-screen overflow-hidden bg-background flex flex-col">
+    <div className="w-full h-full overflow-hidden bg-background flex flex-col">
       {/* Fixed Header + Tabs */}
       <div className="flex-shrink-0 sticky top-0 z-40 bg-background/95 backdrop-blur-md border-b border-border/50">
         <div className="px-4 md:px-6 lg:px-8 pt-4 pb-0">

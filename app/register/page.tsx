@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation"
 import { useState, useCallback, useRef } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Loader2, AlertCircle, CheckCircle } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
+import { Toaster } from "@/components/ui/toaster"
 
 function RegisterFormContent() {
   const [fullName, setFullName] = useState("")
@@ -19,6 +21,7 @@ function RegisterFormContent() {
   const [checkingUsername, setCheckingUsername] = useState(false)
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null)
   const router = useRouter()
+  const { toast } = useToast()
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   const checkUsername = useCallback(async (value: string) => {
@@ -153,7 +156,13 @@ function RegisterFormContent() {
 
       router.push(`/register-success?email=${encodeURIComponent(email.trim())}`)
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "An error occurred")
+      const message = error instanceof Error ? error.message : "An error occurred"
+      setError(message)
+      toast({
+        title: "Registration failed",
+        description: message,
+        variant: "destructive",
+      })
     } finally {
       setIsLoading(false)
     }
@@ -313,6 +322,8 @@ export default function RegisterPage() {
           </Link>
         </div>
       </div>
+
+      <Toaster />
     </div>
   )
 }
