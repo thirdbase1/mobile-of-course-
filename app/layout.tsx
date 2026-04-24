@@ -20,8 +20,9 @@ const spaceGrotesk = Space_Grotesk({
 })
 
 export const metadata: Metadata = {
-  title: "Mozosubz - Top up anything. Instantly.",
-  description: "Airtime, data, cable, electricity - all in one place at the best rates.",
+  title: "Mozosubz - Buy Airtime, Data, Cable & Electricity Online | Fast & Secure Payment",
+  description: "Buy MTN, Glo, Airtel & 9mobile airtime and data instantly. Pay for DStv, GOtv cable TV, electricity bills - all in one secure wallet. Lowest rates guaranteed!",
+  keywords: "buy airtime online, buy data online, airtime subscription, data bundle, cable tv subscription, electricity payment, DStv, GOtv, MTN, Glo, Airtel, 9mobile, phone credit, internet data, online billing, top up airtime, mozosubz",
   generator: "v0.app",
   manifest: "/manifest.json",
   icons: {
@@ -35,6 +36,17 @@ export const metadata: Metadata = {
   },
   formatDetection: {
     telephone: false,
+  },
+  openGraph: {
+    title: "Mozosubz - Buy Airtime, Data, Cable & Electricity",
+    description: "Instant airtime, data, cable TV, and electricity payments. Fast, secure, and lowest rates. Pay for MTN, Glo, Airtel, 9mobile, DStv, GOtv and more.",
+    url: "https://mozosubz.xyz",
+    siteName: "Mozosubz",
+    type: "website",
+  },
+  metadataBase: new URL("https://mozosubz.xyz"),
+  alternates: {
+    canonical: "https://mozosubz.xyz",
   },
 }
 

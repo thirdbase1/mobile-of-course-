@@ -21,9 +21,9 @@ import { Footer } from "@/components/footer"
 import { SiteHeader } from "@/components/site-header"
 
 export const metadata = {
-  title: "Mozosubz — Pay for Airtime, Data, Cable & Electricity from One Wallet",
-  description:
-    "Fund your Mozosubz wallet in seconds and pay for MTN, Glo, Airtel and 9mobile airtime and data, DStv, GOtv, Startimes and every Nigerian DISCO — instantly.",
+  title: "Mozosubz - Buy Airtime, Data, Cable TV & Pay Bills Online | Nigeria",
+  description: "Instant airtime and data top-up for MTN, Glo, Airtel, 9mobile. Pay for DStv, GOtv, Startimes cable subscriptions and electricity bills online. Secure payment, lowest rates, instant delivery.",
+  keywords: "buy airtime Nigeria, buy data Nigeria, airtime top up, data bundle, cable subscription, electricity bill payment, DStv payment, GOtv payment, MTN, Glo, Airtel, 9mobile",
 }
 
 // Real network logos already used across the dashboard (airtime page)

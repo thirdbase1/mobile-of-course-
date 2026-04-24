@@ -145,23 +145,40 @@ export default function TransactionDetailPage() {
       <div className="w-full flex flex-col min-h-screen max-w-4xl md:mx-auto">
         <style>{`
           @media print {
-            body, html {
+            body {
+              background: white;
               margin: 0;
               padding: 0;
-              width: 100%;
-              height: 100%;
             }
+            /* Hide everything by default */
+            body > * {
+              display: none !important;
+            }
+            /* Show only the receipt div */
             .print-only-receipt {
               display: block !important;
               margin: 0 !important;
-              padding: 0 !important;
+              padding: 20px !important;
               width: 100% !important;
-              height: auto !important;
+              background: white !important;
+              position: static !important;
             }
+            /* Make all children of receipt visible */
+            .print-only-receipt,
             .print-only-receipt * {
-              display: inherit !important;
+              display: block !important;
+              margin: auto !important;
+              padding: inherit !important;
+              background: transparent !important;
+              page-break-inside: avoid !important;
             }
-            * {
+            /* Hide the navbar and header when printing */
+            .sticky,
+            [class*="navbar"],
+            [class*="header"],
+            [class*="footer"],
+            button,
+            nav {
               display: none !important;
             }
           }
