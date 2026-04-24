@@ -29,7 +29,7 @@ export default function TransactionDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [downloadFeedback, setDownloadFeedback] = useState<string>("");
+  const [toast, setToast] = useState<string>("");
   const router = useRouter();
   const params = useParams();
   const supabase = createClient();
@@ -131,10 +131,17 @@ export default function TransactionDetailPage() {
 
   const handleSaveReceipt = async () => {
     try {
-      setDownloadFeedback("Saving receipt...");
-      const html2canvas = (await import('html2canvas')).default;
+      console.log("[v0] Starting receipt save...");
       
-      if (!receiptRef.current) return;
+      if (!receiptRef.current) {
+        console.log("[v0] Receipt ref not found");
+        setToast("Receipt not found");
+        setTimeout(() => setToast(""), 2000);
+        return;
+      }
+
+      const html2canvas = (await import('html2canvas')).default;
+      console.log("[v0] html2canvas imported");
       
       const canvas = await html2canvas(receiptRef.current, {
         backgroundColor: '#ffffff',
@@ -143,25 +150,38 @@ export default function TransactionDetailPage() {
         allowTaint: true,
         logging: false,
       });
+      console.log("[v0] Canvas created");
+      
+      const dataUrl = canvas.toDataURL('image/png');
+      console.log("[v0] Image data URL created, length:", dataUrl.length);
       
       const link = document.createElement('a');
-      link.href = canvas.toDataURL('image/png');
+      link.href = dataUrl;
       link.download = `Mozosubz-Receipt-${transaction?.transaction_id || transaction?.id}.png`;
       document.body.appendChild(link);
+      console.log("[v0] Link added to body, clicking...");
       link.click();
       document.body.removeChild(link);
+      console.log("[v0] Link clicked and removed");
       
-      setDownloadFeedback("Receipt saved successfully");
-      setTimeout(() => setDownloadFeedback(""), 2000);
+      setToast("Receipt saved successfully");
+      setTimeout(() => setToast(""), 2000);
     } catch (err) {
-      console.error('Save receipt failed:', err);
-      setDownloadFeedback("Error saving receipt");
-      setTimeout(() => setDownloadFeedback(""), 2000);
+      console.error("[v0] Save receipt error:", err);
+      setToast("Error saving receipt");
+      setTimeout(() => setToast(""), 2000);
     }
   };
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Toast Notification */}
+      {toast && (
+        <div className="fixed bottom-4 right-4 z-40 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg text-sm">
+          {toast}
+        </div>
+      )}
+      
       <div className="w-full flex flex-col min-h-screen max-w-4xl md:mx-auto">
         {/* Top Bar */}
         <div className="sticky top-0 z-50 bg-background border-b border-muted-foreground/10">
@@ -181,9 +201,6 @@ export default function TransactionDetailPage() {
               <Download className="w-4 h-4" />
               Save Receipt
             </button>
-            {downloadFeedback && (
-              <span className="text-xs text-foreground ml-2">{downloadFeedback}</span>
-            )}
           </div>
         </div>
 

@@ -72,6 +72,7 @@ export async function purchaseAirtime(formData: FormData) {
         category: "AIRTIME",
         serviceId: `${network.toLowerCase()}-airtime`,
         serviceName: `${network} Airtime`,
+        serviceType: "Airtime",
         amount: userAmount,
         phone,
         status: "SUCCESS",
@@ -108,12 +109,13 @@ export async function purchaseAirtime(formData: FormData) {
       category: "AIRTIME",
       serviceId: `${network.toLowerCase()}-airtime`,
       serviceName: `${network} Airtime`,
+      serviceType: "Airtime",
       amount: userAmount,
       phone,
       status: "FAILED",
       description: `${network} Airtime · ${phone}`,
       balanceBefore,
-      balanceAfter: balanceBefore, // No deduction on failed
+      balanceAfter: balanceBefore,
       apiResponse: response,
     })
 
