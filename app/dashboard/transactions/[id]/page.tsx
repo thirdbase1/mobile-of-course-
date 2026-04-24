@@ -1,6 +1,6 @@
 'use client';
 
-import { Copy, ArrowLeft, Download } from 'lucide-react';
+import { Copy, ArrowLeft, Download, Share2 } from 'lucide-react';
 import { useRouter, useParams } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
@@ -126,6 +126,26 @@ export default function TransactionDetailPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleShare = async () => {
+    const text = `Mozosubz Receipt\n\nTransaction ID: ${transaction.transaction_id || transaction.id}\nAmount: ₦${Number(transaction.amount || 0).toLocaleString()}\nStatus: ${transaction.status?.toUpperCase() || 'UNKNOWN'}\nDate: ${formattedDate}, ${formattedTime}`;
+    
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Mozosubz Receipt',
+          text: text
+        });
+      } catch (err) {
+        console.log('Share cancelled');
+      }
+    } else {
+      // Fallback: copy to clipboard
+      navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
   const handleExportPDF = async () => {
     try {
       // Force client-side only with dynamic import
@@ -186,13 +206,22 @@ export default function TransactionDetailPage() {
               <ArrowLeft className="w-4 h-4" />
               <span>Receipt</span>
             </button>
-            <button 
-              onClick={handleExportPDF}
-              className="flex items-center gap-2 text-muted-foreground hover:bg-muted p-2 rounded-lg transition-colors"
-              title="Download as PDF"
-            >
-              <Download className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={handleShare}
+                className="flex items-center gap-2 text-muted-foreground hover:bg-muted p-2 rounded-lg transition-colors"
+                title="Share receipt"
+              >
+                <Share2 className="w-4 h-4" />
+              </button>
+              <button 
+                onClick={handleExportPDF}
+                className="flex items-center gap-2 text-muted-foreground hover:bg-muted p-2 rounded-lg transition-colors"
+                title="Download as PDF"
+              >
+                <Download className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -434,50 +463,6 @@ export default function TransactionDetailPage() {
                       <div className="flex items-center justify-between p-2 px-3 text-xs">
                         <span className="text-muted-foreground font-medium">Balance After</span>
                         <span className="font-semibold text-foreground">₦{Number(transaction.balance_after || 0).toLocaleString()}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="text-center mb-6">
-                    <div className="text-xs text-muted-foreground">Data · {formattedDate}, {formattedTime}</div>
-                  </div>
-
-                  <div className="bg-card border border-border rounded-2xl overflow-hidden">
-                    <div className="text-xs font-bold text-muted-foreground bg-muted px-4 py-2 border-b border-border uppercase tracking-wider">Service Details</div>
-                    <div className="divide-y divide-muted">
-                      <div className="flex items-center justify-between p-3 px-4">
-                        <span className="text-xs text-muted-foreground font-medium">Service Type</span>
-                        <span className="text-sm font-semibold text-foreground">Data</span>
-                      </div>
-                      <div className="flex items-center justify-between p-3 px-4">
-                        <span className="text-xs text-muted-foreground font-medium">Network</span>
-                        <span className="text-sm font-semibold text-foreground">{networkName}</span>
-                      </div>
-                      <div className="flex items-center justify-between p-3 px-4">
-                        <span className="text-xs text-muted-foreground font-medium">Recipient</span>
-                        <span className="text-sm font-semibold text-foreground">{transaction.phone}</span>
-                      </div>
-                      <div className="flex items-center justify-between p-3 px-4">
-                        <span className="text-xs text-muted-foreground font-medium">Status</span>
-                        <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700">SUCCESS</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-card border border-border rounded-2xl overflow-hidden">
-                    <div className="text-xs font-bold text-muted-foreground bg-muted px-4 py-2 border-b border-border uppercase tracking-wider">Payment</div>
-                    <div className="divide-y divide-muted">
-                      <div className="flex items-center justify-between p-3 px-4">
-                        <span className="text-xs text-muted-foreground font-medium">Amount</span>
-                        <span className="text-sm font-semibold text-foreground">₦{Number(transaction.amount || 0).toLocaleString()}</span>
-                      </div>
-                      <div className="flex items-center justify-between p-3 px-4">
-                        <span className="text-xs text-muted-foreground font-medium">Balance Before</span>
-                        <span className="text-sm font-semibold text-foreground">₦{Number(transaction.balance_before || 0).toLocaleString()}</span>
-                      </div>
-                      <div className="flex items-center justify-between p-3 px-4">
-                        <span className="text-xs text-muted-foreground font-medium">Balance After</span>
-                        <span className="text-sm font-semibold text-foreground">₦{Number(transaction.balance_after || 0).toLocaleString()}</span>
                       </div>
                     </div>
                   </div>

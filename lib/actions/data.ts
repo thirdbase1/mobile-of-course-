@@ -9,6 +9,7 @@ export async function purchaseData(formData: FormData) {
   const serviceID = formData.get("serviceID") as string
   const plan = formData.get("plan") as string
   const phone = formData.get("phone") as string
+  const clientAmount = formData.get("amount") as string
 
   try {
     const supabase = await createClient()
@@ -36,8 +37,8 @@ export async function purchaseData(formData: FormData) {
       requestID,
     })
 
-    // Extract amount from response
-    const userAmount = response.amount ? Number(response.amount) : 0
+    // Use the client-provided amount (which includes markup) instead of API response amount
+    const userAmount = clientAmount ? Number(clientAmount) : (response.amount ? Number(response.amount) : 0)
     const balanceBefore = Number(profile.wallet_balance)
 
     // Check sufficient balance

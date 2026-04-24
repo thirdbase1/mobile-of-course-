@@ -161,6 +161,7 @@ export default function DataPage() {
     formData.append("serviceID", planType)
     formData.append("plan", selectedPlan.value)
     formData.append("phone", phone)
+    formData.append("amount", currentAmount.toString())
 
     try {
       const res = await purchaseData(formData)
