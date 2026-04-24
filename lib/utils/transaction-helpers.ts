@@ -119,6 +119,25 @@ export function formatReceiptTime(dateString: string): string {
 }
 
 /**
+ * Extract plan details from description
+ * Description format: "MTN Data · 2GB 30 days" or "DStv Starter"
+ */
+export function extractPlanDetails(description: string | undefined | null): string {
+  if (!description) return 'Plan'
+  
+  // For data and cable: format is "Network Service · Plan Details"
+  // e.g., "MTN Data · 2GB 30 days" or "DStv Starter Plan"
+  if (description.includes('·')) {
+    const parts = description.split('·')
+    return parts[1]?.trim() || 'Plan'
+  }
+  
+  // For cable/electricity: format might be "Provider Package"
+  // e.g., "DStv Starter" or "GOtv Max"
+  return description.trim()
+}
+
+/**
  * Format amount with naira sign
  */
 export function formatNaira(amount: number): string {

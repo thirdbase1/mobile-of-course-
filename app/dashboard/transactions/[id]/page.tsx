@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { NetworkLogo } from '@/lib/utils/network-logo';
-import { extractElectricityToken, formatReceiptDate, formatReceiptTime, getNetworkName, getCableProviderName, getDISCOName } from '@/lib/utils/transaction-helpers';
+import { extractElectricityToken, formatReceiptDate, formatReceiptTime, getNetworkName, getCableProviderName, getDISCOName, extractPlanDetails } from '@/lib/utils/transaction-helpers';
 
 interface Transaction {
   id: string;
@@ -142,35 +142,35 @@ export default function TransactionDetailPage() {
         canvas.toBlob(async (blob) => {
           if (!blob) return;
           
-          const file = new File([blob], `receipt-${transaction.transaction_id || 'receipt'}.png`, { type: 'image/png' });
+          const fileName = `Mozosubz-Receipt-${transaction.transaction_id || transaction.id}.png`;
+          const file = new File([blob], fileName, { type: 'image/png' });
           
-          if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+          // Try native share if available and supports files
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
             try {
               await navigator.share({
                 title: 'Mozosubz Receipt',
                 text: `Receipt for ₦${Number(transaction.amount || 0).toLocaleString()}`,
                 files: [file],
               });
+              return;
             } catch (err) {
-              console.log('Share cancelled');
+              console.log('Native share cancelled');
             }
-          } else {
-            // Fallback: download the image
-            const url = canvas.toDataURL('image/png');
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `receipt-${transaction.transaction_id || 'receipt'}.png`;
-            link.click();
           }
+          
+          // Fallback: Download the image
+          const url = canvas.toDataURL('image/png');
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = fileName;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
         });
       }
     } catch (err) {
       console.error('Share failed:', err);
-      // Fallback: just copy text
-      const text = `Mozosubz Receipt\n\nTransaction ID: ${transaction.transaction_id || transaction.id}\nAmount: ₦${Number(transaction.amount || 0).toLocaleString()}\nStatus: ${transaction.status?.toUpperCase() || 'UNKNOWN'}\nDate: ${formattedDate}, ${formattedTime}`;
-      navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
     }
   };
 
@@ -465,7 +465,7 @@ export default function TransactionDetailPage() {
                       <div className="flex items-center justify-between p-2 px-3 text-xs">
                         <span className="text-muted-foreground font-medium">Plan</span>
                         <span className="font-semibold text-foreground">
-                          {transaction.description?.includes('·') ? transaction.description.split('·')[1].trim() : 'Data Plan'}
+                          {extractPlanDetails(transaction.description)}
                         </span>
                       </div>
                       <div className="flex items-center justify-between p-2 px-3 text-xs">
@@ -540,7 +540,7 @@ export default function TransactionDetailPage() {
                       <div className="flex items-center justify-between p-2 px-3 text-xs">
                         <span className="text-muted-foreground font-medium">Package</span>
                         <span className="font-semibold text-foreground">
-                          {transaction.description?.includes('·') ? transaction.description.split('·')[1].trim() : 'Cable Package'}
+                          {extractPlanDetails(transaction.description)}
                         </span>
                       </div>
                       <div className="flex items-center justify-between p-2 px-3 text-xs">

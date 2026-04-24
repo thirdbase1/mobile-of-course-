@@ -72,6 +72,24 @@ export async function saveTransaction(payload: SaveTransactionPayload) {
 
     // Fire-and-forget receipt email. Email failures MUST NOT affect the
     // transaction flow — sendTransactionEmail is non-throwing internally.
+    const extras: Array<{ label: string; value: string }> = []
+    
+    // Add recipient/smartcard info
+    if (payload.phone) {
+      const recipientLabel = payload.category === 'CABLE' ? 'Smartcard' : 'Recipient'
+      extras.push({ label: recipientLabel, value: payload.phone })
+    }
+    
+    // Add plan details for data and cable
+    if (payload.planDetails) {
+      const planLabel = payload.category === 'CABLE' ? 'Package' : 'Plan'
+      extras.push({ label: planLabel, value: payload.planDetails })
+    }
+    
+    // Add balance info
+    extras.push({ label: 'Balance Before', value: `₦${Number(payload.balanceBefore).toLocaleString()}` })
+    extras.push({ label: 'Balance After', value: `₦${Number(payload.balanceAfter).toLocaleString()}` })
+    
     sendTransactionEmail({
       userId: payload.userId,
       category: payload.category,
@@ -79,7 +97,7 @@ export async function saveTransaction(payload: SaveTransactionPayload) {
       amount: payload.amount,
       status: payload.status,
       transactionId: payload.transactionId,
-      extras: payload.phone ? [{ label: "Recipient", value: payload.phone }] : undefined,
+      extras: extras.length > 0 ? extras : undefined,
     }).catch((err) => {
       console.error("[v0] sendTransactionEmail failed (swallowed):", err)
     })
