@@ -92,6 +92,7 @@ export default function CablePage() {
       const formData = new FormData();
       formData.append('provider', selectedProvider);
       formData.append('package', packagePlan);
+      formData.append('packageDisplayName', selectedPlanData?.displayName || '');
       formData.append('smartcard', smartcard);
       formData.append('phone', phone);
       const result = await subscribeCable(formData);

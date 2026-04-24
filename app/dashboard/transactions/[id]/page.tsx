@@ -127,19 +127,47 @@ export default function TransactionDetailPage() {
   };
 
   const handleShare = async () => {
-    const text = `Mozosubz Receipt\n\nTransaction ID: ${transaction.transaction_id || transaction.id}\nAmount: ₦${Number(transaction.amount || 0).toLocaleString()}\nStatus: ${transaction.status?.toUpperCase() || 'UNKNOWN'}\nDate: ${formattedDate}, ${formattedTime}`;
-    
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: 'Mozosubz Receipt',
-          text: text
+    try {
+      const html2canvas = (await import('html2canvas')).default;
+      
+      if (receiptRef.current) {
+        const canvas = await html2canvas(receiptRef.current, {
+          backgroundColor: '#ffffff',
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          logging: false,
         });
-      } catch (err) {
-        console.log('Share cancelled');
+        
+        canvas.toBlob(async (blob) => {
+          if (!blob) return;
+          
+          const file = new File([blob], `receipt-${transaction.transaction_id || 'receipt'}.png`, { type: 'image/png' });
+          
+          if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+            try {
+              await navigator.share({
+                title: 'Mozosubz Receipt',
+                text: `Receipt for ₦${Number(transaction.amount || 0).toLocaleString()}`,
+                files: [file],
+              });
+            } catch (err) {
+              console.log('Share cancelled');
+            }
+          } else {
+            // Fallback: download the image
+            const url = canvas.toDataURL('image/png');
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `receipt-${transaction.transaction_id || 'receipt'}.png`;
+            link.click();
+          }
+        });
       }
-    } else {
-      // Fallback: copy to clipboard
+    } catch (err) {
+      console.error('Share failed:', err);
+      // Fallback: just copy text
+      const text = `Mozosubz Receipt\n\nTransaction ID: ${transaction.transaction_id || transaction.id}\nAmount: ₦${Number(transaction.amount || 0).toLocaleString()}\nStatus: ${transaction.status?.toUpperCase() || 'UNKNOWN'}\nDate: ${formattedDate}, ${formattedTime}`;
       navigator.clipboard.writeText(text);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -435,6 +463,12 @@ export default function TransactionDetailPage() {
                         <span className="font-semibold text-foreground">{networkName}</span>
                       </div>
                       <div className="flex items-center justify-between p-2 px-3 text-xs">
+                        <span className="text-muted-foreground font-medium">Plan</span>
+                        <span className="font-semibold text-foreground">
+                          {transaction.description?.includes('·') ? transaction.description.split('·')[1].trim() : 'Data Plan'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between p-2 px-3 text-xs">
                         <span className="text-muted-foreground font-medium">Recipient</span>
                         <span className="font-semibold text-foreground">{transaction.phone}</span>
                       </div>
@@ -502,6 +536,12 @@ export default function TransactionDetailPage() {
                       <div className="flex items-center justify-between p-2 px-3 text-xs">
                         <span className="text-muted-foreground font-medium">Provider</span>
                         <span className="font-semibold text-foreground">{cableProvider}</span>
+                      </div>
+                      <div className="flex items-center justify-between p-2 px-3 text-xs">
+                        <span className="text-muted-foreground font-medium">Package</span>
+                        <span className="font-semibold text-foreground">
+                          {transaction.description?.includes('·') ? transaction.description.split('·')[1].trim() : 'Cable Package'}
+                        </span>
                       </div>
                       <div className="flex items-center justify-between p-2 px-3 text-xs">
                         <span className="text-muted-foreground font-medium">Smartcard</span>

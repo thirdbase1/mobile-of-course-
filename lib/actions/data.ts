@@ -10,6 +10,7 @@ export async function purchaseData(formData: FormData) {
   const plan = formData.get("plan") as string
   const phone = formData.get("phone") as string
   const clientAmount = formData.get("amount") as string
+  const planDisplayName = formData.get("planDisplayName") as string
 
   try {
     const supabase = await createClient()
@@ -77,10 +78,11 @@ export async function purchaseData(formData: FormData) {
         amount: userAmount,
         phone,
         status: "SUCCESS",
-        description: `${networkName} Data · ${phone}`,
+        description: planDisplayName ? `${networkName} Data · ${planDisplayName}` : `${networkName} Data · ${phone}`,
         balanceBefore,
         balanceAfter,
         apiResponse: response,
+        planDetails: planDisplayName,
       })
 
       // Update wallet
@@ -114,10 +116,11 @@ export async function purchaseData(formData: FormData) {
       amount: userAmount,
       phone,
       status: "FAILED",
-      description: `${networkName} Data · ${phone}`,
+      description: planDisplayName ? `${networkName} Data · ${planDisplayName}` : `${networkName} Data · ${phone}`,
       balanceBefore,
       balanceAfter: balanceBefore,
       apiResponse: response,
+      planDetails: planDisplayName,
     })
 
     // Send failure email

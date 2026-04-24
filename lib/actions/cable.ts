@@ -8,6 +8,7 @@ import { sendTransactionEmail } from "@/lib/email/send-transaction-email"
 export async function subscribeCable(formData: FormData) {
   const provider = formData.get("provider") as string
   const package_name = formData.get("package") as string
+  const packageDisplayName = formData.get("packageDisplayName") as string
   const smartcard = formData.get("smartcard") as string
   const phone = formData.get("phone") as string
 
@@ -76,10 +77,11 @@ export async function subscribeCable(formData: FormData) {
         amount: purchaseAmount,
         phone: smartcard,
         status: "SUCCESS",
-        description: `${provider} ${package_name} · ${smartcard}`,
+        description: packageDisplayName ? `${provider} ${packageDisplayName}` : `${provider} ${package_name} · ${smartcard}`,
         balanceBefore,
         balanceAfter,
         apiResponse: response,
+        planDetails: packageDisplayName,
       })
 
       // Update wallet
@@ -113,10 +115,11 @@ export async function subscribeCable(formData: FormData) {
       amount: purchaseAmount,
       phone: smartcard,
       status: "FAILED",
-      description: `${provider} ${package_name} · ${smartcard}`,
+      description: packageDisplayName ? `${provider} ${packageDisplayName}` : `${provider} ${package_name} · ${smartcard}`,
       balanceBefore,
       balanceAfter: balanceBefore,
       apiResponse: response,
+      planDetails: packageDisplayName,
     })
 
     // Send failure email

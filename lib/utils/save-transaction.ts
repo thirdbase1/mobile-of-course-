@@ -20,6 +20,7 @@ export interface SaveTransactionPayload {
   description: string
   status: TransactionStatus
   apiResponse?: Record<string, any>
+  planDetails?: string
 }
 
 /**
