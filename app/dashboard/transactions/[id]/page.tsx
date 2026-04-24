@@ -129,16 +129,12 @@ export default function TransactionDetailPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleDownloadImage = async () => {
+  const handleSaveReceipt = async () => {
     try {
-      setDownloadFeedback("Preparing image...");
+      setDownloadFeedback("Saving receipt...");
       const html2canvas = (await import('html2canvas')).default;
       
-      if (!receiptRef.current) {
-        setDownloadFeedback("Error: Receipt not found");
-        setTimeout(() => setDownloadFeedback(""), 3000);
-        return;
-      }
+      if (!receiptRef.current) return;
       
       const canvas = await html2canvas(receiptRef.current, {
         backgroundColor: '#ffffff',
@@ -155,42 +151,12 @@ export default function TransactionDetailPage() {
       link.click();
       document.body.removeChild(link);
       
-      setDownloadFeedback("Image downloaded successfully ✓");
-      setTimeout(() => setDownloadFeedback(""), 3000);
+      setDownloadFeedback("Receipt saved successfully");
+      setTimeout(() => setDownloadFeedback(""), 2000);
     } catch (err) {
-      console.error('Download image failed:', err);
-      setDownloadFeedback("Error downloading image");
-      setTimeout(() => setDownloadFeedback(""), 3000);
-    }
-  };
-
-  const handleDownloadPDF = async () => {
-    try {
-      setDownloadFeedback("Creating PDF...");
-      const html2pdf = (await import('html2pdf.js')).default;
-      
-      if (!receiptRef.current) {
-        setDownloadFeedback("Error: Receipt not found");
-        setTimeout(() => setDownloadFeedback(""), 3000);
-        return;
-      }
-      
-      const options = {
-        margin: 10,
-        filename: `Mozosubz-Receipt-${transaction?.transaction_id || transaction?.id}.pdf`,
-        image: { type: 'png', quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
-      };
-      
-      await html2pdf().set(options).from(receiptRef.current).save();
-      
-      setDownloadFeedback("PDF downloaded successfully ✓");
-      setTimeout(() => setDownloadFeedback(""), 3000);
-    } catch (err) {
-      console.error('PDF download failed:', err);
-      setDownloadFeedback("Error downloading PDF");
-      setTimeout(() => setDownloadFeedback(""), 3000);
+      console.error('Save receipt failed:', err);
+      setDownloadFeedback("Error saving receipt");
+      setTimeout(() => setDownloadFeedback(""), 2000);
     }
   };
 
@@ -207,25 +173,17 @@ export default function TransactionDetailPage() {
               <ArrowLeft className="w-4 h-4" />
               <span>Receipt</span>
             </button>
-            <div className="flex items-center gap-2">
-              <button 
-                onClick={handleDownloadImage}
-                className="flex items-center gap-2 text-muted-foreground hover:bg-muted p-2 rounded-lg transition-colors"
-                title="Download as PNG image"
-              >
-                <Download className="w-4 h-4" />
-              </button>
-              <button 
-                onClick={handleDownloadPDF}
-                className="flex items-center gap-2 text-muted-foreground hover:bg-muted p-2 rounded-lg transition-colors"
-                title="Download as PDF"
-              >
-                <Share2 className="w-4 h-4" />
-              </button>
-              {downloadFeedback && (
-                <span className="text-xs text-muted-foreground ml-2">{downloadFeedback}</span>
-              )}
-            </div>
+            <button 
+              onClick={handleSaveReceipt}
+              className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors font-medium text-sm"
+              title="Save receipt as image"
+            >
+              <Download className="w-4 h-4" />
+              Save Receipt
+            </button>
+            {downloadFeedback && (
+              <span className="text-xs text-foreground ml-2">{downloadFeedback}</span>
+            )}
           </div>
         </div>
 
