@@ -131,7 +131,17 @@ export default function TransactionDetailPage() {
 
   const handleSaveReceipt = () => {
     console.log("[v0] handleSaveReceipt called - opening print dialog");
+    // Hide header and button, show only receipt content
+    const header = document.querySelector('[class*="sticky"]');
+    const currentDisplay = header?.style.display;
+    if (header) header.style.display = 'none';
+    
     window.print();
+    
+    // Restore header after print dialog closes
+    setTimeout(() => {
+      if (header) header.style.display = currentDisplay || '';
+    }, 500);
   };
 
   return (
@@ -144,6 +154,17 @@ export default function TransactionDetailPage() {
       )}
       
       <div className="w-full flex flex-col min-h-screen max-w-4xl md:mx-auto">
+        <style>{`
+          @media print {
+            body * {
+              display: none;
+            }
+            [ref="receiptRef"],
+            [ref="receiptRef"] * {
+              display: block !important;
+            }
+          }
+        `}</style>
         {/* Top Bar - Sticky */}
         <div className="sticky top-0 z-50 bg-background border-b border-muted-foreground/10">
           <div className="flex items-center justify-between p-4 px-4 md:px-6 lg:px-8">
@@ -161,16 +182,6 @@ export default function TransactionDetailPage() {
             >
               Save Receipt
             </button>
-          </div>
-        </div>
-
-        {/* Service Type Selector - Sticky */}
-        <div className="sticky top-[65px] z-40 bg-background border-b border-muted-foreground/10 px-4 md:px-6 lg:px-8 py-3">
-          <div className="flex gap-2 overflow-x-auto pb-2">
-            {isAirtime && <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium whitespace-nowrap">Airtime</span>}
-            {isData && <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium whitespace-nowrap">Data</span>}
-            {isCable && <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium whitespace-nowrap">Cable TV</span>}
-            {isElectricity && <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium whitespace-nowrap">Electricity</span>}
           </div>
         </div>
 
