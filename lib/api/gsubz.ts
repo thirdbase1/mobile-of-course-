@@ -1,10 +1,29 @@
 "use server"
 
 import { unstable_cache } from "next/cache"
+import https from "https"
+import http from "http"
 
 const API_BASE_URL = "https://gsubz.com"
 const API_PLANS_URL = "https://gsubz.com"
 const API_KEY = process.env.GSUBZ_API_KEY || ""
+
+// Connection pooling agents - reuse connections instead of creating new ones each time
+const httpsAgent = new https.Agent({
+  keepAlive: true,
+  keepAliveMsecs: 30000, // Keep alive for 30 seconds
+  maxSockets: 50, // Maximum concurrent connections
+  maxFreeSockets: 10, // Maximum idle connections to keep
+  timeout: 2000, // 2 second timeout
+})
+
+const httpAgent = new http.Agent({
+  keepAlive: true,
+  keepAliveMsecs: 30000,
+  maxSockets: 50,
+  maxFreeSockets: 10,
+  timeout: 2000,
+})
 
 interface ApiResponse {
   code: number
@@ -33,6 +52,7 @@ async function makeApiRequest(endpoint: string, method: "GET" | "POST" = "POST",
   const options: RequestInit = {
     method,
     headers,
+    agent: API_BASE_URL.startsWith("https") ? httpsAgent : httpAgent,
   }
 
   if (body && method === "POST") {
@@ -56,6 +76,7 @@ async function _fetchDataPlansFromAPI(serviceId: string): Promise<PlanResponse> 
     const response = await fetch(`${API_PLANS_URL}/api/plans?service=${serviceId}`, {
       redirect: "follow",
       cache: "no-store",
+      agent: API_PLANS_URL.startsWith("https") ? httpsAgent : httpAgent,
     })
 
     console.log("[v0] Response status:", response.status)
@@ -70,7 +91,6 @@ async function _fetchDataPlansFromAPI(serviceId: string): Promise<PlanResponse> 
     console.log("[v0] _fetchDataPlansFromAPI: Plans count:", data.plans?.length)
     console.log("[v0] _fetchDataPlansFromAPI: Entire response keys:", Object.keys(data))
     
-    // Make sure we're returning the correct structure
     if (!data.plans) {
       console.warn("[v0] WARNING: No plans array in response for", serviceId)
     }
@@ -100,6 +120,7 @@ async function _fetchCablePlansFromAPI(service: string): Promise<PlanResponse> {
     const response = await fetch(`${API_PLANS_URL}/api/plans?service=${service}`, {
       redirect: "follow",
       cache: "no-store",
+      agent: API_PLANS_URL.startsWith("https") ? httpsAgent : httpAgent,
     })
 
     console.log("[v0] Cable Response status:", response.status)
@@ -115,8 +136,6 @@ async function _fetchCablePlansFromAPI(service: string): Promise<PlanResponse> {
     console.log("[v0] _fetchCablePlansFromAPI: list count:", data.list?.length)
 
     // Transform the response to match expected format
-    // API returns: { list: [...], plan_name: 'variation_code', ... }
-    // We need: { plans: [...], PlanName: 'plan', ... }
     if (data.list && Array.isArray(data.list)) {
       const transformed = {
         service: data.service || service,
