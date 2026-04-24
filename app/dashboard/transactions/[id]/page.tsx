@@ -20,6 +20,7 @@ interface Transaction {
   balance_before?: number;
   balance_after?: number;
   user_id?: string;
+  plan_details?: string;
 }
 
 export default function TransactionDetailPage() {
@@ -550,7 +551,7 @@ export default function TransactionDetailPage() {
                       <div className="flex items-center justify-between p-2 px-3 text-xs">
                         <span className="text-muted-foreground font-medium">Plan</span>
                         <span className="font-semibold text-foreground">
-                          {extractPlanDetails(transaction.description)}
+                          {transaction.plan_details || extractPlanDetails(transaction.description)}
                         </span>
                       </div>
                       <div className="flex items-center justify-between p-2 px-3 text-xs">
@@ -625,7 +626,7 @@ export default function TransactionDetailPage() {
                       <div className="flex items-center justify-between p-2 px-3 text-xs">
                         <span className="text-muted-foreground font-medium">Package</span>
                         <span className="font-semibold text-foreground">
-                          {extractPlanDetails(transaction.description)}
+                          {transaction.plan_details || extractPlanDetails(transaction.description)}
                         </span>
                       </div>
                       <div className="flex items-center justify-between p-2 px-3 text-xs">

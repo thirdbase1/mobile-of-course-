@@ -45,6 +45,7 @@ export async function saveTransaction(payload: SaveTransactionPayload) {
       balance_before: payload.balanceBefore,
       balance_after: payload.balanceAfter,
       api_response: payload.apiResponse ? JSON.stringify(payload.apiResponse) : null,
+      plan_details: payload.planDetails || null,
       created_at: new Date().toISOString(),
     }
 
