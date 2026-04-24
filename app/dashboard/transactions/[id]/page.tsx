@@ -131,7 +131,7 @@ export default function TransactionDetailPage() {
 
   const handleSaveReceipt = async () => {
     try {
-      console.log("[v0] Starting receipt save...");
+      console.log("[v0] handleSaveReceipt called");
       
       if (!receiptRef.current) {
         console.log("[v0] Receipt ref not found");
@@ -140,9 +140,11 @@ export default function TransactionDetailPage() {
         return;
       }
 
+      console.log("[v0] Receipt ref exists, importing html2canvas");
       const html2canvas = (await import('html2canvas')).default;
-      console.log("[v0] html2canvas imported");
+      console.log("[v0] html2canvas imported successfully", typeof html2canvas);
       
+      console.log("[v0] Starting canvas creation...");
       const canvas = await html2canvas(receiptRef.current, {
         backgroundColor: '#ffffff',
         scale: 2,
@@ -150,24 +152,31 @@ export default function TransactionDetailPage() {
         allowTaint: true,
         logging: false,
       });
-      console.log("[v0] Canvas created");
+      console.log("[v0] Canvas created, size:", canvas.width, "x", canvas.height);
       
       const dataUrl = canvas.toDataURL('image/png');
       console.log("[v0] Image data URL created, length:", dataUrl.length);
       
+      const fileName = `Mozosubz-Receipt-${transaction?.transaction_id || transaction?.id}.png`;
+      console.log("[v0] Creating download link with filename:", fileName);
+      
       const link = document.createElement('a');
       link.href = dataUrl;
-      link.download = `Mozosubz-Receipt-${transaction?.transaction_id || transaction?.id}.png`;
+      link.download = fileName;
       document.body.appendChild(link);
-      console.log("[v0] Link added to body, clicking...");
+      console.log("[v0] Link element appended to body");
+      
       link.click();
+      console.log("[v0] Link clicked");
+      
       document.body.removeChild(link);
-      console.log("[v0] Link clicked and removed");
+      console.log("[v0] Link removed from body");
       
       setToast("Receipt saved successfully");
       setTimeout(() => setToast(""), 2000);
     } catch (err) {
       console.error("[v0] Save receipt error:", err);
+      console.error("[v0] Error stack:", (err as Error).stack);
       setToast("Error saving receipt");
       setTimeout(() => setToast(""), 2000);
     }
