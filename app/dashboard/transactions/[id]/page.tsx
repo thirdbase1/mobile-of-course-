@@ -29,6 +29,7 @@ export default function TransactionDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [downloadFeedback, setDownloadFeedback] = useState<string>("");
   const router = useRouter();
   const params = useParams();
   const supabase = createClient();
@@ -130,40 +131,66 @@ export default function TransactionDetailPage() {
 
   const handleDownloadImage = async () => {
     try {
+      setDownloadFeedback("Preparing image...");
       const html2canvas = (await import('html2canvas')).default;
-      if (receiptRef.current) {
-        const canvas = await html2canvas(receiptRef.current, {
-          backgroundColor: '#ffffff',
-          scale: 2,
-          useCORS: true,
-          allowTaint: true,
-          logging: false,
-        });
-        const link = document.createElement('a');
-        link.href = canvas.toDataURL('image/png');
-        link.download = `Mozosubz-Receipt-${transaction.transaction_id || transaction.id}.png`;
-        link.click();
+      
+      if (!receiptRef.current) {
+        setDownloadFeedback("Error: Receipt not found");
+        setTimeout(() => setDownloadFeedback(""), 3000);
+        return;
       }
+      
+      const canvas = await html2canvas(receiptRef.current, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+      });
+      
+      const link = document.createElement('a');
+      link.href = canvas.toDataURL('image/png');
+      link.download = `Mozosubz-Receipt-${transaction?.transaction_id || transaction?.id}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      setDownloadFeedback("Image downloaded successfully ✓");
+      setTimeout(() => setDownloadFeedback(""), 3000);
     } catch (err) {
-      console.error('Download failed:', err);
+      console.error('Download image failed:', err);
+      setDownloadFeedback("Error downloading image");
+      setTimeout(() => setDownloadFeedback(""), 3000);
     }
   };
 
   const handleDownloadPDF = async () => {
     try {
+      setDownloadFeedback("Creating PDF...");
       const html2pdf = (await import('html2pdf.js')).default;
-      if (receiptRef.current) {
-        const options = {
-          margin: 10,
-          filename: `Mozosubz-Receipt-${transaction.transaction_id || transaction.id}.pdf`,
-          image: { type: 'png', quality: 0.98 },
-          html2canvas: { scale: 2 },
-          jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
-        };
-        html2pdf().set(options).from(receiptRef.current).save();
+      
+      if (!receiptRef.current) {
+        setDownloadFeedback("Error: Receipt not found");
+        setTimeout(() => setDownloadFeedback(""), 3000);
+        return;
       }
+      
+      const options = {
+        margin: 10,
+        filename: `Mozosubz-Receipt-${transaction?.transaction_id || transaction?.id}.pdf`,
+        image: { type: 'png', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
+      };
+      
+      await html2pdf().set(options).from(receiptRef.current).save();
+      
+      setDownloadFeedback("PDF downloaded successfully ✓");
+      setTimeout(() => setDownloadFeedback(""), 3000);
     } catch (err) {
       console.error('PDF download failed:', err);
+      setDownloadFeedback("Error downloading PDF");
+      setTimeout(() => setDownloadFeedback(""), 3000);
     }
   };
 
@@ -195,6 +222,9 @@ export default function TransactionDetailPage() {
               >
                 <Share2 className="w-4 h-4" />
               </button>
+              {downloadFeedback && (
+                <span className="text-xs text-muted-foreground ml-2">{downloadFeedback}</span>
+              )}
             </div>
           </div>
         </div>
@@ -404,6 +434,12 @@ export default function TransactionDetailPage() {
                         <span className="text-muted-foreground font-medium">Service Type</span>
                         <span className="font-semibold text-foreground">{transaction.service_type || 'Data'}</span>
                       </div>
+                      {transaction.service_variant && (
+                        <div className="flex items-center justify-between p-2 px-3 text-xs">
+                          <span className="text-muted-foreground font-medium">Variant</span>
+                          <span className="font-semibold text-foreground">{transaction.service_variant}</span>
+                        </div>
+                      )}
                       <div className="flex items-center justify-between p-2 px-3 text-xs">
                         <span className="text-muted-foreground font-medium">Network</span>
                         <span className="font-semibold text-foreground">{networkName}</span>
