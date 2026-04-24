@@ -1,0 +1,21 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /api
+Disallow: /dashboard/*
+Allow: /dashboard/transactions
+
+Sitemap: https://mozosubz.xyz/sitemap.xml
+
+# Crawl delay for bots
+Crawl-delay: 0
+
+# Google specific
+User-agent: Googlebot
+Allow: /
+Crawl-delay: 0
+
+# Bing specific
+User-agent: Bingbot
+Allow: /
+Crawl-delay: 1

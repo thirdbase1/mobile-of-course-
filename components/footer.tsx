@@ -64,7 +64,7 @@ export function Footer() {
               <a
                 href="https://x.com/Mozosubz"
                 target="_blank"
-                rel="noopener noreferrer"
+                rel="noopener noreferrer nofollow"
                 aria-label="Follow Mozosubz on X"
                 className="w-9 h-9 rounded-lg bg-slate-900 hover:bg-blue-600 text-slate-300 hover:text-white flex items-center justify-center transition"
               >
@@ -73,7 +73,7 @@ export function Footer() {
               <a
                 href="https://instagram.com/Mozosubz"
                 target="_blank"
-                rel="noopener noreferrer"
+                rel="noopener noreferrer nofollow"
                 aria-label="Follow Mozosubz on Instagram"
                 className="w-9 h-9 rounded-lg bg-slate-900 hover:bg-blue-600 text-slate-300 hover:text-white flex items-center justify-center transition"
               >
@@ -82,7 +82,7 @@ export function Footer() {
               <a
                 href="https://wa.me/message/Mozosubz"
                 target="_blank"
-                rel="noopener noreferrer"
+                rel="noopener noreferrer nofollow"
                 aria-label="Chat with Mozosubz on WhatsApp"
                 className="w-9 h-9 rounded-lg bg-slate-900 hover:bg-blue-600 text-slate-300 hover:text-white flex items-center justify-center transition"
               >

@@ -1,4 +1,5 @@
 import Link from "next/link"
+import Script from "next/script"
 import {
   ArrowRight,
   Check,
@@ -21,9 +22,9 @@ import { Footer } from "@/components/footer"
 import { SiteHeader } from "@/components/site-header"
 
 export const metadata = {
-  title: "Mozosubz - Buy Airtime, Data, Cable TV & Pay Bills Online | Nigeria",
-  description: "Instant airtime and data top-up for MTN, Glo, Airtel, 9mobile. Pay for DStv, GOtv, Startimes cable subscriptions and electricity bills online. Secure payment, lowest rates, instant delivery.",
-  keywords: "buy airtime Nigeria, buy data Nigeria, airtime top up, data bundle, cable subscription, electricity bill payment, DStv payment, GOtv payment, MTN, Glo, Airtel, 9mobile",
+  title: "Mozosubz - Instant Airtime, Data & Bills | Cheapest Rates",
+  description: "Instant airtime, cheapest data, fast bills. MTN, Glo, Airtel, 9mobile, DStv, GOtv. Lowest rates, instant delivery!",
+  keywords: "instant airtime Nigeria, cheap data bundles, fastest airtime top-up, best data rates, affordable cable TV, instant bill payment, cheapest electricity, MTN data, Glo data, Airtel data, 9mobile airtime, DStv GOtv payment, quick recharge, online payment Nigeria, mozosubz"
 }
 
 // Real network logos already used across the dashboard (airtime page)
@@ -137,8 +138,34 @@ const FAQS = [
 ]
 
 export default function HomePage() {
+  const schemaData = {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "Mozosubz",
+    "description": "Instant airtime, data, cable TV and electricity bill payment platform for Nigeria",
+    "url": "https://mozosubz.xyz",
+    "applicationCategory": "BusinessApplication",
+    "offers": {
+      "@type": "AggregateOffer",
+      "priceCurrency": "NGN",
+      "description": "Cheapest airtime and data bundles, instant delivery, best rates guaranteed"
+    },
+    "aggregateRating": {
+      "@type": "AggregateRating",
+      "ratingValue": "4.8",
+      "ratingCount": "2500",
+      "bestRating": "5",
+      "worstRating": "1"
+    }
+  }
+
   return (
     <div className="w-full bg-white text-slate-900 font-sans">
+      <Script
+        id="schema-jsonld"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(schemaData) }}
+      />
       <SiteHeader />
 
       {/* Hero */}

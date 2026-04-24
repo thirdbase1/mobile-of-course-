@@ -20,9 +20,9 @@ const spaceGrotesk = Space_Grotesk({
 })
 
 export const metadata: Metadata = {
-  title: "Mozosubz - Buy Airtime, Data, Cable & Electricity Online | Fast & Secure Payment",
-  description: "Buy MTN, Glo, Airtel & 9mobile airtime and data instantly. Pay for DStv, GOtv cable TV, electricity bills - all in one secure wallet. Lowest rates guaranteed!",
-  keywords: "buy airtime online, buy data online, airtime subscription, data bundle, cable tv subscription, electricity payment, DStv, GOtv, MTN, Glo, Airtel, 9mobile, phone credit, internet data, online billing, top up airtime, mozosubz",
+  title: "Mozosubz - Instant Airtime, Data & Bills | Cheapest Rates",
+  description: "Buy airtime, data, cable TV & pay bills instantly. Cheapest rates on MTN, Glo, Airtel, 9mobile. Fastest payment, best deals guaranteed!",
+  keywords: "instant airtime, cheap data, fastest data top-up, cheapest airtime, best data deals, instant bill payment, affordable cable TV, instant electricity payment, MTN data, Glo data, Airtel data, 9mobile airtime, DStv payment, GOtv, quick recharge, online top-up, Nigeria airtime, internet data bundle, mozosubz",
   generator: "v0.app",
   manifest: "/manifest.json",
   icons: {
@@ -37,12 +37,27 @@ export const metadata: Metadata = {
   formatDetection: {
     telephone: false,
   },
+  robots: "index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1",
   openGraph: {
-    title: "Mozosubz - Buy Airtime, Data, Cable & Electricity",
-    description: "Instant airtime, data, cable TV, and electricity payments. Fast, secure, and lowest rates. Pay for MTN, Glo, Airtel, 9mobile, DStv, GOtv and more.",
+    title: "Mozosubz - Instant Airtime & Data | Best Rates",
+    description: "Instant airtime, cheapest data, fast bill payments. MTN, Glo, Airtel, 9mobile, DStv, GOtv. Lowest rates, instant delivery!",
     url: "https://mozosubz.xyz",
     siteName: "Mozosubz",
     type: "website",
+    images: [
+      {
+        url: "https://mozosubz.xyz/mozosubz-logo.png",
+        width: 1200,
+        height: 630,
+        alt: "Mozosubz - Instant Airtime and Data Top-up Service",
+      }
+    ]
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Mozosubz - Instant Airtime & Data",
+    description: "Buy instant airtime, cheapest data, pay bills fast!",
+    creator: "@Mozosubz",
   },
   metadataBase: new URL("https://mozosubz.xyz"),
   alternates: {
