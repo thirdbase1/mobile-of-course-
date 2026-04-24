@@ -27,6 +27,8 @@ export default function TransactionDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [shareImageData, setShareImageData] = useState<string | null>(null);
+  const [showShareMenu, setShowShareMenu] = useState(false);
   const router = useRouter();
   const params = useParams();
   const supabase = createClient();
@@ -144,6 +146,7 @@ export default function TransactionDetailPage() {
           
           const fileName = `Mozosubz-Receipt-${transaction.transaction_id || transaction.id}.png`;
           const file = new File([blob], fileName, { type: 'image/png' });
+          const url = canvas.toDataURL('image/png');
           
           // Try native share if available and supports files
           if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -159,19 +162,52 @@ export default function TransactionDetailPage() {
             }
           }
           
-          // Fallback: Download the image
-          const url = canvas.toDataURL('image/png');
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = fileName;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
+          // Fallback: Show share menu with options
+          setShareImageData(url);
+          setShowShareMenu(true);
         });
       }
     } catch (err) {
       console.error('Share failed:', err);
     }
+  };
+
+  const handleShareToWhatsApp = () => {
+    if (shareImageData) {
+      // For web, we can't directly send images, so we'll copy and suggest
+      const text = `Check my Mozosubz receipt\nAmount: ₦${Number(transaction.amount || 0).toLocaleString()}\nStatus: ${transaction.status?.toUpperCase()}\nTransaction ID: ${transaction.transaction_id || transaction.id}`;
+      const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
+      window.open(whatsappUrl, '_blank');
+      setShowShareMenu(false);
+    }
+  };
+
+  const handleShareToTelegram = () => {
+    if (shareImageData) {
+      const text = `Check my Mozosubz receipt\nAmount: ₦${Number(transaction.amount || 0).toLocaleString()}\nStatus: ${transaction.status?.toUpperCase()}\nTransaction ID: ${transaction.transaction_id || transaction.id}`;
+      const telegramUrl = `https://t.me/share/url?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent(text)}`;
+      window.open(telegramUrl, '_blank');
+      setShowShareMenu(false);
+    }
+  };
+
+  const handleDownloadReceipt = () => {
+    if (shareImageData) {
+      const link = document.createElement('a');
+      link.href = shareImageData;
+      link.download = `Mozosubz-Receipt-${transaction.transaction_id || transaction.id}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setShowShareMenu(false);
+    }
+  };
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(window.location.href);
+    setCopied(true);
+    setShowShareMenu(false);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const handleExportPDF = async () => {
@@ -252,6 +288,55 @@ export default function TransactionDetailPage() {
             </div>
           </div>
         </div>
+
+        {/* Share Menu */}
+        {showShareMenu && (
+          <div className="fixed inset-0 z-50 bg-black/50 flex items-end">
+            <div className="w-full bg-background rounded-t-2xl border-t border-border p-4 space-y-2 max-h-96 overflow-y-auto">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-foreground">Share Receipt</h3>
+                <button 
+                  onClick={() => setShowShareMenu(false)}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  ✕
+                </button>
+              </div>
+              
+              <button 
+                onClick={handleShareToWhatsApp}
+                className="w-full flex items-center gap-3 p-4 bg-muted rounded-lg hover:bg-muted/80 transition-colors text-foreground"
+              >
+                <span className="text-2xl">💬</span>
+                <span className="text-sm font-medium">Share to WhatsApp</span>
+              </button>
+
+              <button 
+                onClick={handleShareToTelegram}
+                className="w-full flex items-center gap-3 p-4 bg-muted rounded-lg hover:bg-muted/80 transition-colors text-foreground"
+              >
+                <span className="text-2xl">✈️</span>
+                <span className="text-sm font-medium">Share to Telegram</span>
+              </button>
+
+              <button 
+                onClick={handleDownloadReceipt}
+                className="w-full flex items-center gap-3 p-4 bg-muted rounded-lg hover:bg-muted/80 transition-colors text-foreground"
+              >
+                <Download className="w-5 h-5" />
+                <span className="text-sm font-medium">Download Image</span>
+              </button>
+
+              <button 
+                onClick={handleCopyLink}
+                className="w-full flex items-center gap-3 p-4 bg-muted rounded-lg hover:bg-muted/80 transition-colors text-foreground"
+              >
+                <Copy className="w-5 h-5" />
+                <span className="text-sm font-medium">{copied ? 'Link Copied!' : 'Copy Receipt Link'}</span>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Content */}
         <div className="flex-1 overflow-auto px-4 md:px-6 lg:px-8 py-6" ref={receiptRef}>
