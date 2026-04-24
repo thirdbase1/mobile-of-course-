@@ -21,6 +21,7 @@ export interface SaveTransactionPayload {
   status: TransactionStatus
   apiResponse?: Record<string, any>
   planDetails?: string
+  serviceType?: string
 }
 
 /**
@@ -38,6 +39,7 @@ export async function saveTransaction(payload: SaveTransactionPayload) {
       category: payload.category,
       service_id: payload.serviceId,
       service_name: payload.serviceName,
+      service_type: payload.serviceType || null,
       amount: payload.amount,
       phone: payload.phone || "",
       status: payload.status,

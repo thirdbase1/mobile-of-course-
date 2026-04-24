@@ -47,14 +47,16 @@ export async function purchaseData(formData: FormData) {
       return { success: false, message: "Insufficient wallet balance" }
     }
 
-    // Map network name
+    // Map network name - extract network from serviceID (e.g., "glo_sme" -> "glo")
     const networkNameMap: Record<string, string> = {
       mtn: "MTN",
       glo: "Glo",
       airtel: "Airtel",
       etisalat: "9mobile",
     }
-    const networkName = networkNameMap[serviceID.toLowerCase()] || "Data"
+    const networkKey = serviceID.split('_')[0].toLowerCase() // Extract first part before underscore
+    const networkName = networkNameMap[networkKey] || "Data"
+    const serviceType = serviceID.split('_').slice(1).join('_') || "data" // Extract service type (e.g., "sme", "gifting")
 
     // Determine success
     const isSuccess =
@@ -75,6 +77,7 @@ export async function purchaseData(formData: FormData) {
         category: "DATA",
         serviceId: serviceID,
         serviceName: `${networkName} Data`,
+        serviceType: serviceType.toUpperCase().replace('_', ' '),
         amount: userAmount,
         phone,
         status: "SUCCESS",
@@ -113,6 +116,7 @@ export async function purchaseData(formData: FormData) {
       category: "DATA",
       serviceId: serviceID,
       serviceName: `${networkName} Data`,
+      serviceType: serviceType.toUpperCase().replace('_', ' '),
       amount: userAmount,
       phone,
       status: "FAILED",
