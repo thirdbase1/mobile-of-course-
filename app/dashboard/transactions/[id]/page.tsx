@@ -1,6 +1,6 @@
 'use client';
 
-import { Copy, ArrowLeft, Download, Share2 } from 'lucide-react';
+import { Copy, ArrowLeft } from 'lucide-react';
 import { useRouter, useParams } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
@@ -129,57 +129,9 @@ export default function TransactionDetailPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleSaveReceipt = async () => {
-    try {
-      console.log("[v0] handleSaveReceipt called");
-      
-      if (!receiptRef.current) {
-        console.log("[v0] Receipt ref not found");
-        setToast("Receipt not found");
-        setTimeout(() => setToast(""), 2000);
-        return;
-      }
-
-      console.log("[v0] Receipt ref exists, importing html2canvas");
-      const html2canvas = (await import('html2canvas')).default;
-      console.log("[v0] html2canvas imported successfully", typeof html2canvas);
-      
-      console.log("[v0] Starting canvas creation...");
-      const canvas = await html2canvas(receiptRef.current, {
-        backgroundColor: '#ffffff',
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
-      });
-      console.log("[v0] Canvas created, size:", canvas.width, "x", canvas.height);
-      
-      const dataUrl = canvas.toDataURL('image/png');
-      console.log("[v0] Image data URL created, length:", dataUrl.length);
-      
-      const fileName = `Mozosubz-Receipt-${transaction?.transaction_id || transaction?.id}.png`;
-      console.log("[v0] Creating download link with filename:", fileName);
-      
-      const link = document.createElement('a');
-      link.href = dataUrl;
-      link.download = fileName;
-      document.body.appendChild(link);
-      console.log("[v0] Link element appended to body");
-      
-      link.click();
-      console.log("[v0] Link clicked");
-      
-      document.body.removeChild(link);
-      console.log("[v0] Link removed from body");
-      
-      setToast("Receipt saved successfully");
-      setTimeout(() => setToast(""), 2000);
-    } catch (err) {
-      console.error("[v0] Save receipt error:", err);
-      console.error("[v0] Error stack:", (err as Error).stack);
-      setToast("Error saving receipt");
-      setTimeout(() => setToast(""), 2000);
-    }
+  const handleSaveReceipt = () => {
+    console.log("[v0] handleSaveReceipt called - opening print dialog");
+    window.print();
   };
 
   return (
@@ -192,7 +144,7 @@ export default function TransactionDetailPage() {
       )}
       
       <div className="w-full flex flex-col min-h-screen max-w-4xl md:mx-auto">
-        {/* Top Bar */}
+        {/* Top Bar - Sticky */}
         <div className="sticky top-0 z-50 bg-background border-b border-muted-foreground/10">
           <div className="flex items-center justify-between p-4 px-4 md:px-6 lg:px-8">
             <button 
@@ -204,17 +156,26 @@ export default function TransactionDetailPage() {
             </button>
             <button 
               onClick={handleSaveReceipt}
-              className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors font-medium text-sm"
-              title="Save receipt as image"
+              className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors font-medium text-sm"
+              title="Save receipt as PDF"
             >
-              <Download className="w-4 h-4" />
               Save Receipt
             </button>
           </div>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-auto px-4 md:px-6 lg:px-8 py-6" ref={receiptRef}>
+        {/* Service Type Selector - Sticky */}
+        <div className="sticky top-[65px] z-40 bg-background border-b border-muted-foreground/10 px-4 md:px-6 lg:px-8 py-3">
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            {isAirtime && <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium whitespace-nowrap">Airtime</span>}
+            {isData && <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium whitespace-nowrap">Data</span>}
+            {isCable && <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium whitespace-nowrap">Cable TV</span>}
+            {isElectricity && <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium whitespace-nowrap">Electricity</span>}
+          </div>
+        </div>
+
+        {/* Content - Scrollable */}
+        <div className="flex-1 overflow-y-auto px-4 md:px-6 lg:px-8 py-6" ref={receiptRef}>
           {/* FAILED RECEIPT */}
           {isFailed && (
             <div className="space-y-4">
