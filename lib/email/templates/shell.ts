@@ -89,12 +89,15 @@ export function formatNaira(n: number): string {
 
 export function formatDateTime(d: Date | string = new Date()): string {
   const date = typeof d === "string" ? new Date(d) : d
-  return date.toLocaleString("en-NG", {
+  // Use UTC time and format for Nigeria timezone (UTC+1)
+  const formatter = new Intl.DateTimeFormat("en-NG", {
     day: "2-digit",
     month: "short",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
     hour12: true,
+    timeZone: "Africa/Lagos",
   })
+  return formatter.format(date)
 }

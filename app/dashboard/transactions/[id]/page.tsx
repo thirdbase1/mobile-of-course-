@@ -29,7 +29,6 @@ export default function TransactionDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [toast, setToast] = useState<string>("");
   const router = useRouter();
   const params = useParams();
   const supabase = createClient();
@@ -129,60 +128,9 @@ export default function TransactionDetailPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleSaveReceipt = () => {
-    window.print();
-  };
-
   return (
     <div className="min-h-screen bg-background">
-      {/* Toast Notification */}
-      {toast && (
-        <div className="fixed bottom-4 right-4 z-40 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg text-sm">
-          {toast}
-        </div>
-      )}
-      
       <div className="w-full flex flex-col min-h-screen max-w-4xl md:mx-auto">
-        <style>{`
-          @media print {
-            body {
-              background: white;
-              margin: 0;
-              padding: 0;
-            }
-            /* Hide everything by default */
-            body > * {
-              display: none !important;
-            }
-            /* Show only the receipt div */
-            .print-only-receipt {
-              display: block !important;
-              margin: 0 !important;
-              padding: 20px !important;
-              width: 100% !important;
-              background: white !important;
-              position: static !important;
-            }
-            /* Make all children of receipt visible */
-            .print-only-receipt,
-            .print-only-receipt * {
-              display: block !important;
-              margin: auto !important;
-              padding: inherit !important;
-              background: transparent !important;
-              page-break-inside: avoid !important;
-            }
-            /* Hide the navbar and header when printing */
-            .sticky,
-            [class*="navbar"],
-            [class*="header"],
-            [class*="footer"],
-            button,
-            nav {
-              display: none !important;
-            }
-          }
-        `}</style>
         {/* Top Bar - Sticky */}
         <div className="sticky top-0 z-50 bg-background border-b border-muted-foreground/10">
           <div className="flex items-center justify-between p-4 px-4 md:px-6 lg:px-8">
@@ -193,18 +141,11 @@ export default function TransactionDetailPage() {
               <ArrowLeft className="w-4 h-4" />
               <span>Receipt</span>
             </button>
-            <button 
-              onClick={handleSaveReceipt}
-              className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors font-medium text-sm"
-              title="Save receipt as PDF"
-            >
-              Save Receipt
-            </button>
           </div>
         </div>
 
         {/* Content - Scrollable */}
-        <div className="print-only-receipt flex-1 overflow-y-auto px-4 md:px-6 lg:px-8 py-6" ref={receiptRef}>
+        <div className="flex-1 overflow-y-auto px-4 md:px-6 lg:px-8 py-6" ref={receiptRef}>
           {/* FAILED RECEIPT */}
           {isFailed && (
             <div className="space-y-4">
