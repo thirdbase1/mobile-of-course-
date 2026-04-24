@@ -130,18 +130,7 @@ export default function TransactionDetailPage() {
   };
 
   const handleSaveReceipt = () => {
-    console.log("[v0] handleSaveReceipt called - opening print dialog");
-    // Hide header and button, show only receipt content
-    const header = document.querySelector('[class*="sticky"]');
-    const currentDisplay = header?.style.display;
-    if (header) header.style.display = 'none';
-    
     window.print();
-    
-    // Restore header after print dialog closes
-    setTimeout(() => {
-      if (header) header.style.display = currentDisplay || '';
-    }, 500);
   };
 
   return (
@@ -156,12 +145,24 @@ export default function TransactionDetailPage() {
       <div className="w-full flex flex-col min-h-screen max-w-4xl md:mx-auto">
         <style>{`
           @media print {
-            body * {
-              display: none;
+            body, html {
+              margin: 0;
+              padding: 0;
+              width: 100%;
+              height: 100%;
             }
-            [ref="receiptRef"],
-            [ref="receiptRef"] * {
+            .print-only-receipt {
               display: block !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              width: 100% !important;
+              height: auto !important;
+            }
+            .print-only-receipt * {
+              display: inherit !important;
+            }
+            * {
+              display: none !important;
             }
           }
         `}</style>
@@ -186,7 +187,7 @@ export default function TransactionDetailPage() {
         </div>
 
         {/* Content - Scrollable */}
-        <div className="flex-1 overflow-y-auto px-4 md:px-6 lg:px-8 py-6" ref={receiptRef}>
+        <div className="print-only-receipt flex-1 overflow-y-auto px-4 md:px-6 lg:px-8 py-6" ref={receiptRef}>
           {/* FAILED RECEIPT */}
           {isFailed && (
             <div className="space-y-4">
