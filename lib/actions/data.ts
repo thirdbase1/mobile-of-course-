@@ -12,7 +12,11 @@ export async function purchaseData(formData: FormData) {
   const clientAmount = formData.get("amount") as string
   const planDisplayName = formData.get("planDisplayName") as string
 
+  const startTime = Date.now()
+  console.log("[v0] purchaseData START")
+
   try {
+    console.log(`[v0] [${Date.now() - startTime}ms] Initializing Supabase`)
     const supabase = await createClient()
     const {
       data: { user },
@@ -22,6 +26,7 @@ export async function purchaseData(formData: FormData) {
       return { success: false, message: "You must be logged in to make a purchase" }
     }
 
+    console.log(`[v0] [${Date.now() - startTime}ms] Fetching user profile`)
     const { data: profile } = await supabase.from("profiles").select("wallet_balance").eq("id", user.id).single()
 
     if (!profile) {
@@ -31,12 +36,16 @@ export async function purchaseData(formData: FormData) {
     const requestID = "TXN" + Date.now()
 
     // Call GSUBZ API
+    console.log(`[v0] [${Date.now() - startTime}ms] Calling Gsubz API`)
+    const gsubzStartTime = Date.now()
     const response = await buyData({
       serviceID,
       plan,
       phone,
       requestID,
     })
+    const gsubzTime = Date.now() - gsubzStartTime
+    console.log(`[v0] [${Date.now() - startTime}ms] Gsubz API responded (took ${gsubzTime}ms)`)
 
     // Use the client-provided amount (which includes markup) instead of API response amount
     const userAmount = clientAmount ? Number(clientAmount) : (response.amount ? Number(response.amount) : 0)
@@ -70,6 +79,8 @@ export async function purchaseData(formData: FormData) {
       const transactionId = String(response.transactionID || requestID)
       const balanceAfter = balanceBefore - userAmount
 
+      console.log(`[v0] [${Date.now() - startTime}ms] Transaction successful, saving to DB`)
+      const saveStartTime = Date.now()
       // Save transaction
       await saveTransaction({
         userId: user.id,
@@ -88,10 +99,17 @@ export async function purchaseData(formData: FormData) {
         apiResponse: response,
         planDetails: planDisplayName,
       })
+      const saveTime = Date.now() - saveStartTime
+      console.log(`[v0] [${Date.now() - startTime}ms] Database save completed (took ${saveTime}ms)`)
 
       // Update wallet
+      console.log(`[v0] [${Date.now() - startTime}ms] Updating wallet balance`)
+      const walletStartTime = Date.now()
       await updateWalletBalance(user.id, balanceAfter)
+      const walletTime = Date.now() - walletStartTime
+      console.log(`[v0] [${Date.now() - startTime}ms] Wallet updated (took ${walletTime}ms)`)
 
+      console.log(`[v0] purchaseData COMPLETE (total: ${Date.now() - startTime}ms, Gsubz: ${gsubzTime}ms, DB: ${saveTime}ms, Wallet: ${walletTime}ms)`)
       return {
         success: true,
         message: "Data purchase successful",

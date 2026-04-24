@@ -10,7 +10,11 @@ export async function purchaseAirtime(formData: FormData) {
   const phone = formData.get("phone") as string
   const amount = formData.get("amount") as string
 
+  const startTime = Date.now()
+  console.log("[v0] purchaseAirtime START")
+
   try {
+    console.log(`[v0] [${Date.now() - startTime}ms] Initializing Supabase`)
     const supabase = await createClient()
     const {
       data: { user },
@@ -20,6 +24,7 @@ export async function purchaseAirtime(formData: FormData) {
       return { success: false, message: "You must be logged in to make a purchase" }
     }
 
+    console.log(`[v0] [${Date.now() - startTime}ms] Fetching user profile`)
     const { data: profile } = await supabase.from("profiles").select("wallet_balance").eq("id", user.id).single()
 
     if (!profile) {
@@ -46,12 +51,16 @@ export async function purchaseAirtime(formData: FormData) {
     const requestID = `TXN${Date.now()}${Math.floor(Math.random() * 1000)}`
 
     // Call GSUBZ API
+    console.log(`[v0] [${Date.now() - startTime}ms] Calling Gsubz API`)
+    const gsubzStartTime = Date.now()
     const response = await buyAirtime({
       serviceID,
-      amount: String(userAmount),
       phone,
+      amount: String(userAmount),
       requestID,
     })
+    const gsubzTime = Date.now() - gsubzStartTime
+    console.log(`[v0] [${Date.now() - startTime}ms] Gsubz API responded (took ${gsubzTime}ms)`)
 
     // Determine success
     const isSuccess =
@@ -65,6 +74,8 @@ export async function purchaseAirtime(formData: FormData) {
       const transactionId = String(response.transactionID || requestID)
       const balanceAfter = balanceBefore - userAmount
 
+      console.log(`[v0] [${Date.now() - startTime}ms] Transaction successful, saving to DB`)
+      const saveStartTime = Date.now()
       // Save transaction
       await saveTransaction({
         userId: user.id,
@@ -80,10 +91,17 @@ export async function purchaseAirtime(formData: FormData) {
         balanceAfter,
         apiResponse: response,
       })
+      const saveTime = Date.now() - saveStartTime
+      console.log(`[v0] [${Date.now() - startTime}ms] Database save completed (took ${saveTime}ms)`)
 
       // Update wallet
+      console.log(`[v0] [${Date.now() - startTime}ms] Updating wallet balance`)
+      const walletStartTime = Date.now()
       await updateWalletBalance(user.id, balanceAfter)
+      const walletTime = Date.now() - walletStartTime
+      console.log(`[v0] [${Date.now() - startTime}ms] Wallet updated (took ${walletTime}ms)`)
 
+      console.log(`[v0] purchaseAirtime COMPLETE (total: ${Date.now() - startTime}ms, Gsubz: ${gsubzTime}ms, DB: ${saveTime}ms, Wallet: ${walletTime}ms)`)
       return {
         success: true,
         message: "Airtime purchase successful",
