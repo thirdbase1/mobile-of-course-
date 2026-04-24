@@ -26,7 +26,7 @@ export async function generateBVN(userId: string) {
     const remainingDigits = Array.from({ length: 10 }, () => Math.floor(Math.random() * 10)).join('')
     const bvn = `${firstDigit}${remainingDigits}`
 
-    console.log('[BVN] Generated BVN:', bvn, 'for user:', userId)
+    console.log('[BVN] BVN generated for user')
 
     // Save BVN to profile
     const { error: updateError } = await supabase

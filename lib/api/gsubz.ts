@@ -59,11 +59,11 @@ async function makeApiRequest(endpoint: string, method: "GET" | "POST" = "POST",
     options.body = body
   }
 
-  console.log(`[v0] API Request: ${API_BASE_URL}${endpoint}`)
+  console.log(`[v0] Gsubz API Request initiated`)
   const response = await fetch(`${API_BASE_URL}${endpoint}`, options)
   const data = await response.json()
 
-  console.log(`[v0] API Response:`, JSON.stringify(data, null, 2))
+  console.log(`[v0] Gsubz API Response received`)
 
   return data
 }
@@ -71,7 +71,7 @@ async function makeApiRequest(endpoint: string, method: "GET" | "POST" = "POST",
 // Uncached function to fetch data plans from API
 async function _fetchDataPlansFromAPI(serviceId: string): Promise<PlanResponse> {
   try {
-    console.log("[v0] _fetchDataPlansFromAPI: Fetching plans for:", serviceId)
+    console.log("[v0] Fetching data plans...")
 
     const response = await fetch(`${API_PLANS_URL}/api/plans?service=${serviceId}`, {
       redirect: "follow",
@@ -79,20 +79,17 @@ async function _fetchDataPlansFromAPI(serviceId: string): Promise<PlanResponse> 
       agent: API_PLANS_URL.startsWith("https") ? httpsAgent : httpAgent,
     })
 
-    console.log("[v0] Response status:", response.status)
+    console.log("[v0] Data plans fetch completed")
 
     if (!response.ok) {
-      console.error("[v0] Error fetching plans:", `API returned status ${response.status}`)
+      console.error("[v0] Error fetching plans - HTTP error")
       throw new Error(`API returned status ${response.status}`)
     }
 
     const data = await response.json()
-    console.log("[v0] _fetchDataPlansFromAPI: Raw response:", JSON.stringify(data, null, 2))
-    console.log("[v0] _fetchDataPlansFromAPI: Plans count:", data.plans?.length)
-    console.log("[v0] _fetchDataPlansFromAPI: Entire response keys:", Object.keys(data))
     
     if (!data.plans) {
-      console.warn("[v0] WARNING: No plans array in response for", serviceId)
+      console.warn("[v0] WARNING: No plans in response")
     }
     
     return data
@@ -115,7 +112,7 @@ export async function getDataPlans(serviceId: string): Promise<PlanResponse> {
 // Uncached function to fetch cable plans from API
 async function _fetchCablePlansFromAPI(service: string): Promise<PlanResponse> {
   try {
-    console.log("[v0] _fetchCablePlansFromAPI: Fetching cable plans for:", service)
+    console.log("[v0] Fetching cable plans...")
 
     const response = await fetch(`${API_PLANS_URL}/api/plans?service=${service}`, {
       redirect: "follow",
@@ -123,17 +120,14 @@ async function _fetchCablePlansFromAPI(service: string): Promise<PlanResponse> {
       agent: API_PLANS_URL.startsWith("https") ? httpsAgent : httpAgent,
     })
 
-    console.log("[v0] Cable Response status:", response.status)
+    console.log("[v0] Cable plans fetch completed")
 
     if (!response.ok) {
-      console.error("[v0] Error fetching cable plans:", `API returned status ${response.status}`)
+      console.error("[v0] Error fetching cable plans - HTTP error")
       throw new Error(`API returned status ${response.status}`)
     }
 
     const data = await response.json()
-    console.log("[v0] _fetchCablePlansFromAPI: Raw response:", JSON.stringify(data, null, 2))
-    console.log("[v0] _fetchCablePlansFromAPI: Response keys:", Object.keys(data))
-    console.log("[v0] _fetchCablePlansFromAPI: list count:", data.list?.length)
 
     // Transform the response to match expected format
     if (data.list && Array.isArray(data.list)) {
@@ -147,11 +141,9 @@ async function _fetchCablePlansFromAPI(service: string): Promise<PlanResponse> {
           price: item.price || "0",
         })),
       }
-      console.log("[v0] _fetchCablePlansFromAPI: Transformed to plans count:", transformed.plans.length)
       return transformed
     }
 
-    console.log("[v0] _fetchCablePlansFromAPI: No list found, returning data as-is")
     return data
   } catch (error) {
     console.error("[v0] Error fetching cable plans:", error)
@@ -224,13 +216,7 @@ export async function buyCableSubscription(data: {
     formData.append("requestID", data.requestID)
   }
 
-  console.log("[v0] Cable subscription request data:", {
-    serviceID: data.serviceID,
-    plan: data.plan,
-    phone: data.phone,
-    customerID: data.customerID,
-    requestID: data.requestID,
-  })
+  console.log("[v0] Cable subscription request initiated")
 
   return makeApiRequest("/api/pay/", "POST", formData)
 }
@@ -269,7 +255,7 @@ export async function verifyTransaction(requestID: string): Promise<ApiResponse>
   formData.append("api", API_KEY)
   formData.append("requestID", requestID)
 
-  console.log("[v0] Verifying transaction:", requestID)
+  console.log("[v0] Transaction verification initiated")
   return makeApiRequest("/api/verify/", "POST", formData)
 }
 
