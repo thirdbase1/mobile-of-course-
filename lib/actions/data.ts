@@ -4,6 +4,8 @@ import { buyData, getDataPlans } from "@/lib/api/gsubz"
 import { createClient } from "@/lib/supabase/server"
 import { saveTransaction, updateWalletBalance } from "@/lib/utils/save-transaction"
 import { sendTransactionEmail } from "@/lib/email/send-transaction-email"
+import { validateGsubzDataRequest, validateGsubzRateLimit } from "@/lib/utils/gsubz-security"
+import { isValidAmount, isValidPhone } from "@/lib/utils/input-validation"
 
 export async function purchaseData(formData: FormData) {
   const serviceID = formData.get("serviceID") as string
@@ -16,6 +18,17 @@ export async function purchaseData(formData: FormData) {
   console.log("[v0] purchaseData START")
 
   try {
+    // SECURITY: Validate all inputs before processing
+    const amount = parseFloat(clientAmount)
+    
+    if (!isValidAmount(amount) || amount <= 0) {
+      return { success: false, message: "Invalid amount" }
+    }
+
+    if (!isValidPhone(phone)) {
+      return { success: false, message: "Invalid phone number" }
+    }
+
     console.log(`[v0] [${Date.now() - startTime}ms] Initializing Supabase`)
     const supabase = await createClient()
     const {

@@ -11,7 +11,7 @@ export async function POST(request: Request) {
   try {
     // SECURITY: Rate limit admin actions
     const rateLimitKey = getRateLimitIdentifier(request)
-    const { allowed, remaining } = checkRateLimit(rateLimitKey, RATE_LIMIT_CONFIG.ADMIN_ACTION)
+    const { allowed, remaining } = await checkRateLimit(rateLimitKey, RATE_LIMIT_CONFIG.ADMIN_ACTION)
 
     if (!allowed) {
       await logAPIRequest({
