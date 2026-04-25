@@ -1,29 +1,34 @@
 export async function POST() {
-  const API_KEY = process.env.MONNIFY_API_KEY || ''
-  const SECRET_KEY = process.env.MONNIFY_SECRET_KEY || ''
-  
-  // Per Monnify docs: Auth endpoint is production, API calls use sandbox
-  const MONNIFY_AUTH_URL = 'https://api.monnify.com/api/v1/auth/login'
+  // SECURITY: This debug endpoint is disabled in production to prevent credential testing
+  if (process.env.NODE_ENV === "production") {
+    return Response.json(
+      { error: "Debug endpoints are not available in production" },
+      { status: 403 }
+    )
+  }
+
+  const API_KEY = process.env.MONNIFY_API_KEY || ""
+  const SECRET_KEY = process.env.MONNIFY_SECRET_KEY || ""
 
   try {
     if (!API_KEY || !SECRET_KEY) {
       return Response.json({
         success: false,
-        error: 'Missing credentials',
+        error: "Missing credentials - check environment variables",
         hasApiKey: !!API_KEY,
         hasSecretKey: !!SECRET_KEY,
       })
     }
 
-    const credentials = Buffer.from(`${API_KEY}:${SECRET_KEY}`).toString('base64')
-    
-    console.log('[DEBUG] Attempting auth to:', MONNIFY_AUTH_URL)
-    
+    const credentials = Buffer.from(`${API_KEY}:${SECRET_KEY}`).toString("base64")
+
+    const MONNIFY_AUTH_URL = "https://api.monnify.com/api/v1/auth/login"
+
     const response = await fetch(MONNIFY_AUTH_URL, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Authorization': `Basic ${credentials}`,
-        'Content-Type': 'application/json',
+        Authorization: `Basic ${credentials}`,
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({}),
     })
@@ -33,16 +38,17 @@ export async function POST() {
     return Response.json({
       success: response.ok,
       status: response.status,
-      authUrl: MONNIFY_AUTH_URL,
-      credentialsFormat: 'API_KEY:SECRET_KEY',
-      hasAccessToken: !!data.responseBody?.accessToken,
       responseMessage: data.responseMessage,
-      response: data,
+      // SECURITY: Never return the actual credentials or tokens in response
+      message: response.ok ? "Auth successful" : "Auth failed",
     })
   } catch (error) {
-    return Response.json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    })
+    return Response.json(
+      {
+        success: false,
+        error: "Authentication test failed",
+      },
+      { status: 500 }
+    )
   }
 }
