@@ -1,17 +1,15 @@
 /**
  * SECURITY: Validates and restricts cross-origin requests
- * Only allows requests from our own domain
+ * Only allows requests from our production domain - no localhost allowed
  */
 export function validateCORSOrigin(request: Request): boolean {
   const origin = request.headers.get("origin")
   if (!origin) return true // Same-origin requests have no Origin header
 
-  // Allow only our own domain
+  // Allow only our production domain
   const allowedOrigins = [
     process.env.NEXT_PUBLIC_APP_URL || "https://mozosubz.xyz",
-    "http://localhost:3000", // Development
-    "http://localhost:3001",
-  ].filter(Boolean)
+  ]
 
   return allowedOrigins.some(allowed => origin === allowed)
 }

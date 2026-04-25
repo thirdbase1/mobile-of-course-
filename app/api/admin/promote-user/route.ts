@@ -1,8 +1,30 @@
 import { createServerClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
+import { checkRateLimit, RATE_LIMIT_CONFIG, getRateLimitIdentifier } from "@/lib/utils/rate-limit"
+import { isValidEmail, isValidUUID } from "@/lib/utils/input-validation"
+import { logAPIRequest, getUserIPAddress } from "@/lib/utils/api-tracking"
 
 export async function POST(request: Request) {
+  const startTime = Date.now()
+  const ipAddress = getUserIPAddress(request)
+
   try {
+    // SECURITY: Rate limit admin actions
+    const rateLimitKey = getRateLimitIdentifier(request)
+    const { allowed, remaining } = checkRateLimit(rateLimitKey, RATE_LIMIT_CONFIG.ADMIN_ACTION)
+
+    if (!allowed) {
+      await logAPIRequest({
+        endpoint: "/api/admin/promote-user",
+        method: "POST",
+        statusCode: 429,
+        duration: Date.now() - startTime,
+        ipAddress,
+        suspiciousFlag: true,
+      })
+      return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 })
+    }
+
     const supabase = await createServerClient()
 
     // Verify the requesting user is an admin
@@ -11,6 +33,13 @@ export async function POST(request: Request) {
     } = await supabase.auth.getUser()
 
     if (!user) {
+      await logAPIRequest({
+        endpoint: "/api/admin/promote-user",
+        method: "POST",
+        statusCode: 401,
+        duration: Date.now() - startTime,
+        ipAddress,
+      })
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -22,14 +51,33 @@ export async function POST(request: Request) {
       .single()
 
     if (!requesterProfile?.is_admin) {
+      await logAPIRequest({
+        endpoint: "/api/admin/promote-user",
+        method: "POST",
+        statusCode: 403,
+        duration: Date.now() - startTime,
+        ipAddress,
+        userId: user.id,
+        suspiciousFlag: true,
+      })
       return NextResponse.json({ error: "Forbidden - Admin access required" }, { status: 403 })
     }
 
-    // Get the email to promote from request body
+    // Get and validate the email from request body
     const { email, admin_role = "admin" } = await request.json()
 
-    if (!email || typeof email !== "string") {
-      return NextResponse.json({ error: "Email is required" }, { status: 400 })
+    // SECURITY: Validate email format to prevent injection
+    if (!email || !isValidEmail(email)) {
+      await logAPIRequest({
+        endpoint: "/api/admin/promote-user",
+        method: "POST",
+        statusCode: 400,
+        duration: Date.now() - startTime,
+        ipAddress,
+        userId: user.id,
+        errorMessage: "Invalid email format",
+      })
+      return NextResponse.json({ error: "Valid email is required" }, { status: 400 })
     }
 
     const normalizedEmail = email.toLowerCase().trim()
@@ -45,12 +93,39 @@ export async function POST(request: Request) {
       .select()
 
     if (updateError) {
+      await logAPIRequest({
+        endpoint: "/api/admin/promote-user",
+        method: "POST",
+        statusCode: 500,
+        duration: Date.now() - startTime,
+        ipAddress,
+        userId: user.id,
+        errorMessage: updateError.message,
+      })
       return NextResponse.json({ error: updateError.message }, { status: 500 })
     }
 
     if (!updatedData || updatedData.length === 0) {
+      await logAPIRequest({
+        endpoint: "/api/admin/promote-user",
+        method: "POST",
+        statusCode: 404,
+        duration: Date.now() - startTime,
+        ipAddress,
+        userId: user.id,
+        errorMessage: "User not found",
+      })
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
+
+    await logAPIRequest({
+      endpoint: "/api/admin/promote-user",
+      method: "POST",
+      statusCode: 200,
+      duration: Date.now() - startTime,
+      ipAddress,
+      userId: user.id,
+    })
 
     return NextResponse.json({
       success: true,
@@ -59,8 +134,18 @@ export async function POST(request: Request) {
     })
   } catch (error) {
     console.error("[v0] Admin promotion error:", error)
+
+    await logAPIRequest({
+      endpoint: "/api/admin/promote-user",
+      method: "POST",
+      statusCode: 500,
+      duration: Date.now() - startTime,
+      ipAddress,
+      errorMessage: error instanceof Error ? error.message : "Internal server error",
+    })
+
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Internal server error" },
+      { error: "Internal server error" },
       { status: 500 }
     )
   }

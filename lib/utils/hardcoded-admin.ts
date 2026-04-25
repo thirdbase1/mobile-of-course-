@@ -1,13 +1,28 @@
 /**
- * SECURITY: Checks if an email is the hardcoded permanent admin
- * This should only be used for initial setup. In production, use database-backed admin roles.
- * The admin email is stored in environment variable ADMIN_EMAIL for better security.
+ * SECURITY: Retrieves admin email from environment variable ONLY
+ * No hardcoded defaults allowed - must be explicitly set in production
+ */
+export function getAdminEmail(): string {
+  const adminEmail = process.env.ADMIN_EMAIL
+  
+  if (!adminEmail || adminEmail.trim() === '') {
+    throw new Error('ADMIN_EMAIL environment variable is not set. This is required for production.')
+  }
+  
+  return adminEmail.toLowerCase().trim()
+}
+
+/**
+ * Checks if an email belongs to an admin (must be explicitly configured in env)
  */
 export function isHardcodedAdmin(email: string | null | undefined): boolean {
   if (!email) return false
   
-  // Get admin email from environment variable instead of hardcoding
-  const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL || "admin@mozosubz.xyz"
-  
-  return email.toLowerCase().trim() === ADMIN_EMAIL.toLowerCase().trim()
+  try {
+    const adminEmail = getAdminEmail()
+    return email.toLowerCase().trim() === adminEmail
+  } catch {
+    // If env var is not set, return false (no admin email configured)
+    return false
+  }
 }

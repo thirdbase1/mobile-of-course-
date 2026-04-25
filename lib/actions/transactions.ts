@@ -3,12 +3,19 @@
 import { createServerClient } from '@/lib/supabase/server'
 import { getMonnifyAccessToken } from './monnify'
 import { sendTransactionEmail } from '@/lib/email/send-transaction-email'
+import { isValidTransactionReference, isValidAmount } from '@/lib/utils/input-validation'
 
 /**
  * Get a transaction by payment_reference
+ * SECURITY: Validates payment_reference format before DB query
  */
 export async function getTransaction(paymentReference: string) {
   try {
+    // SECURITY: Validate reference format to prevent injection
+    if (!isValidTransactionReference(paymentReference)) {
+      return { success: false, error: 'Invalid payment reference format' }
+    }
+
     const supabase = await createServerClient()
     
     const { data, error } = await supabase
@@ -63,6 +70,7 @@ export async function getTransaction(paymentReference: string) {
 
 /**
  * Create a new transaction in the database
+ * SECURITY: Validates all inputs to prevent injection attacks
  */
 export async function createTransaction(
   paymentReference: string,
@@ -78,6 +86,26 @@ export async function createTransaction(
   netAmount?: number
 ) {
   try {
+    // SECURITY: Validate all inputs
+    if (!isValidTransactionReference(paymentReference)) {
+      throw new Error('Invalid payment reference format')
+    }
+
+    if (!isValidAmount(amount) || amount <= 0) {
+      throw new Error('Invalid amount')
+    }
+
+    if (transactionReference && !isValidTransactionReference(transactionReference)) {
+      throw new Error('Invalid transaction reference format')
+    }
+
+    if (processingFee && !isValidAmount(processingFee)) {
+      throw new Error('Invalid processing fee')
+    }
+
+    if (netAmount && !isValidAmount(netAmount)) {
+      throw new Error('Invalid net amount')
+    }
     const supabase = await createServerClient()
     
     // Get authenticated user

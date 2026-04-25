@@ -3,6 +3,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { isValidUUID, isValidAmount, validateBalanceCalculation } from '@/lib/utils/input-validation'
 
 // Get all users with pagination - uses admin client to bypass RLS
 export async function getUsers(page: number = 1, limit: number = 10) {
@@ -64,7 +65,16 @@ export async function getUserDetails(userId: string) {
 
 // Credit user wallet
 export async function creditUserWallet(userId: string, amount: number, reason: string) {
-  console.log('[v0] creditUserWallet called with:', { userId, amount, reason })
+  console.log('[v0] creditUserWallet called')
+
+  // SECURITY: Validate all inputs to prevent injection
+  if (!isValidUUID(userId)) {
+    return { error: 'Invalid user ID format' }
+  }
+
+  if (!isValidAmount(amount) || amount <= 0) {
+    return { error: 'Invalid amount' }
+  }
 
   const supabase = await createServerClient()
 
@@ -95,7 +105,14 @@ export async function creditUserWallet(userId: string, amount: number, reason: s
   console.log('[v0] User profile found:', { userId, currentBalance: userProfile.wallet_balance })
 
   const balanceBefore = userProfile.wallet_balance || 0
-  const newBalance = balanceBefore + amount
+  
+  // SECURITY: Use validated balance calculation to prevent injection
+  let newBalance: number
+  try {
+    newBalance = validateBalanceCalculation(balanceBefore, amount, 'ADD')
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Invalid balance calculation' }
+  }
 
   console.log('[v0] About to update balance:', { balanceBefore, amount, newBalance })
 
@@ -146,6 +163,15 @@ export async function creditUserWallet(userId: string, amount: number, reason: s
 
 // Debit user wallet - only updates balance and logs, does NOT create transaction receipt
 export async function debitUserWallet(userId: string, amount: number, reason: string) {
+  // SECURITY: Validate all inputs to prevent injection
+  if (!isValidUUID(userId)) {
+    return { error: 'Invalid user ID format' }
+  }
+
+  if (!isValidAmount(amount) || amount <= 0) {
+    return { error: 'Invalid amount' }
+  }
+
   const supabase = await createServerClient()
 
   const {
@@ -169,11 +195,13 @@ export async function debitUserWallet(userId: string, amount: number, reason: st
   }
 
   const balanceBefore = userProfile.wallet_balance || 0
-  const newBalance = balanceBefore - amount
-
-  // Prevent negative balance
-  if (newBalance < 0) {
-    return { error: 'Insufficient balance' }
+  
+  // SECURITY: Use validated balance calculation to prevent injection and ensure funds available
+  let newBalance: number
+  try {
+    newBalance = validateBalanceCalculation(balanceBefore, amount, 'SUBTRACT')
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Invalid balance calculation' }
   }
 
   // Update wallet - use admin client for profile update
@@ -194,6 +222,11 @@ export async function debitUserWallet(userId: string, amount: number, reason: st
 
 // Toggle admin role
 export async function toggleAdminRole(userId: string, isAdmin: boolean) {
+  // SECURITY: Validate user ID format to prevent injection
+  if (!isValidUUID(userId)) {
+    return { error: 'Invalid user ID format' }
+  }
+
   const supabase = await createServerClient()
 
   const {
