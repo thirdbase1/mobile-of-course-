@@ -23,8 +23,8 @@ import { SiteHeader } from "@/components/site-header"
 
 export const metadata = {
   title: "Mozosubz (Mozo) - Instant Airtime & Cheap Data | Best Rates Nigeria",
-  description: "Mozo instant airtime, cheapest data bundles, fast bill payments. Buy MTN, Glo, Airtel, 9mobile airtime & data. Pay DStv, GOtv, electricity bills instantly. Lowest rates guaranteed!",
-  keywords: "mozo, mozosub, mozosubz, instant airtime Nigeria, cheap data bundles, fastest airtime top-up, best data rates, affordable cable TV, instant bill payment, cheapest electricity, MTN airtime, Glo data, Airtel airtime, 9mobile data, DStv payment, GOtv subscription, quick recharge, online payment Nigeria, airtime top-up, data bundle, cable subscription, bill payment platform"
+  description: "Mozo instant airtime, cheapest data bundles, cheap data online. Fast bill payments. Buy MTN, Glo, Airtel, 9mobile airtime & data. Pay DStv, GOtv, electricity bills instantly. Lowest rates!",
+  keywords: "mozo, mozosub, mozosubz, instant airtime Nigeria, cheapest data, cheap data, cheap data website, cheap data bundles, cheapest airtime, fastest airtime top-up, best data rates, affordable cable TV, instant bill payment, cheapest electricity, MTN airtime, Glo data, Airtel airtime, 9mobile data, DStv payment, GOtv subscription, quick recharge, online payment Nigeria, airtime top-up, data bundle, cable subscription, bill payment platform, buy data online, buy airtime online, data plan Nigeria, cheapest airtime rates, fast data delivery, cheapest data plans, data recharge Nigeria, buy cheapest data"
 }
 
 // Real network logos already used across the dashboard (airtime page)
