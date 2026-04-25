@@ -6,8 +6,8 @@ import { Footer } from "@/components/footer"
 
 export const metadata: Metadata = {
   title: "Mozosubz Services - Instant Airtime, Cheap Data, Cable TV, Bills",
-  description: "Mozosubz services: instant airtime, cheap data bundles, DStv/GOtv cable, electricity payments. All networks - MTN, Glo, Airtel, 9mobile. Cheapest rates guaranteed!",
-  keywords: "mozosubz services, cheap data, cheapest data bundles, instant airtime, cable tv subscription, electricity payment, DStv, GOtv, MTN data, Glo airtime, Airtel data, 9mobile, bill payment Nigeria, data recharge, airtime top-up",
+  description: "Mozosubz services: instant airtime, cheap data bundles (MTN SME, Data Share, Glo, Airtel, 9mobile). DStv/GOtv cable, electricity payments. All networks - Cheapest rates guaranteed!",
+  keywords: "mozosubz services, cheap data, cheapest data bundles, MTN SME data, MTN data share, MTN gifting, MTN AWOOF, Glo data, Glo SME, Airtel SME, Airtel gifting, 9mobile data, instant airtime, cable tv subscription, DStv, GOtv, electricity payment, bill payment Nigeria, data recharge, airtime top-up, online payment, cheapest rates",
 }
 
 const NETWORK_LOGOS = [

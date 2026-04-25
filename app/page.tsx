@@ -23,8 +23,8 @@ import { SiteHeader } from "@/components/site-header"
 
 export const metadata = {
   title: "Mozosubz (Mozo) - Instant Airtime & Cheap Data | Best Rates Nigeria",
-  description: "Mozo instant airtime, cheapest data bundles, cheap data online. Fast bill payments. Buy MTN, Glo, Airtel, 9mobile airtime & data. Pay DStv, GOtv, electricity bills instantly. Lowest rates!",
-  keywords: "mozo, mozosub, mozosubz, instant airtime Nigeria, cheapest data, cheap data, cheap data website, cheap data bundles, cheapest airtime, fastest airtime top-up, best data rates, affordable cable TV, instant bill payment, cheapest electricity, MTN airtime, Glo data, Airtel airtime, 9mobile data, DStv payment, GOtv subscription, quick recharge, online payment Nigeria, airtime top-up, data bundle, cable subscription, bill payment platform, buy data online, buy airtime online, data plan Nigeria, cheapest airtime rates, fast data delivery, cheapest data plans, data recharge Nigeria, buy cheapest data"
+  description: "Mozo instant airtime, cheapest data bundles, cheap data online. Fast bill payments. Buy MTN SME, Data Share, Glo, Airtel, 9mobile airtime & data. Pay DStv, GOtv, electricity bills instantly. Lowest rates!",
+  keywords: "mozo, mozosub, mozosubz, instant airtime Nigeria, cheapest data, cheap data, cheap data website, cheap data bundles, MTN SME data, MTN data share, MTN gifting, MTN AWOOF, Glo data, Glo SME, Airtel SME, Airtel gifting, 9mobile data, cheapest airtime, fastest airtime top-up, best data rates, affordable cable TV, instant bill payment, cheapest electricity, DStv payment, GOtv subscription, quick recharge, online payment Nigeria, airtime top-up, data bundle, cable subscription, bill payment platform, buy data online, buy airtime online, data plan Nigeria, cheapest airtime rates, fast data delivery, cheapest data plans, data recharge Nigeria, buy cheapest data"
 }
 
 // Real network logos already used across the dashboard (airtime page)
@@ -143,18 +143,38 @@ export default function HomePage() {
     "@type": "WebApplication",
     "name": "Mozosubz",
     "alternateName": ["Mozo", "Mozosub"],
-    "description": "Instant airtime, cheap data, cable TV and electricity bill payment platform for Nigeria. Buy cheapest data bundles, fastest airtime top-up on MTN, Glo, Airtel, 9mobile.",
+    "description": "Instant airtime, cheap data (MTN SME, Data Share, Gifting, AWOOF, Glo Data, Glo SME, Airtel SME, Airtel Gifting, 9mobile), cable TV and electricity bill payment platform for Nigeria.",
     "url": "https://mozosubz.xyz",
     "applicationCategory": "BusinessApplication",
     "operatingSystem": "All",
     "softwareVersion": "1.0",
     "image": "https://mozosubz.xyz/og-image.jpg",
-    "offers": {
-      "@type": "AggregateOffer",
-      "priceCurrency": "NGN",
-      "description": "Cheapest airtime and data bundles, instant delivery, best rates guaranteed",
-      "availableDeliveryMethod": "Online"
-    },
+    "offers": [
+      {
+        "@type": "Offer",
+        "name": "MTN Data Plans",
+        "description": "MTN SME Data, Data Share, Gifting, AWOOF - Cheapest data bundles for Nigeria",
+        "priceCurrency": "NGN"
+      },
+      {
+        "@type": "Offer",
+        "name": "Glo Data Plans",
+        "description": "Glo Data and SME - Cheap data bundles",
+        "priceCurrency": "NGN"
+      },
+      {
+        "@type": "Offer",
+        "name": "Airtel Data Plans",
+        "description": "Airtel SME and Gifting data plans",
+        "priceCurrency": "NGN"
+      },
+      {
+        "@type": "Offer",
+        "name": "9mobile Data Plans",
+        "description": "9mobile Data bundles - instant top-up",
+        "priceCurrency": "NGN"
+      }
+    ],
     "aggregateRating": {
       "@type": "AggregateRating",
       "ratingValue": "4.8",

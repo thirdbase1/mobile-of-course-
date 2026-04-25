@@ -22,8 +22,8 @@ const spaceGrotesk = Space_Grotesk({
 
 export const metadata: Metadata = {
   title: "Mozosubz (Mozo) - Instant Airtime, Cheapest Data & Bills | Nigeria",
-  description: "Mozo - Buy instant airtime, cheapest data bundles, cheap data online. Fastest data top-up on MTN, Glo, Airtel, 9mobile. Pay DStv, GOtv, electricity bills instantly. Lowest rates guaranteed!",
-  keywords: "mozo, mozosub, mozosubz, instant airtime, cheapest data, cheap data, cheap data website, cheap data bundles, cheapest airtime, fastest data top-up, best data rates, affordable cable TV, instant bill payment, cheapest electricity, MTN data, Glo data, Airtel data, 9mobile airtime, DStv payment, GOtv subscription, quick recharge, online top-up, Nigeria airtime, internet data bundle, airtime recharge, data subscription, cable tv subscription, electricity bill payment, bill payments Nigeria, online billing platform, fastest recharge, best rates airtime, buy data online, buy airtime online, data plan, airtime plan",
+  description: "Mozo - Buy instant airtime, cheapest data bundles, cheap data online. Fastest data top-up on MTN SME, Glo, Airtel, 9mobile. Pay DStv, GOtv, electricity bills instantly. Lowest rates guaranteed!",
+  keywords: "mozo, mozosub, mozosubz, instant airtime, cheapest data, cheap data, cheap data website, cheap data bundles, cheapest airtime, fastest data top-up, best data rates, MTN SME data, MTN data share, MTN gifting, MTN AWOOF, Glo data, Glo SME data, Airtel SME data, Airtel gifting, 9mobile data, affordable cable TV, instant bill payment, cheapest electricity, DStv payment, GOtv subscription, quick recharge, online top-up, Nigeria airtime, internet data bundle, airtime recharge, data subscription, cable tv subscription, electricity bill payment, bill payments Nigeria, online billing platform, fastest recharge, best rates airtime, buy data online, buy airtime online, data plan",
   generator: "v0.app",
   manifest: "/manifest.json",
   icons: {
