@@ -1,21 +1,39 @@
 User-agent: *
 Allow: /
+Allow: /dashboard
 Disallow: /admin
-Disallow: /api
-Disallow: /dashboard/*
-Allow: /dashboard/transactions
+Disallow: /api/
+Disallow: /dashboard/settings
+Disallow: /dashboard/profile
 
 Sitemap: https://mozosubz.xyz/sitemap.xml
 
 # Crawl delay for bots
 Crawl-delay: 0
 
-# Google specific
+# Google specific - no crawl delays for Google
 User-agent: Googlebot
 Allow: /
+Allow: /dashboard
 Crawl-delay: 0
 
 # Bing specific
 User-agent: Bingbot
+Allow: /
+Allow: /dashboard
+Crawl-delay: 0
+
+# DuckDuckGo
+User-agent: DuckDuckBot
+Allow: /
+Crawl-delay: 0
+
+# Yandex
+User-agent: YandexBot
+Allow: /
+Crawl-delay: 0
+
+# Baidu
+User-agent: Baiduspider
 Allow: /
 Crawl-delay: 1
