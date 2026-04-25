@@ -19,9 +19,9 @@ import { SiteHeader } from "@/components/site-header"
 import { Footer } from "@/components/footer"
 
 export const metadata: Metadata = {
-  title: "About Mozosubz — One wallet for every Nigerian bill",
-  description:
-    "Mozosubz is a Nigerian bill-payment wallet. Fund once, then buy airtime and data on all four networks, renew DStv, GOtv and Startimes, pay electricity for every DISCO, and print recharge pins.",
+  title: "About Mozosubz - Cheap Data, Instant Airtime & Bills Wallet",
+  description: "About Mozosubz: Nigeria's fastest bill-payment wallet. Buy cheap data, instant airtime on MTN, Glo, Airtel, 9mobile. Pay DStv, GOtv, electricity. One wallet, all services.",
+  keywords: "about mozosubz, cheap data provider, instant airtime provider, bill payment Nigeria, mozo wallet, cheapest data website, affordable airtime, online bill payment, Nigerian bill payment service, data top-up service",
 }
 
 const NETWORKS = [

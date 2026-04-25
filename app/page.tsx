@@ -142,13 +142,18 @@ export default function HomePage() {
     "@context": "https://schema.org",
     "@type": "WebApplication",
     "name": "Mozosubz",
-    "description": "Instant airtime, data, cable TV and electricity bill payment platform for Nigeria",
+    "alternateName": ["Mozo", "Mozosub"],
+    "description": "Instant airtime, cheap data, cable TV and electricity bill payment platform for Nigeria. Buy cheapest data bundles, fastest airtime top-up on MTN, Glo, Airtel, 9mobile.",
     "url": "https://mozosubz.xyz",
     "applicationCategory": "BusinessApplication",
+    "operatingSystem": "All",
+    "softwareVersion": "1.0",
+    "image": "https://mozosubz.xyz/og-image.jpg",
     "offers": {
       "@type": "AggregateOffer",
       "priceCurrency": "NGN",
-      "description": "Cheapest airtime and data bundles, instant delivery, best rates guaranteed"
+      "description": "Cheapest airtime and data bundles, instant delivery, best rates guaranteed",
+      "availableDeliveryMethod": "Online"
     },
     "aggregateRating": {
       "@type": "AggregateRating",
@@ -156,6 +161,14 @@ export default function HomePage() {
       "ratingCount": "2500",
       "bestRating": "5",
       "worstRating": "1"
+    },
+    "sameAs": [
+      "https://twitter.com/Mozosubz",
+      "https://instagram.com/Mozosubz"
+    ],
+    "potentialAction": {
+      "@type": "TradeAction",
+      "target": "https://mozosubz.xyz"
     }
   }
 

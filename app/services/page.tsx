@@ -5,9 +5,9 @@ import { SiteHeader } from "@/components/site-header"
 import { Footer } from "@/components/footer"
 
 export const metadata: Metadata = {
-  title: "Services | Mozosubz — Airtime, Data, Cable, Electricity, Pins",
-  description:
-    "Every service Mozosubz offers: airtime and data on all four networks, DStv/GOtv/Startimes renewals, electricity for all 12 DISCOs, and recharge pin printing.",
+  title: "Mozosubz Services - Instant Airtime, Cheap Data, Cable TV, Bills",
+  description: "Mozosubz services: instant airtime, cheap data bundles, DStv/GOtv cable, electricity payments. All networks - MTN, Glo, Airtel, 9mobile. Cheapest rates guaranteed!",
+  keywords: "mozosubz services, cheap data, cheapest data bundles, instant airtime, cable tv subscription, electricity payment, DStv, GOtv, MTN data, Glo airtime, Airtel data, 9mobile, bill payment Nigeria, data recharge, airtime top-up",
 }
 
 const NETWORK_LOGOS = [
