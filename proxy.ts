@@ -76,19 +76,33 @@ export async function proxy(request: NextRequest) {
         return new NextResponse("Not Found", { status: 404 })
       }
 
-      // Check hardcoded admin first
-      if (isHardcodedAdmin(user.email)) {
-        return supabaseResponse
+      // Check hardcoded admin email first
+      const isAdmin = isHardcodedAdmin(user.email)
+      
+      if (isAdmin) {
+        // Set is_admin=true in the profiles table for this user
+        // This ensures the database reflects the admin status
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({ is_admin: true })
+          .eq('id', user.id)
+        
+        if (updateError) {
+          console.error("[v0] Error setting admin flag:", updateError)
+        }
+        
+        return NextResponse.next({
+          request,
+        })
       }
-
-      // Get user's admin status from database
+      
+      // Check if user has admin flag in database
       const { data: profile } = await supabase
-        .from("profiles")
-        .select("is_admin")
-        .eq("id", user.id)
+        .from('profiles')
+        .select('is_admin')
+        .eq('id', user.id)
         .single()
-
-      // Non-admin users trying to access admin
+      
       if (!profile?.is_admin) {
         return new NextResponse("Not Found", { status: 404 })
       }

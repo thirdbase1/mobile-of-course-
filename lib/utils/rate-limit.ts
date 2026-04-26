@@ -1,7 +1,7 @@
 /**
  * SECURITY: Rate Limiting using Upstash Redis
- * Prevents brute force attacks, DoS attacks, and API abuse
- * Distributed across multiple instances using Upstash Redis
+ * IP-based rate limiting to prevent abuse
+ * Uses Upstash REST API for serverless compatibility
  */
 
 import { Redis } from "@upstash/redis"
@@ -12,21 +12,23 @@ interface RateLimitConfig {
   keyPrefix: string // Redis key prefix
 }
 
-// Initialize Upstash Redis client
+// Initialize Upstash Redis client with correct environment variables
 const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN,
+  url: process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL,
+  token: process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN,
 })
 
 /**
  * Check if request exceeds rate limit using Upstash Redis
+ * Rate limited by IP address only
  * Returns { allowed: boolean, remaining: number, resetAt: number }
  */
 export async function checkRateLimit(
-  identifier: string,
+  ipAddress: string,
   config: RateLimitConfig
 ): Promise<{ allowed: boolean; remaining: number; resetAt: number }> {
-  const key = `${config.keyPrefix}:${identifier}`
+  // Rate limit key is just IP + endpoint, not user-specific
+  const key = `${config.keyPrefix}:${ipAddress}`
   const now = Date.now()
   const intervalSeconds = Math.ceil(config.interval / 1000)
 
@@ -45,14 +47,20 @@ export async function checkRateLimit(
     const allowed = count <= config.maxRequests
     const remaining = Math.max(0, config.maxRequests - count)
 
+    console.log(`[v0] Rate limit check - IP: ${ipAddress}, endpoint: ${config.keyPrefix}, count: ${count}, allowed: ${allowed}`)
+
     return {
       allowed,
       remaining,
       resetAt,
     }
   } catch (error) {
-    // If Redis fails, allow the request but log the error
-    console.error("[v0] Rate limit Redis error:", error)
+    // If Redis fails, log detailed error and fail-open (allow request)
+    console.error("[v0] Rate limit Redis error:", {
+      message: error instanceof Error ? error.message : String(error),
+      url: process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL,
+      hasToken: !!(process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN),
+    })
     return {
       allowed: true,
       remaining: config.maxRequests,
@@ -101,18 +109,16 @@ export const RATE_LIMIT_CONFIG = {
 }
 
 /**
- * Get user identifier for rate limiting (IP + User ID)
+ * Get user IP address from request
+ * Works behind proxies and CDNs
  */
-export function getRateLimitIdentifier(request: Request, userId?: string): string {
+export function getRateLimitIdentifier(request: Request): string {
   // Use X-Forwarded-For header for IP behind proxy/CDN
   const ip =
-    request.headers.get("x-forwarded-for")?.split(",")[0] ||
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
     request.headers.get("x-real-ip") ||
+    request.headers.get("cf-connecting-ip") ||
     "unknown"
-
-  if (userId) {
-    return `${userId}:${ip}`
-  }
 
   return ip
 }
