@@ -76,9 +76,9 @@ export const RATE_LIMIT_CONFIG = {
   TRANSACTION_BUY: { interval: 60000, maxRequests: 30, keyPrefix: "rl:tx:buy" },
   TRANSACTION_VERIFY: { interval: 60000, maxRequests: 50, keyPrefix: "rl:tx:verify" },
 
-  // Payment endpoints (strict)
-  PAYMENT_INITIATE: { interval: 60000, maxRequests: 10, keyPrefix: "rl:payment:init" },
-  PAYMENT_VERIFY: { interval: 60000, maxRequests: 20, keyPrefix: "rl:payment:verify" },
+  // Payment endpoints (very strict - 8 each)
+  PAYMENT_INITIATE: { interval: 60000, maxRequests: 8, keyPrefix: "rl:payment:init" },
+  PAYMENT_VERIFY: { interval: 60000, maxRequests: 8, keyPrefix: "rl:payment:verify" },
 
   // Admin endpoints (very strict)
   ADMIN_ACTION: { interval: 60000, maxRequests: 20, keyPrefix: "rl:admin:action" },
@@ -89,9 +89,9 @@ export const RATE_LIMIT_CONFIG = {
   // Public endpoints
   PUBLIC_PLANS: { interval: 60000, maxRequests: 1000, keyPrefix: "rl:public:plans" },
 
-  // Gsubz API protection (prevent API abuse)
-  GSUBZ_DATA: { interval: 60000, maxRequests: 50, keyPrefix: "rl:gsubz:data" },
-  GSUBZ_AIRTIME: { interval: 60000, maxRequests: 50, keyPrefix: "rl:gsubz:airtime" },
+  // Gsubz API protection (decreased from 50 to 30)
+  GSUBZ_DATA: { interval: 60000, maxRequests: 30, keyPrefix: "rl:gsubz:data" },
+  GSUBZ_AIRTIME: { interval: 60000, maxRequests: 30, keyPrefix: "rl:gsubz:airtime" },
   GSUBZ_CABLE: { interval: 60000, maxRequests: 30, keyPrefix: "rl:gsubz:cable" },
 }
 

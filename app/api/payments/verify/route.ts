@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { queryMonnifyTransaction } from '@/lib/actions/transactions'
 import { verifyAndCreditPayment } from '@/lib/actions/transactions'
 import { createServerClient } from '@/lib/supabase/server'
+import { checkRateLimit, RATE_LIMIT_CONFIG, getRateLimitIdentifier } from '@/lib/utils/rate-limit'
+import { logAPIRequest, getUserIPAddress } from '@/lib/utils/api-tracking'
 
 /**
  * POST /api/payments/verify
@@ -14,9 +16,32 @@ import { createServerClient } from '@/lib/supabase/server'
  * - Verifies user owns the transaction
  * - Queries Monnify directly (no trust on client claims)
  * - Idempotent: marks transaction SUCCESS immediately to prevent double-crediting
+ * - Rate limited to 8 requests/minute
  */
 export async function POST(request: NextRequest) {
+  const startTime = Date.now()
+  const ipAddress = getUserIPAddress(request)
+
   try {
+    // SECURITY: Rate limit payment verification
+    const rateLimitKey = getRateLimitIdentifier(request)
+    const { allowed, remaining } = await checkRateLimit(rateLimitKey, RATE_LIMIT_CONFIG.PAYMENT_VERIFY)
+
+    if (!allowed) {
+      await logAPIRequest({
+        endpoint: "/api/payments/verify",
+        method: "POST",
+        statusCode: 429,
+        duration: Date.now() - startTime,
+        ipAddress,
+        suspiciousFlag: true,
+      })
+      return NextResponse.json(
+        { success: false, error: 'Too many verification requests. Please wait before trying again.' },
+        { status: 429 }
+      )
+    }
+
     const { paymentReference } = await request.json()
 
     if (!paymentReference) {
@@ -33,6 +58,13 @@ export async function POST(request: NextRequest) {
     const { data: { user }, error: userError } = await supabase.auth.getUser()
 
     if (userError || !user?.id) {
+      await logAPIRequest({
+        endpoint: "/api/payments/verify",
+        method: "POST",
+        statusCode: 401,
+        duration: Date.now() - startTime,
+        ipAddress,
+      })
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }

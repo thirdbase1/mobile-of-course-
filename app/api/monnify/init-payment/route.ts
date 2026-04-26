@@ -2,9 +2,33 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { initializePayment } from '@/lib/actions/monnify'
+import { checkRateLimit, RATE_LIMIT_CONFIG, getRateLimitIdentifier } from '@/lib/utils/rate-limit'
+import { logAPIRequest, getUserIPAddress } from '@/lib/utils/api-tracking'
 
 export async function POST(request: NextRequest) {
+  const startTime = Date.now()
+  const ipAddress = getUserIPAddress(request)
+
   try {
+    // SECURITY: Rate limit payment initialization (8 per minute)
+    const rateLimitKey = getRateLimitIdentifier(request)
+    const { allowed, remaining } = await checkRateLimit(rateLimitKey, RATE_LIMIT_CONFIG.PAYMENT_INITIATE)
+
+    if (!allowed) {
+      await logAPIRequest({
+        endpoint: "/api/monnify/init-payment",
+        method: "POST",
+        statusCode: 429,
+        duration: Date.now() - startTime,
+        ipAddress,
+        suspiciousFlag: true,
+      })
+      return NextResponse.json(
+        { error: 'Too many payment requests. Please wait before initiating another payment.' },
+        { status: 429 }
+      )
+    }
+
     const body = await request.json()
     const { transactionReference, amount } = body
 
@@ -29,11 +53,29 @@ export async function POST(request: NextRequest) {
 
     if (!result.success) {
       console.error('[API] Payment initialization failed:', result.error)
+      
+      await logAPIRequest({
+        endpoint: "/api/monnify/init-payment",
+        method: "POST",
+        statusCode: 400,
+        duration: Date.now() - startTime,
+        ipAddress,
+        errorMessage: result.error,
+      })
+
       return NextResponse.json(
         { error: result.error || 'Failed to initialize payment' },
         { status: 400 }
       )
     }
+
+    await logAPIRequest({
+      endpoint: "/api/monnify/init-payment",
+      method: "POST",
+      statusCode: 200,
+      duration: Date.now() - startTime,
+      ipAddress,
+    })
 
     return NextResponse.json({
       accountNumber: result.accountNumber,
@@ -45,6 +87,16 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error('[API] Error:', error)
+
+    await logAPIRequest({
+      endpoint: "/api/monnify/init-payment",
+      method: "POST",
+      statusCode: 500,
+      duration: Date.now() - startTime,
+      ipAddress,
+      errorMessage: error instanceof Error ? error.message : 'Unknown error',
+    })
+
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }

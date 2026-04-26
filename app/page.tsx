@@ -101,7 +101,7 @@ const FAQS = [
   },
   {
     q: "Are there deposit fees?",
-    a: "We show you the exact processing fee and the final amount your wallet will receive before you hit continue. No surprise deductions after payment.",
+    a: "Yes. We charge a small processing fee to cover bank and payment processing costs. Below ₦5,000, you pay a flat base fee. Above ₦5,000, we charge the base fee plus a percentage of your deposit amount. The exact fee is calculated and shown to you on the Deposit page before you confirm — no surprises, and the fee is capped at a maximum amount.",
   },
   {
     q: "Which networks do you support for airtime?",
