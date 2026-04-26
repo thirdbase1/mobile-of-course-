@@ -11,7 +11,7 @@ import { TransactionList } from "@/components/transaction-list"
 import { NotificationBell } from "@/components/notification-bell"
 import { Logo } from "@/components/logo"
 import { WalletCard } from "@/components/wallet-card"
-import { isCurrentSessionValid, saveCurrentSessionId, clearStoredSessionId } from "@/lib/utils/session-check"
+import { setupSessionManager, cleanupSessionManager } from "@/lib/utils/session-check"
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -22,61 +22,12 @@ export default function DashboardPage() {
   const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(true)
   const [showConfirmedBanner, setShowConfirmedBanner] = useState(false)
-  const [sessionInvalid, setSessionInvalid] = useState(false)
 
-  // Check if logged in from another device on every component mount
+  // Initialize session manager to detect multi-device logins
   useEffect(() => {
-    const checkSessionValidity = async () => {
-      const supabase = createClient()
-      
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-
-      if (!session) {
-        router.push("/login")
-        return
-      }
-
-      // Check if current session matches stored session
-      // If not, user logged in elsewhere - sign out this device immediately
-      const isValid = isCurrentSessionValid(session.access_token)
-
-      if (!isValid) {
-        console.log("[v0] Session invalid - user logged in on another device, signing out")
-        setSessionInvalid(true)
-        
-        // Sign out this device
-        await supabase.auth.signOut()
-        
-        setTimeout(() => {
-          router.push("/login?session_expired=1&reason=logged_in_elsewhere")
-        }, 1000)
-      }
-    }
-
-    checkSessionValidity()
-  }, [router])
-
-  // Show session invalid message
-  if (sessionInvalid) {
-    return (
-      <div className="fixed inset-0 bg-red-50 flex items-center justify-center z-50">
-        <div className="bg-white border-2 border-red-300 rounded-lg p-8 max-w-md text-center shadow-lg">
-          <div className="mb-4">
-            <X className="w-12 h-12 text-red-600 mx-auto" />
-          </div>
-          <h2 className="text-xl font-bold text-red-900 mb-2">Session Ended</h2>
-          <p className="text-slate-700 mb-4">
-            You logged in on another device. Redirecting to login...
-          </p>
-          <div className="text-slate-500 text-sm">
-            This prevents unauthorized access to your account.
-          </div>
-        </div>
-      </div>
-    )
-  }
+    const cleanup = setupSessionManager()
+    return () => cleanup()
+  }, [])
   // exchange, it redirects here with ?confirmed=1. Show a one-time welcome
   // banner and clean the URL so refreshing doesn't re-trigger it.
   useEffect(() => {

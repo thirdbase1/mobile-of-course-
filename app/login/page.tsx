@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/client"
 import { Loader2, Eye, EyeOff } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/ui/toaster"
-import { saveCurrentSessionId } from "@/lib/utils/session-check"
+
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -31,16 +31,6 @@ export default function LoginPage() {
         password,
       })
       if (error) throw error
-
-      // Get the new session and save it locally
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-
-      if (session) {
-        // Save session ID to localStorage for single-device login detection
-        saveCurrentSessionId(session.access_token)
-      }
 
       // Fire-and-forget sign-in alert email. We don't await so email latency
       // never blocks the navigation to the dashboard.
