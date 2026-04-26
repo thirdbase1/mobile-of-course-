@@ -4,7 +4,6 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, Loader2 } from "lucide-react"
 import Link from "next/link"
-import { purchaseData, fetchDataPlans } from "@/lib/actions/data"
 import { getWalletBalance } from "@/lib/actions/wallet"
 import { getRecentPhones, saveRecentPhone } from "@/lib/actions/recent-phones"
 import { ConfirmSheet } from "@/components/confirm-sheet"
@@ -103,17 +102,29 @@ export default function DataPage() {
       setLoadingPlans(true)
       setPlans([])
       setSelectedPlan(null)
-      fetchDataPlans(planType)
+      
+      // Call API route with rate limiting
+      fetch('/api/gsubz/data/plans', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ serviceID: planType })
+      })
+        .then(res => {
+          if (res.status === 429) {
+            throw new Error('Too many requests. Maximum 10 requests per minute. Please wait before trying again.')
+          }
+          return res.json()
+        })
         .then((res) => {
           if (res.success && res.plans && res.plans.length > 0) {
             setPlans(res.plans)
           } else if (res.success === false) {
-            setError(res.message || "Failed to load plans for this option. It may no longer be available.")
+            setError(res.error || res.message || "Failed to load plans for this option. It may no longer be available.")
             setPlans([])
           }
         })
         .catch((err) => {
-          setError("Failed to load plans. Please try another option.")
+          setError(err.message || "Failed to load plans. Please try another option.")
           setPlans([])
           console.error("[v0] Error fetching plans:", err)
         })
@@ -165,11 +176,24 @@ export default function DataPage() {
     formData.append("planDisplayName", selectedPlan.displayName || '')
 
     try {
-      const res = await purchaseData(formData)
-      setResult(res)
+      const res = await fetch('/api/gsubz/data/purchase', {
+        method: 'POST',
+        body: formData
+      })
+
+      if (res.status === 429) {
+        setError('Too many purchase requests. Maximum 5 per minute. Please wait before trying again.')
+        setShowConfirm(false)
+        setProcessing(false)
+        setLoading(false)
+        return
+      }
+
+      const data = await res.json()
+      setResult(data)
       setShowConfirm(false)
 
-      if (res.success) {
+      if (data.success) {
         const newBal = await getWalletBalance()
         // Save phone to Supabase
         await saveRecentPhone(currentPhone)
@@ -183,7 +207,7 @@ export default function DataPage() {
           amount: currentAmount,
           balanceBefore: balanceBefore,
           balanceAfter: newBal.balance,
-          transactionId: res.transaction?.id?.toString() || res.transaction?.transactionID?.toString() || '',
+          transactionId: data.transaction?.id?.toString() || data.transaction?.transactionID?.toString() || '',
           network: currentNetwork
         })
         setShowSuccess(true)
@@ -191,7 +215,7 @@ export default function DataPage() {
         setSelectedPlan(null)
         setBalance(newBal.balance)
       } else {
-        setError(res.message || "Transaction failed. Please try again.")
+        setError(data.error || data.message || "Transaction failed. Please try again.")
       }
     } catch {
       setError("An error occurred. Please try again.")

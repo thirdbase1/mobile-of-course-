@@ -15,7 +15,6 @@ import { SuccessOverlay } from '@/components/success-overlay';
 import { ConfirmSheet } from '@/components/confirm-sheet';
 import { ProcessingOverlay } from '@/components/processing-overlay';
 import { ArrowLeft } from 'lucide-react';
-import { subscribeCable, fetchCablePlans } from '@/lib/actions/cable';
 import { getWalletBalance } from '@/lib/actions/wallet';
 
 const PROVIDERS = [
@@ -54,20 +53,32 @@ export default function CablePage() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [plansData, walletData] = await Promise.all([
-          fetchCablePlans(selectedProvider),
-          getWalletBalance(),
-        ]);
-        setPlans(plansData?.plans || []);
-        setBalance(walletData?.balance || 0);
+        // Fetch cable plans from API route with rate limiting
+        const plansRes = await fetch('/api/gsubz/cable/plans', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ provider: selectedProvider })
+        })
+
+        if (plansRes.status === 429) {
+          setError('Too many requests. Maximum 10 per minute. Please wait before trying again.')
+          setPlans([])
+        } else {
+          const plansData = await plansRes.json()
+          setPlans(plansData?.plans || [])
+        }
+
+        // Get wallet balance
+        const walletData = await getWalletBalance()
+        setBalance(walletData?.balance || 0)
       } catch (err) {
-        setError('Failed to load data');
+        setError('Failed to load data')
       } finally {
-        setLoading(false);
+        setLoading(false)
       }
-    };
-    loadData();
-  }, [selectedProvider]);
+    }
+    loadData()
+  }, [selectedProvider])
 
   const handleProviderChange = (providerId: string) => {
     setSelectedProvider(providerId);
@@ -95,12 +106,26 @@ export default function CablePage() {
       formData.append('packageDisplayName', selectedPlanData?.displayName || '');
       formData.append('smartcard', smartcard);
       formData.append('phone', phone);
-      const result = await subscribeCable(formData);
+
+      const res = await fetch('/api/gsubz/cable/subscribe', {
+        method: 'POST',
+        body: formData
+      })
+
+      if (res.status === 429) {
+        setError('Too many subscription requests. Maximum 5 per minute. Please wait before trying again.')
+        setShowConfirm(false)
+        setProcessing(false)
+        setSubmitting(false)
+        return
+      }
+
+      const result = await res.json()
       
       if (result.success) {
         setShowSuccess(true);
       } else {
-        setError(result.message || 'Transaction failed');
+        setError(result.error || result.message || 'Transaction failed');
       }
     } catch (err: any) {
       setError(err.message || 'Transaction failed');

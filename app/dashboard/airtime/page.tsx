@@ -2,9 +2,8 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, Loader2 } from "lucide-react"
 import Link from "next/link"
-import { purchaseAirtime } from "@/lib/actions/airtime"
 import { getWalletBalance } from "@/lib/actions/wallet"
 import { getRecentPhones, saveRecentPhone } from "@/lib/actions/recent-phones"
 import { ConfirmSheet } from "@/components/confirm-sheet"
@@ -120,11 +119,24 @@ export default function AirtimePage() {
     formData.append("amount", amount)
 
     try {
-      const res = await purchaseAirtime(formData)
-      setResult(res)
+      const res = await fetch('/api/gsubz/airtime/purchase', {
+        method: 'POST',
+        body: formData
+      })
+
+      if (res.status === 429) {
+        setError('Too many purchase requests. Maximum 5 per minute. Please wait before trying again.')
+        setShowConfirm(false)
+        setProcessing(false)
+        setLoading(false)
+        return
+      }
+
+      const data = await res.json()
+      setResult(data)
       setShowConfirm(false)
 
-      if (res.success) {
+      if (data.success) {
         const newBal = await getWalletBalance()
         // Save phone to Supabase
         await saveRecentPhone(currentPhone)
@@ -137,7 +149,7 @@ export default function AirtimePage() {
           amount: currentAmount,
           balanceBefore: balanceBefore,
           balanceAfter: newBal.balance,
-          transactionId: res.transaction?.id?.toString() || res.transaction?.transactionID?.toString() || '',
+          transactionId: data.transaction?.id?.toString() || data.transaction?.transactionID?.toString() || '',
           network: currentNetwork
         })
         setShowSuccess(true)
@@ -145,7 +157,7 @@ export default function AirtimePage() {
         setAmount("")
         setBalance(newBal.balance)
       } else {
-        setError(res.message || "Transaction failed. Please try again.")
+        setError(data.error || data.message || "Transaction failed. Please try again.")
       }
     } catch {
       setError("An error occurred. Please try again.")
