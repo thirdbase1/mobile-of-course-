@@ -11,8 +11,7 @@ import { TransactionList } from "@/components/transaction-list"
 import { NotificationBell } from "@/components/notification-bell"
 import { Logo } from "@/components/logo"
 import { WalletCard } from "@/components/wallet-card"
-import { registerDeviceSession, checkSessionActive } from "@/lib/actions/session"
-import { generateDeviceFingerprint, getDeviceInfo, saveSessionLocally, hasSessionBeenHijacked } from "@/lib/utils/device-session"
+import { isCurrentSessionValid, saveCurrentSessionId, clearStoredSessionId } from "@/lib/utils/session-check"
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -25,58 +24,39 @@ export default function DashboardPage() {
   const [showConfirmedBanner, setShowConfirmedBanner] = useState(false)
   const [sessionInvalid, setSessionInvalid] = useState(false)
 
-  // Check if session is still valid (not logged in from another device)
+  // Check if logged in from another device on every component mount
   useEffect(() => {
-    const checkSession = async () => {
-      const { active, reason } = await checkSessionActive()
-      if (!active) {
-        console.log("[v0] Session invalid:", reason)
+    const checkSessionValidity = async () => {
+      const supabase = createClient()
+      
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      if (!session) {
+        router.push("/login")
+        return
+      }
+
+      // Check if current session matches stored session
+      // If not, user logged in elsewhere - sign out this device immediately
+      const isValid = isCurrentSessionValid(session.access_token)
+
+      if (!isValid) {
+        console.log("[v0] Session invalid - user logged in on another device, signing out")
         setSessionInvalid(true)
-        // Redirect to login after delay
+        
+        // Sign out this device
+        await supabase.auth.signOut()
+        
         setTimeout(() => {
-          router.push("/login?session_expired=1")
-        }, 2000)
+          router.push("/login?session_expired=1&reason=logged_in_elsewhere")
+        }, 1000)
       }
     }
 
-    // Check session every 30 seconds
-    const checkInterval = setInterval(checkSession, 30000)
-    checkSession() // Check immediately
-    
-    return () => clearInterval(checkInterval)
+    checkSessionValidity()
   }, [router])
-
-  // Register device session on first load
-  useEffect(() => {
-    const registerDevice = async () => {
-      try {
-        const fingerprint = generateDeviceFingerprint()
-        const deviceInfo = getDeviceInfo()
-
-        console.log("[v0] Registering device session:", deviceInfo)
-
-        const result = await registerDeviceSession(
-          fingerprint,
-          deviceInfo.name,
-          deviceInfo.browser,
-          deviceInfo.os,
-          deviceInfo.userAgent
-        )
-
-        if (result.success) {
-          console.log("[v0] Device session registered successfully")
-          // Save session locally for hijack detection
-          saveSessionLocally(result.sessionId as string)
-        } else {
-          console.error("[v0] Failed to register device session:", result.error)
-        }
-      } catch (error) {
-        console.error("[v0] Error registering device session:", error)
-      }
-    }
-
-    registerDevice()
-  }, [])
 
   // Show session invalid message
   if (sessionInvalid) {
