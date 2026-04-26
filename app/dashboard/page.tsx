@@ -5,7 +5,6 @@ import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Settings, ChevronRight, CheckCircle2, X } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
-import { isHardcodedAdmin } from "@/lib/utils/hardcoded-admin"
 import { ServiceGrid } from "@/components/service-grid"
 import { TransactionList } from "@/components/transaction-list"
 import { NotificationBell } from "@/components/notification-bell"
@@ -77,27 +76,25 @@ export default function DashboardPage() {
       console.log("[v0] User authenticated:", user.id)
       setUser(user)
 
-      if (isHardcodedAdmin(user.email)) {
-        console.log("[v0] User is hardcoded admin")
-        setIsAdmin(true)
-      } else {
-        const { data: profileData, error: profileError } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", user.id)
-          .single()
+      // Always fetch profile from database to check is_admin flag
+      // The proxy middleware will have set is_admin=true if user email matches ADMIN_EMAIL
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single()
 
-        if (profileError) {
-          console.error("[v0] Error fetching profile:", profileError)
-        } else {
-          console.log("[v0] Profile loaded:", {
-            id: profileData?.id,
-            wallet_balance: profileData?.wallet_balance,
-            is_admin: profileData?.is_admin,
-          })
-          setProfile(profileData)
-          setIsAdmin(profileData?.is_admin === true)
-        }
+      if (profileError) {
+        console.error("[v0] Error fetching profile:", profileError)
+      } else {
+        console.log("[v0] Profile loaded:", {
+          id: profileData?.id,
+          wallet_balance: profileData?.wallet_balance,
+          is_admin: profileData?.is_admin,
+        })
+        setProfile(profileData)
+        // Check is_admin from database
+        setIsAdmin(profileData?.is_admin === true)
       }
 
       const { data: transactionsData, error: txError } = await supabase
