@@ -2,7 +2,7 @@
 
 import { buyCableSubscription, getCablePlans } from "@/lib/api/gsubz"
 import { createClient } from "@/lib/supabase/server"
-import { saveTransaction, updateWalletBalance } from "@/lib/utils/save-transaction"
+import { saveTransaction, atomicDeductWallet } from "@/lib/utils/save-transaction"
 import { sendTransactionEmail } from "@/lib/email/send-transaction-email"
 import { isValidAmount } from "@/lib/utils/input-validation"
 
@@ -66,7 +66,19 @@ export async function subscribeCable(formData: FormData) {
 
     if (isSuccess) {
       const transactionId = String(response.transactionID || requestID)
-      const balanceAfter = balanceBefore - purchaseAmount
+
+      // ATOMIC: Deduct wallet balance in a single database transaction
+      const deductResult = await atomicDeductWallet(user.id, purchaseAmount)
+
+      if (!deductResult.success) {
+        console.error("[v0] Atomic deduction failed:", deductResult.error)
+        return {
+          success: false,
+          message: deductResult.error || "Failed to update wallet balance. Please contact support.",
+        }
+      }
+
+      const balanceAfter = deductResult.newBalance!
 
       // Save transaction (smartcard stored in phone field)
       await saveTransaction({
@@ -84,9 +96,6 @@ export async function subscribeCable(formData: FormData) {
         apiResponse: response,
         planDetails: packageDisplayName,
       })
-
-      // Update wallet
-      await updateWalletBalance(user.id, balanceAfter)
 
       return {
         success: true,

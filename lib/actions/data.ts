@@ -2,10 +2,9 @@
 
 import { buyData, getDataPlans } from "@/lib/api/gsubz"
 import { createClient } from "@/lib/supabase/server"
-import { saveTransaction, updateWalletBalance } from "@/lib/utils/save-transaction"
+import { saveTransaction, atomicDeductWallet, atomicRefundWallet } from "@/lib/utils/save-transaction"
 import { sendTransactionEmail } from "@/lib/email/send-transaction-email"
 import { isValidAmount, isValidPhone } from "@/lib/utils/input-validation"
-import { checkRateLimit, RATE_LIMIT_CONFIG } from "@/lib/utils/rate-limit"
 
 export async function purchaseData(formData: FormData) {
   const serviceID = formData.get("serviceID") as string
@@ -46,6 +45,13 @@ export async function purchaseData(formData: FormData) {
       return { success: false, message: "Profile not found. Please contact support." }
     }
 
+    const balanceBefore = Number(profile.wallet_balance)
+
+    // Check sufficient balance BEFORE calling Gsubz API
+    if (balanceBefore < amount) {
+      return { success: false, message: "Insufficient wallet balance" }
+    }
+
     const requestID = "TXN" + Date.now()
 
     // Call GSUBZ API
@@ -62,12 +68,6 @@ export async function purchaseData(formData: FormData) {
 
     // Use the client-provided amount (which includes markup) instead of API response amount
     const userAmount = clientAmount ? Number(clientAmount) : (response.amount ? Number(response.amount) : 0)
-    const balanceBefore = Number(profile.wallet_balance)
-
-    // Check sufficient balance
-    if (balanceBefore < userAmount) {
-      return { success: false, message: "Insufficient wallet balance" }
-    }
 
     // Map network name - extract network from serviceID (e.g., "glo_sme" -> "glo")
     const networkNameMap: Record<string, string> = {
@@ -90,7 +90,26 @@ export async function purchaseData(formData: FormData) {
 
     if (isSuccess) {
       const transactionId = String(response.transactionID || requestID)
-      const balanceAfter = balanceBefore - userAmount
+
+      // ATOMIC: Deduct wallet balance in a single database transaction
+      // This prevents race conditions when multiple requests hit simultaneously
+      console.log(`[v0] [${Date.now() - startTime}ms] Atomically deducting wallet balance`)
+      const deductStartTime = Date.now()
+      const deductResult = await atomicDeductWallet(user.id, userAmount)
+      const deductTime = Date.now() - deductStartTime
+
+      if (!deductResult.success) {
+        console.error("[v0] Atomic deduction failed:", deductResult.error)
+        // Transaction succeeded on Gsubz but we can't deduct wallet
+        // Log for manual review
+        return {
+          success: false,
+          message: deductResult.error || "Failed to update wallet balance. Please contact support.",
+        }
+      }
+
+      const balanceAfter = deductResult.newBalance!
+      console.log(`[v0] [${Date.now() - startTime}ms] Wallet atomically deducted (took ${deductTime}ms, new balance: ${balanceAfter})`)
 
       console.log(`[v0] [${Date.now() - startTime}ms] Transaction successful, saving to DB`)
       const saveStartTime = Date.now()
@@ -115,14 +134,7 @@ export async function purchaseData(formData: FormData) {
       const saveTime = Date.now() - saveStartTime
       console.log(`[v0] [${Date.now() - startTime}ms] Database save completed (took ${saveTime}ms)`)
 
-      // Update wallet
-      console.log(`[v0] [${Date.now() - startTime}ms] Updating wallet balance`)
-      const walletStartTime = Date.now()
-      await updateWalletBalance(user.id, balanceAfter)
-      const walletTime = Date.now() - walletStartTime
-      console.log(`[v0] [${Date.now() - startTime}ms] Wallet updated (took ${walletTime}ms)`)
-
-      console.log(`[v0] purchaseData COMPLETE (total: ${Date.now() - startTime}ms, Gsubz: ${gsubzTime}ms, DB: ${saveTime}ms, Wallet: ${walletTime}ms)`)
+      console.log(`[v0] purchaseData COMPLETE (total: ${Date.now() - startTime}ms, Gsubz: ${gsubzTime}ms, Deduct: ${deductTime}ms, DB: ${saveTime}ms)`)
       return {
         success: true,
         message: "Data purchase successful",

@@ -120,30 +120,75 @@ export async function saveTransaction(payload: SaveTransactionPayload) {
 }
 
 /**
- * UPDATE WALLET BALANCE
- * After a successful transaction, ALWAYS call this to update user wallet
+ * ATOMIC WALLET DEDUCTION
+ * Deducts amount from wallet in a single database transaction
+ * This prevents race conditions when multiple requests hit simultaneously
+ * Returns { success: boolean, newBalance?: number, error?: string }
  */
-export async function updateWalletBalance(userId: string, newBalance: number) {
+export async function atomicDeductWallet(userId: string, amount: number) {
   try {
     const supabase = await createClient()
 
-    const { error } = await supabase
-      .from("profiles")
-      .update({ wallet_balance: newBalance, updated_at: new Date().toISOString() })
-      .eq("id", userId)
+    // Use RPC call for atomic transaction - deduct and get new balance in one operation
+    const { data, error } = await supabase.rpc('deduct_wallet_balance', {
+      user_id: userId,
+      deduct_amount: amount,
+    })
 
     if (error) {
-      console.error("[v0] Failed to update wallet:", error)
+      console.error("[v0] atomicDeductWallet RPC error:", error)
+      // Check if error is insufficient balance
+      if (error.message?.includes('insufficient')) {
+        return {
+          success: false,
+          error: 'Insufficient wallet balance',
+        }
+      }
       throw error
     }
 
-    console.log("[v0] Wallet updated:", { userId, newBalance })
+    console.log("[v0] atomicDeductWallet success:", { userId, amount, newBalance: data })
 
     return {
       success: true,
+      newBalance: data,
     }
   } catch (error) {
-    console.error("[v0] updateWalletBalance error:", error)
+    console.error("[v0] atomicDeductWallet error:", error)
+    return {
+      success: false,
+      error: String(error),
+    }
+  }
+}
+
+/**
+ * ATOMIC WALLET REFUND
+ * Adds amount back to wallet (for failed transactions)
+ * Returns { success: boolean, newBalance?: number }
+ */
+export async function atomicRefundWallet(userId: string, amount: number) {
+  try {
+    const supabase = await createClient()
+
+    const { data, error } = await supabase.rpc('refund_wallet_balance', {
+      user_id: userId,
+      refund_amount: amount,
+    })
+
+    if (error) {
+      console.error("[v0] atomicRefundWallet RPC error:", error)
+      throw error
+    }
+
+    console.log("[v0] atomicRefundWallet success:", { userId, amount, newBalance: data })
+
+    return {
+      success: true,
+      newBalance: data,
+    }
+  } catch (error) {
+    console.error("[v0] atomicRefundWallet error:", error)
     return {
       success: false,
       error: String(error),

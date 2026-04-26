@@ -2,7 +2,7 @@
 
 import { buyAirtime } from "@/lib/api/gsubz"
 import { createClient } from "@/lib/supabase/server"
-import { saveTransaction, updateWalletBalance } from "@/lib/utils/save-transaction"
+import { saveTransaction, atomicDeductWallet } from "@/lib/utils/save-transaction"
 import { sendTransactionEmail } from "@/lib/email/send-transaction-email"
 import { isValidAmount, isValidPhone } from "@/lib/utils/input-validation"
 
@@ -83,7 +83,23 @@ export async function purchaseAirtime(formData: FormData) {
 
     if (isSuccess) {
       const transactionId = String(response.transactionID || requestID)
-      const balanceAfter = balanceBefore - userAmount
+
+      // ATOMIC: Deduct wallet balance in a single database transaction
+      console.log(`[v0] [${Date.now() - startTime}ms] Atomically deducting wallet balance`)
+      const deductStartTime = Date.now()
+      const deductResult = await atomicDeductWallet(user.id, userAmount)
+      const deductTime = Date.now() - deductStartTime
+
+      if (!deductResult.success) {
+        console.error("[v0] Atomic deduction failed:", deductResult.error)
+        return {
+          success: false,
+          message: deductResult.error || "Failed to update wallet balance. Please contact support.",
+        }
+      }
+
+      const balanceAfter = deductResult.newBalance!
+      console.log(`[v0] [${Date.now() - startTime}ms] Wallet atomically deducted (took ${deductTime}ms, new balance: ${balanceAfter})`)
 
       console.log(`[v0] [${Date.now() - startTime}ms] Transaction successful, saving to DB`)
       const saveStartTime = Date.now()
@@ -105,14 +121,7 @@ export async function purchaseAirtime(formData: FormData) {
       const saveTime = Date.now() - saveStartTime
       console.log(`[v0] [${Date.now() - startTime}ms] Database save completed (took ${saveTime}ms)`)
 
-      // Update wallet
-      console.log(`[v0] [${Date.now() - startTime}ms] Updating wallet balance`)
-      const walletStartTime = Date.now()
-      await updateWalletBalance(user.id, balanceAfter)
-      const walletTime = Date.now() - walletStartTime
-      console.log(`[v0] [${Date.now() - startTime}ms] Wallet updated (took ${walletTime}ms)`)
-
-      console.log(`[v0] purchaseAirtime COMPLETE (total: ${Date.now() - startTime}ms, Gsubz: ${gsubzTime}ms, DB: ${saveTime}ms, Wallet: ${walletTime}ms)`)
+      console.log(`[v0] purchaseAirtime COMPLETE (total: ${Date.now() - startTime}ms, Gsubz: ${gsubzTime}ms, Deduct: ${deductTime}ms, DB: ${saveTime}ms)`)
       return {
         success: true,
         message: "Airtime purchase successful",
