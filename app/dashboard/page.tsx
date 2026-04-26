@@ -11,6 +11,8 @@ import { TransactionList } from "@/components/transaction-list"
 import { NotificationBell } from "@/components/notification-bell"
 import { Logo } from "@/components/logo"
 import { WalletCard } from "@/components/wallet-card"
+import { registerDeviceSession, checkSessionActive } from "@/lib/actions/session"
+import { generateDeviceFingerprint, getDeviceInfo, saveSessionLocally, hasSessionBeenHijacked } from "@/lib/utils/device-session"
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -21,8 +23,80 @@ export default function DashboardPage() {
   const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(true)
   const [showConfirmedBanner, setShowConfirmedBanner] = useState(false)
+  const [sessionInvalid, setSessionInvalid] = useState(false)
 
-  // When the proxy middleware completes a Supabase email-confirmation code
+  // Check if session is still valid (not logged in from another device)
+  useEffect(() => {
+    const checkSession = async () => {
+      const { active, reason } = await checkSessionActive()
+      if (!active) {
+        console.log("[v0] Session invalid:", reason)
+        setSessionInvalid(true)
+        // Redirect to login after delay
+        setTimeout(() => {
+          router.push("/login?session_expired=1")
+        }, 2000)
+      }
+    }
+
+    // Check session every 30 seconds
+    const checkInterval = setInterval(checkSession, 30000)
+    checkSession() // Check immediately
+    
+    return () => clearInterval(checkInterval)
+  }, [router])
+
+  // Register device session on first load
+  useEffect(() => {
+    const registerDevice = async () => {
+      try {
+        const fingerprint = generateDeviceFingerprint()
+        const deviceInfo = getDeviceInfo()
+
+        console.log("[v0] Registering device session:", deviceInfo)
+
+        const result = await registerDeviceSession(
+          fingerprint,
+          deviceInfo.name,
+          deviceInfo.browser,
+          deviceInfo.os,
+          deviceInfo.userAgent
+        )
+
+        if (result.success) {
+          console.log("[v0] Device session registered successfully")
+          // Save session locally for hijack detection
+          saveSessionLocally(result.sessionId as string)
+        } else {
+          console.error("[v0] Failed to register device session:", result.error)
+        }
+      } catch (error) {
+        console.error("[v0] Error registering device session:", error)
+      }
+    }
+
+    registerDevice()
+  }, [])
+
+  // Show session invalid message
+  if (sessionInvalid) {
+    return (
+      <div className="fixed inset-0 bg-red-50 flex items-center justify-center z-50">
+        <div className="bg-white border-2 border-red-300 rounded-lg p-8 max-w-md text-center shadow-lg">
+          <div className="mb-4">
+            <X className="w-12 h-12 text-red-600 mx-auto" />
+          </div>
+          <h2 className="text-xl font-bold text-red-900 mb-2">Session Ended</h2>
+          <p className="text-slate-700 mb-4">
+            You logged in on another device. Redirecting to login...
+          </p>
+          <div className="text-slate-500 text-sm">
+            This prevents unauthorized access to your account.
+          </div>
+        </div>
+      </div>
+    )
+  }
   // exchange, it redirects here with ?confirmed=1. Show a one-time welcome
   // banner and clean the URL so refreshing doesn't re-trigger it.
   useEffect(() => {
