@@ -101,7 +101,7 @@ const FAQS = [
   },
   {
     q: "Are there deposit fees?",
-    a: "Yes. Deposits below ₦2,000 have a ₦50 processing fee. Deposits ₦2,000 and above include the ₦50 fee plus a small percentage. You'll see the exact total on the Deposit page before you confirm.",
+    a: "Yes. Deposits below ₦2,000 have a ₦50 processing fee. Transactions above ₦2,000 are charged more. You'll see the exact fee on the Deposit page before you confirm.",
   },
   {
     q: "Which networks do you support for airtime?",

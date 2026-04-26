@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-
+import { useEffect } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
@@ -36,7 +36,28 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [sessionReady, setSessionReady] = useState(false)
   const router = useRouter()
+
+  // Check if user has a valid recovery session when page loads
+  useEffect(() => {
+    const checkSession = async () => {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      // If user is not authenticated, redirect to login
+      if (!user) {
+        console.error("[v0] No recovery session found - redirecting to login")
+        router.push("/login?error=recovery_expired")
+        return
+      }
+
+      // Session is valid, allow password reset
+      setSessionReady(true)
+    }
+
+    checkSession()
+  }, [router])
 
   const strength = checkPasswordStrength(password)
   const strengthScore = Object.values(strength).filter(Boolean).length
@@ -93,7 +114,15 @@ export default function ResetPasswordPage() {
       {/* Main content */}
       <main className="flex-1 flex items-center justify-center px-4 py-8">
         <div className="w-full max-w-md">
-          {!success ? (
+          {!sessionReady ? (
+            // Loading state while checking session
+            <div className="bg-white rounded-2xl shadow-xl border border-slate-200/60 overflow-hidden">
+              <div className="px-7 py-12 text-center">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
+                <p className="text-slate-600">Verifying your recovery link...</p>
+              </div>
+            </div>
+          ) : !success ? (
             <div className="bg-white rounded-2xl shadow-xl border border-slate-200/60 overflow-hidden">
               {/* Header */}
               <div className="px-7 pt-8 pb-6 text-center border-b border-slate-100">
