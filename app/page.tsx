@@ -101,7 +101,7 @@ const FAQS = [
   },
   {
     q: "Are there deposit fees?",
-    a: "Yes. We charge a small processing fee to cover bank and payment processing costs. Below ₦5,000, you pay a flat base fee. Above ₦5,000, we charge the base fee plus a percentage of your deposit amount. The exact fee is calculated and shown to you on the Deposit page before you confirm — no surprises, and the fee is capped at a maximum amount.",
+    a: "Yes. Deposits below ₦2,000 have a ₦50 processing fee. Deposits ₦2,000 and above include the ₦50 fee plus a small percentage. You'll see the exact total on the Deposit page before you confirm.",
   },
   {
     q: "Which networks do you support for airtime?",

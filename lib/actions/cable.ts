@@ -4,6 +4,8 @@ import { buyCableSubscription, getCablePlans } from "@/lib/api/gsubz"
 import { createClient } from "@/lib/supabase/server"
 import { saveTransaction, updateWalletBalance } from "@/lib/utils/save-transaction"
 import { sendTransactionEmail } from "@/lib/email/send-transaction-email"
+import { checkRateLimit, RATE_LIMIT_CONFIG } from "@/lib/utils/rate-limit"
+import { isValidAmount } from "@/lib/utils/input-validation"
 
 export async function subscribeCable(formData: FormData) {
   const provider = formData.get("provider") as string
@@ -13,6 +15,16 @@ export async function subscribeCable(formData: FormData) {
   const phone = formData.get("phone") as string
 
   try {
+    // SECURITY: Rate limit cable subscriptions (8 per minute)
+    const { allowed: rateLimitAllowed } = await checkRateLimit(
+      `${smartcard}:cable`,
+      RATE_LIMIT_CONFIG.GSUBZ_CABLE_SUBSCRIBE
+    )
+
+    if (!rateLimitAllowed) {
+      return { success: false, message: "Too many cable subscriptions. Please wait a minute before trying again." }
+    }
+
     const supabase = await createClient()
     const {
       data: { user },
@@ -161,6 +173,16 @@ export async function subscribeCable(formData: FormData) {
 
 export async function fetchCablePlans(provider: string) {
   try {
+    // SECURITY: Rate limit cable plan fetches (8 per minute)
+    const { allowed: rateLimitAllowed } = await checkRateLimit(
+      `${provider}:cable:plans`,
+      RATE_LIMIT_CONFIG.GSUBZ_CABLE_FETCH
+    )
+
+    if (!rateLimitAllowed) {
+      return { success: false, plans: [], error: "Too many requests. Please wait a minute." }
+    }
+
     const serviceIdMap: Record<string, string> = {
       dstv: "dstv",
       gotv: "gotv",
@@ -223,6 +245,16 @@ export async function fetchCablePlans(provider: string) {
 }
 
 export async function verifySmartcard(provider: string, smartcard: string) {
+  // SECURITY: Rate limit smartcard verifications (8 per minute)
+  const { allowed: rateLimitAllowed } = await checkRateLimit(
+    `${provider}:${smartcard}:verify`,
+    RATE_LIMIT_CONFIG.GSUBZ_CABLE_VERIFY
+  )
+
+  if (!rateLimitAllowed) {
+    return { success: false, error: "Too many verification attempts. Please wait a minute." }
+  }
+
   await new Promise((resolve) => setTimeout(resolve, 500))
 
   return {

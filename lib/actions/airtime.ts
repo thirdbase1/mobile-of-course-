@@ -4,6 +4,8 @@ import { buyAirtime } from "@/lib/api/gsubz"
 import { createClient } from "@/lib/supabase/server"
 import { saveTransaction, updateWalletBalance } from "@/lib/utils/save-transaction"
 import { sendTransactionEmail } from "@/lib/email/send-transaction-email"
+import { checkRateLimit, RATE_LIMIT_CONFIG } from "@/lib/utils/rate-limit"
+import { isValidAmount, isValidPhone } from "@/lib/utils/input-validation"
 
 export async function purchaseAirtime(formData: FormData) {
   const network = formData.get("network") as string
@@ -14,8 +16,25 @@ export async function purchaseAirtime(formData: FormData) {
   console.log("[v0] purchaseAirtime START")
 
   try {
-    console.log(`[v0] [${Date.now() - startTime}ms] Initializing Supabase`)
-    const supabase = await createClient()
+    // SECURITY: Rate limit airtime purchases (8 per minute)
+    const { allowed: rateLimitAllowed } = await checkRateLimit(
+      `${phone}:airtime`,
+      RATE_LIMIT_CONFIG.GSUBZ_AIRTIME_PURCHASE
+    )
+
+    if (!rateLimitAllowed) {
+      return { success: false, message: "Too many airtime purchases. Please wait a minute before trying again." }
+    }
+
+    // SECURITY: Validate inputs
+    const numAmount = parseFloat(amount)
+    if (!isValidAmount(numAmount) || numAmount <= 0) {
+      return { success: false, message: "Invalid amount" }
+    }
+
+    if (!isValidPhone(phone)) {
+      return { success: false, message: "Invalid phone number" }
+    }
     const {
       data: { user },
     } = await supabase.auth.getUser()

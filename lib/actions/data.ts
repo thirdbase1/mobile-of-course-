@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server"
 import { saveTransaction, updateWalletBalance } from "@/lib/utils/save-transaction"
 import { sendTransactionEmail } from "@/lib/email/send-transaction-email"
 import { isValidAmount, isValidPhone } from "@/lib/utils/input-validation"
+import { checkRateLimit, RATE_LIMIT_CONFIG } from "@/lib/utils/rate-limit"
 
 export async function purchaseData(formData: FormData) {
   const serviceID = formData.get("serviceID") as string
@@ -17,6 +18,16 @@ export async function purchaseData(formData: FormData) {
   console.log("[v0] purchaseData START")
 
   try {
+    // SECURITY: Rate limit data purchases (8 per minute)
+    const { allowed: rateLimitAllowed, remaining } = await checkRateLimit(
+      `${phone}:data`,
+      RATE_LIMIT_CONFIG.GSUBZ_DATA_PURCHASE
+    )
+
+    if (!rateLimitAllowed) {
+      return { success: false, message: "Too many data purchases. Please wait a minute before trying again." }
+    }
+
     // SECURITY: Validate all inputs before processing
     const amount = parseFloat(clientAmount)
     
@@ -197,6 +208,16 @@ export async function purchaseData(formData: FormData) {
 
 export async function fetchDataPlans(serviceID: string) {
   try {
+    // SECURITY: Rate limit plan fetches (8 per minute)
+    const { allowed: rateLimitAllowed } = await checkRateLimit(
+      `${serviceID}:plans`,
+      RATE_LIMIT_CONFIG.GSUBZ_DATA_FETCH
+    )
+
+    if (!rateLimitAllowed) {
+      return { success: false, message: "Too many requests. Please wait a minute before trying again." }
+    }
+
     const plans = await getDataPlans(serviceID)
     
     // Fetch pricing rules for this service to apply markup

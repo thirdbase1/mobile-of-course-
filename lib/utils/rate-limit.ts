@@ -89,10 +89,15 @@ export const RATE_LIMIT_CONFIG = {
   // Public endpoints
   PUBLIC_PLANS: { interval: 60000, maxRequests: 1000, keyPrefix: "rl:public:plans" },
 
-  // Gsubz API protection (decreased from 50 to 30)
-  GSUBZ_DATA: { interval: 60000, maxRequests: 30, keyPrefix: "rl:gsubz:data" },
-  GSUBZ_AIRTIME: { interval: 60000, maxRequests: 30, keyPrefix: "rl:gsubz:airtime" },
-  GSUBZ_CABLE: { interval: 60000, maxRequests: 30, keyPrefix: "rl:gsubz:cable" },
+  // Gsubz API protection (all 8 per minute)
+  GSUBZ_DATA_PURCHASE: { interval: 60000, maxRequests: 8, keyPrefix: "rl:gsubz:data:purchase" },
+  GSUBZ_DATA_FETCH: { interval: 60000, maxRequests: 8, keyPrefix: "rl:gsubz:data:fetch" },
+  GSUBZ_AIRTIME_PURCHASE: { interval: 60000, maxRequests: 8, keyPrefix: "rl:gsubz:airtime:purchase" },
+  GSUBZ_CABLE_SUBSCRIBE: { interval: 60000, maxRequests: 8, keyPrefix: "rl:gsubz:cable:subscribe" },
+  GSUBZ_CABLE_FETCH: { interval: 60000, maxRequests: 8, keyPrefix: "rl:gsubz:cable:fetch" },
+  GSUBZ_CABLE_VERIFY: { interval: 60000, maxRequests: 8, keyPrefix: "rl:gsubz:cable:verify" },
+  GSUBZ_ELECTRICITY: { interval: 60000, maxRequests: 8, keyPrefix: "rl:gsubz:electricity" },
+  GSUBZ_PIN_PRINT: { interval: 60000, maxRequests: 8, keyPrefix: "rl:gsubz:pin:print" },
 }
 
 /**
