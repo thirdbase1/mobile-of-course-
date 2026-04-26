@@ -9,13 +9,6 @@
       "maxDuration": 60
     }
   },
-  "regions": [
-    "iad1",
-    "lhr1",
-    "sin1",
-    "fra1",
-    "syd1"
-  ],
   "headers": [
     {
       "source": "/(.*)",
