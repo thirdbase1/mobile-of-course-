@@ -1,28 +1,22 @@
 /**
- * SECURITY: Retrieves admin email from environment variable ONLY
- * No hardcoded defaults allowed - must be explicitly set in production
+ * SECURITY: Hardcoded admin email
+ * This is the admin email address - only this account has admin access
  */
-export function getAdminEmail(): string {
-  const adminEmail = process.env.ADMIN_EMAIL
-  
-  if (!adminEmail || adminEmail.trim() === '') {
-    throw new Error('ADMIN_EMAIL environment variable is not set. This is required for production.')
-  }
-  
-  return adminEmail.toLowerCase().trim()
-}
+const HARDCODED_ADMIN_EMAIL = 'admin@mozosubz.xyz'
 
 /**
- * Checks if an email belongs to an admin (must be explicitly configured in env)
+ * Checks if an email belongs to an admin
+ * Uses hardcoded email for production security
  */
 export function isHardcodedAdmin(email: string | null | undefined): boolean {
   if (!email) return false
-  
-  try {
-    const adminEmail = getAdminEmail()
-    return email.toLowerCase().trim() === adminEmail
-  } catch {
-    // If env var is not set, return false (no admin email configured)
-    return false
-  }
+  return email.toLowerCase().trim() === HARDCODED_ADMIN_EMAIL.toLowerCase().trim()
 }
+
+/**
+ * Get the hardcoded admin email
+ */
+export function getAdminEmail(): string {
+  return HARDCODED_ADMIN_EMAIL
+}
+

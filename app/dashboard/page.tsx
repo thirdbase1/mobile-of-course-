@@ -5,6 +5,7 @@ import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Settings, ChevronRight, CheckCircle2, X } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
+import { isHardcodedAdmin } from "@/lib/utils/hardcoded-admin"
 import { ServiceGrid } from "@/components/service-grid"
 import { TransactionList } from "@/components/transaction-list"
 import { NotificationBell } from "@/components/notification-bell"
@@ -76,8 +77,13 @@ export default function DashboardPage() {
       console.log("[v0] User authenticated:", user.id)
       setUser(user)
 
-      // Always fetch profile from database to check is_admin flag
-      // The proxy middleware will have set is_admin=true if user email matches ADMIN_EMAIL
+      // Check if user is hardcoded admin
+      if (isHardcodedAdmin(user.email)) {
+        console.log("[v0] User is hardcoded admin:", user.email)
+        setIsAdmin(true)
+      }
+
+      // Always fetch profile from database regardless of admin status
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
         .select("*")
@@ -93,8 +99,10 @@ export default function DashboardPage() {
           is_admin: profileData?.is_admin,
         })
         setProfile(profileData)
-        // Check is_admin from database
-        setIsAdmin(profileData?.is_admin === true)
+        // If not hardcoded admin, check database flag (set by proxy middleware)
+        if (!isHardcodedAdmin(user.email) && profileData?.is_admin === true) {
+          setIsAdmin(true)
+        }
       }
 
       const { data: transactionsData, error: txError } = await supabase
