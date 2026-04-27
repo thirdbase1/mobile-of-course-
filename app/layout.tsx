@@ -6,6 +6,7 @@ import { Analytics } from "@vercel/analytics/next"
 import { SpeedInsights } from "@vercel/speed-insights/next"
 import { Toaster } from "@/components/ui/toaster"
 import { ThemeProvider } from "@/components/theme-provider"
+import { PerformanceInitializer } from "@/components/performance-initializer"
 import "./globals.css"
 
 const dmSans = DM_Sans({
@@ -90,6 +91,7 @@ export default function RootLayout({
       </head>
       <body className={`${dmSans.className} ${spaceGrotesk.variable} antialiased overflow-y-auto overflow-x-hidden`}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
+          <PerformanceInitializer />
           {children}
           <Toaster />
         </ThemeProvider>

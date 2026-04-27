@@ -1,0 +1,66 @@
+/* Performance Optimizations for Slow Networks */
+
+/* Reduce animations on slow networks */
+html[data-reduce-motion='true'] * {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
+
+/* Optimize images on slow networks */
+html[data-slow-network='true'] img {
+  /* Use lower quality on slow networks */
+  image-rendering: pixelated;
+}
+
+/* Disable background images on slow networks */
+html[data-slow-network='true'] [style*='background-image'] {
+  background-image: none !important;
+}
+
+/* Reduce shadows on slow networks */
+html[data-slow-network='true'] * {
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+
+/* Lazy load images - show placeholder while loading */
+img[data-src] {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+  min-height: 200px;
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Prefers reduced motion - respect user preference */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Efficient CSS for mobile */
+@media (max-width: 768px) {
+  /* Reduce blur effects on mobile */
+  [class*='backdrop'] {
+    backdrop-filter: none !important;
+  }
+  
+  /* Simplify scrolling on slow networks */
+  html[data-slow-network='true'] {
+    scroll-behavior: auto !important;
+  }
+}
