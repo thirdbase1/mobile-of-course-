@@ -265,79 +265,80 @@ export function CheckoutClient({ paymentReference, transaction: initialTransacti
   const amountCopyStr = transaction.amount.toString()
 
   return (
-    <div className="min-h-screen bg-white font-sans">
+    <div className="min-h-screen w-full bg-white font-sans flex flex-col">
       {/* Dark header like PalmPay */}
-      <header className="sticky top-0 z-20 bg-slate-900 text-white">
-        <div className="max-w-xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-          <Link href="/dashboard" className="p-2 hover:bg-slate-800 rounded-lg transition">
+      <header className="sticky top-0 z-20 bg-slate-900 text-white w-full">
+        <div className="w-full px-4 sm:px-6 py-4 flex items-center justify-between">
+          <Link href="/dashboard" className="p-2 hover:bg-slate-800 rounded-lg transition flex-shrink-0">
             <span className="text-xl">✕</span>
           </Link>
-          <div className="text-center">
+          <div className="text-center flex-1">
             <h1 className="text-lg font-bold">Mozosubz</h1>
             <p className="text-xs text-slate-400">checkout.mozosubz.com</p>
           </div>
-          <button className="p-2 hover:bg-slate-800 rounded-lg transition">
+          <button className="p-2 hover:bg-slate-800 rounded-lg transition flex-shrink-0">
             <span className="text-xl">⋮</span>
           </button>
         </div>
       </header>
 
-      <main className="max-w-xl mx-auto px-4 sm:px-6 py-8 pb-40 md:pb-24">
-        {/* Payment method title */}
-        <section className="mb-8">
-          <h2 className="text-3xl font-bold text-slate-900 mb-6">Pay with bank transfer</h2>
-          
-          {/* Amount hero - Large and prominent */}
-          <div className="text-center mb-8">
-            <span className="text-5xl sm:text-6xl font-bold text-blue-600 tabular-nums">
-              ₦{(transaction.amount).toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </span>
-          </div>
-        </section>
-
-        {/* Bank details card */}
-        {transaction.accountNumber && (
-          <section className="bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden mb-6 p-6">
-            <p className="text-sm text-slate-600 mb-4">Please transfer to the following account</p>
+      <main className="flex-1 overflow-y-auto w-full px-4 sm:px-6 py-8 pb-40 sm:pb-32">
+        <div className="w-full max-w-2xl mx-auto">
+          {/* Payment method title */}
+          <section className="mb-8">
+            <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-6">Pay with bank transfer</h2>
             
-            {/* Bank name */}
-            <div className="mb-6">
-              <p className="text-xs text-slate-600 mb-2">Bank Name:</p>
-              <div className="flex items-center gap-2">
-                <Building2 className="w-5 h-5 text-slate-600" />
-                <p className="text-lg font-semibold text-slate-900">{transaction.bankName}</p>
-              </div>
+            {/* Amount hero - Large and prominent */}
+            <div className="text-center mb-8">
+              <span className="text-5xl sm:text-6xl lg:text-7xl font-bold text-blue-600 tabular-nums block">
+                ₦{(transaction.amount).toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
             </div>
-
-            {/* Account number */}
-            <div className="mb-6">
-              <p className="text-xs text-slate-600 mb-2">Account Number(Only for this transaction)</p>
-              <div className="flex items-center justify-between">
-                <p className="text-2xl font-bold text-blue-600 font-mono tracking-wider">
-                  {transaction.accountNumber}
-                </p>
-                <button
-                  onClick={() => handleCopy(transaction.accountNumber || "", "account")}
-                  className={`px-4 py-2 text-sm font-semibold rounded-lg border transition ${
-                    copied === "account"
-                      ? "bg-emerald-100 text-emerald-700 border-emerald-300"
-                      : "bg-white text-blue-600 border-blue-300 hover:bg-blue-50"
-                  }`}
-                >
-                  {copied === "account" ? "Copied" : "Copy"}
-                </button>
-              </div>
-            </div>
-
-            {/* Account name */}
-            {transaction.accountName && (
-              <div>
-                <p className="text-xs text-slate-600 mb-2">Account Name:</p>
-                <p className="text-sm font-semibold text-slate-900">{transaction.accountName}</p>
-              </div>
-            )}
           </section>
-        )}
+
+          {/* Bank details card */}
+          {transaction.accountNumber && (
+            <section className="bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden mb-6 p-6">
+              <p className="text-sm text-slate-600 mb-4">Please transfer to the following account</p>
+              
+              {/* Bank name */}
+              <div className="mb-6">
+                <p className="text-xs text-slate-600 mb-2">Bank Name:</p>
+                <div className="flex items-center gap-2">
+                  <Building2 className="w-5 h-5 text-slate-600 flex-shrink-0" />
+                  <p className="text-lg font-semibold text-slate-900">{transaction.bankName}</p>
+                </div>
+              </div>
+
+              {/* Account number */}
+              <div className="mb-6">
+                <p className="text-xs text-slate-600 mb-2">Account Number(Only for this transaction)</p>
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <p className="text-xl sm:text-2xl font-bold text-blue-600 font-mono tracking-wider break-all">
+                    {transaction.accountNumber}
+                  </p>
+                  <button
+                    onClick={() => handleCopy(transaction.accountNumber || "", "account")}
+                    className={`px-4 py-2 text-sm font-semibold rounded-lg border transition flex-shrink-0 ${
+                      copied === "account"
+                        ? "bg-emerald-100 text-emerald-700 border-emerald-300"
+                        : "bg-white text-blue-600 border-blue-300 hover:bg-blue-50"
+                    }`}
+                  >
+                    {copied === "account" ? "Copied" : "Copy"}
+                  </button>
+                </div>
+              </div>
+
+              {/* Account name */}
+              {transaction.accountName && (
+                <div>
+                  <p className="text-xs text-slate-600 mb-2">Account Name:</p>
+                  <p className="text-sm font-semibold text-slate-900">{transaction.accountName}</p>
+                </div>
+              )}
+            </section>
+          )}
 
         {/* Order expires timer */}
         <div className="text-center mb-8">
@@ -387,7 +388,7 @@ export function CheckoutClient({ paymentReference, transaction: initialTransacti
         )}
 
         {/* Desktop action buttons */}
-        <div className="hidden md:flex flex-col gap-3 mb-6">
+        <div className="hidden sm:flex flex-col gap-3 mb-6">
           <button
             onClick={handleVerify}
             disabled={isVerifying}
@@ -419,14 +420,15 @@ export function CheckoutClient({ paymentReference, transaction: initialTransacti
           <ShieldCheck className="w-3.5 h-3.5" />
           Payments secured by Monnify
         </div>
+        </div>
       </main>
 
       {/* Sticky mobile action bar */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-slate-200 px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+12px)] shadow-[0_-4px_16px_-4px_rgba(15,23,42,0.08)]">
+      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-slate-200 px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+12px)] shadow-[0_-4px_16px_-4px_rgba(15,23,42,0.08)]">
         <button
           onClick={handleVerify}
           disabled={isVerifying}
-          className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition inline-flex items-center justify-center gap-2"
+          className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition inline-flex items-center justify-center gap-2 mb-2"
         >
           {isVerifying ? (
             <>
@@ -443,7 +445,7 @@ export function CheckoutClient({ paymentReference, transaction: initialTransacti
         <button
           onClick={handleCancelClick}
           disabled={isCancelling}
-          className="w-full py-2.5 mt-1 text-slate-600 hover:text-slate-900 font-semibold text-xs"
+          className="w-full py-2.5 text-slate-600 hover:text-slate-900 font-semibold text-xs"
         >
           {isCancelling ? "Cancelling..." : "Cancel payment"}
         </button>
