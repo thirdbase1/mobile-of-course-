@@ -23,9 +23,9 @@ const NETWORK_LOGOS_AIRTIME = {
 
 interface NetworkLogoProps {
   network: string
-  size: 'tab' | 'confirm' | 'receipt'
+  size: 'tab' | 'confirm' | 'receipt' | 'small'
   active?: boolean
-  page?: 'data' | 'airtime'
+  page?: 'data' | 'airtime' | 'recharge'
 }
 
 export function NetworkLogo({ network, size, active, page = 'airtime' }: NetworkLogoProps) {
@@ -33,14 +33,14 @@ export function NetworkLogo({ network, size, active, page = 'airtime' }: Network
   let logoUrl = ''
   if (page === 'data') {
     logoUrl = NETWORK_LOGOS_DATA[network as keyof typeof NETWORK_LOGOS_DATA]
-  } else if (page === 'airtime') {
+  } else if (page === 'airtime' || page === 'recharge') {
     logoUrl = NETWORK_LOGOS_AIRTIME[network as keyof typeof NETWORK_LOGOS_AIRTIME]
   } else {
     logoUrl = NETWORK_LOGOS_IMAGEKIT[network as keyof typeof NETWORK_LOGOS_IMAGEKIT]
   }
 
-  // For data and airtime pages with circular logos, use img tag
-  if (page === 'data' || page === 'airtime') {
+  // For data, airtime, and recharge pages with circular logos, use img tag
+  if (page === 'data' || page === 'airtime' || page === 'recharge') {
     if (size === 'tab') {
       return (
         <img
@@ -51,6 +51,26 @@ export function NetworkLogo({ network, size, active, page = 'airtime' }: Network
             height: '72px',
             minWidth: '72px',
             minHeight: '72px',
+            borderRadius: '50%',
+            objectFit: 'cover',
+            objectPosition: 'center',
+            display: 'block',
+            flexShrink: 0,
+          }}
+        />
+      )
+    }
+
+    if (size === 'small') {
+      return (
+        <img
+          src={logoUrl}
+          alt={network}
+          style={{
+            width: '18px',
+            height: '18px',
+            minWidth: '18px',
+            minHeight: '18px',
             borderRadius: '50%',
             objectFit: 'cover',
             objectPosition: 'center',
