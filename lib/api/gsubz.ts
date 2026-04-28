@@ -57,13 +57,11 @@ async function makeApiRequest(endpoint: string, method: "GET" | "POST" = "POST",
 
   if (body && method === "POST") {
     options.body = body
+    // Don't set Content-Type when using FormData - let fetch handle it
   }
 
-  console.log(`[v0] Gsubz API Request initiated`)
   const response = await fetch(`${API_BASE_URL}${endpoint}`, options)
   const data = await response.json()
-
-  console.log(`[v0] Gsubz API Response received`)
 
   return data
 }
@@ -71,27 +69,17 @@ async function makeApiRequest(endpoint: string, method: "GET" | "POST" = "POST",
 // Uncached function to fetch data plans from API
 async function _fetchDataPlansFromAPI(serviceId: string): Promise<PlanResponse> {
   try {
-    console.log("[v0] Fetching data plans...")
-
     const response = await fetch(`${API_PLANS_URL}/api/plans?service=${serviceId}`, {
       redirect: "follow",
       cache: "no-store",
       agent: API_PLANS_URL.startsWith("https") ? httpsAgent : httpAgent,
     })
 
-    console.log("[v0] Data plans fetch completed")
-
     if (!response.ok) {
-      console.error("[v0] Error fetching plans - HTTP error")
       throw new Error(`API returned status ${response.status}`)
     }
 
     const data = await response.json()
-    
-    if (!data.plans) {
-      console.warn("[v0] WARNING: No plans in response")
-    }
-    
     return data
   } catch (error) {
     console.error("[v0] Error fetching plans:", error)

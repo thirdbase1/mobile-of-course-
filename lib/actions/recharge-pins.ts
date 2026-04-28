@@ -32,20 +32,29 @@ export async function generateRechargePins(data: { network: string; value: strin
       }
     }
 
+    // Call Gsubz API to generate pins
     const response = await generatePinsAPI({
-      network: data.network.toLowerCase(),
-      value: data.value,
-      number: data.number,
+      network: data.network.toLowerCase(), // Gsubz expects: airtel, glo, 9mobile, mtn (all lowercase)
+      value: data.value, // Gsubz expects: "100", "200", "400", "500"
+      number: data.number, // Gsubz expects: "10", "20", etc as string
     })
 
-    if (response.status === "error") {
+    // Handle Gsubz API response - can be status "success" or "error"
+    if (!response) {
       return {
         success: false,
-        error: response.message || response.title || "Failed to generate pins. Please try again.",
+        error: "No response from pin generation service. Please try again.",
       }
     }
 
-    if (response.status === "success") {
+    if (response.status === "error" || response.status !== "success") {
+      return {
+        success: false,
+        error: response?.message || response?.title || "Failed to generate pins from Gsubz API. Please try again.",
+      }
+    }
+
+    if (response.status === "success" && response.pins && Array.isArray(response.pins)) {
       // Deduct from wallet atomically
       try {
         await atomicDeductWallet(user.id, totalCost)
@@ -108,7 +117,7 @@ export async function generateRechargePins(data: { network: string; value: strin
     } else {
       return {
         success: false,
-        error: response.message || "Failed to generate pins. Please try again.",
+        error: response?.message || "Failed to generate pins. Invalid response from service.",
       }
     }
   } catch (error) {

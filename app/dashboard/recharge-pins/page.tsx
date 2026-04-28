@@ -2,15 +2,29 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Loader2, AlertCircle, Copy, Check, Download } from 'lucide-react'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { ArrowLeft, Copy, Check, Download, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
-import { getWalletBalance } from '@/lib/actions/wallet'
 import { ConfirmSheet } from '@/components/confirm-sheet'
-import { SuccessOverlay } from '@/components/success-overlay'
 import { ProcessingOverlay } from '@/components/processing-overlay'
+import { generateRechargePins } from '@/lib/actions/recharge-pins'
+import { getWalletBalance } from '@/lib/actions/wallet'
 import { NetworkLogo } from '@/lib/utils/network-logo'
 
-const networks = ['MTN', 'Glo', 'Airtel', '9mobile']
+const NETWORKS = [
+  { id: 'mtn', name: 'MTN' },
+  { id: 'glo', name: 'Glo' },
+  { id: 'airtel', name: 'Airtel' },
+  { id: '9mobile', name: '9mobile' },
+]
 
 const PIN_VALUES = [
   { value: 100, min: 10, max: 50 },
@@ -21,16 +35,22 @@ const PIN_VALUES = [
 
 export default function RechargePinsPage() {
   const router = useRouter()
-  const [network, setNetwork] = useState('MTN')
-  const [pinValue, setPinValue] = useState('')
+
+  // Form state
+  const [selectedNetwork, setSelectedNetwork] = useState('mtn')
+  const [selectedValue, setSelectedValue] = useState<number | null>(null)
   const [quantity, setQuantity] = useState('')
   const [balance, setBalance] = useState<number | null>(null)
+
+  // UI state
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [showConfirm, setShowConfirm] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   const [processing, setProcessing] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // Success state
   const [showSuccess, setShowSuccess] = useState(false)
-  const [result, setResult] = useState<any>(null)
   const [successData, setSuccessData] = useState<{
     pins: Array<{ pin: string }>
     network: string
@@ -39,14 +59,19 @@ export default function RechargePinsPage() {
     totalCost: number
     transactionId: string
   } | null>(null)
-  const [copiedPinIndex, setCopiedPinIndex] = useState<number | null>(null)
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null)
 
   useEffect(() => {
     const loadBalance = async () => {
       try {
         const walletData = await getWalletBalance()
+        if (walletData?.balance === 0) {
+          // Still loading, don't show error yet
+          if (loading) return
+        }
         setBalance(walletData?.balance || 0)
       } catch (err) {
+        // Only show error if balance fails to load
         setError('Failed to load wallet balance. Please refresh.')
       } finally {
         setLoading(false)
@@ -55,30 +80,33 @@ export default function RechargePinsPage() {
     loadBalance()
   }, [])
 
-  const pinConfig = PIN_VALUES.find(p => p.value === parseInt(pinValue))
+  const selectedNetworkName = NETWORKS.find(n => n.id === selectedNetwork)?.name || ''
+  const selectedPinConfig = PIN_VALUES.find(p => p.value === selectedValue)
   const quantityNum = parseInt(quantity) || 0
-  const totalCost = pinValue ? parseInt(pinValue) * quantityNum : 0
-  const networkId = network.toLowerCase() === '9mobile' ? '9mobile' : network.toLowerCase()
+  const totalCost = selectedValue ? selectedValue * quantityNum : 0
 
   // Validation
+  const hasValidQuantity = selectedPinConfig && quantityNum >= selectedPinConfig.min && quantityNum <= selectedPinConfig.max
+  const hasValidBalance = balance !== null && balance >= totalCost && totalCost > 0
+  const canSubmit = selectedValue && hasValidQuantity && hasValidBalance && !loading && !submitting
+
+  // Error messages for quantity
   let quantityError = ''
-  if (pinValue && quantity) {
-    if (quantityNum < pinConfig?.min!) {
-      quantityError = `Minimum ${pinConfig?.min} pins required`
-    } else if (quantityNum > pinConfig?.max!) {
-      quantityError = `Maximum ${pinConfig?.max} pins allowed`
+  if (selectedValue && quantity !== '') {
+    if (quantityNum < selectedPinConfig?.min!) {
+      quantityError = `Minimum ${selectedPinConfig?.min} pins required`
+    } else if (quantityNum > selectedPinConfig?.max!) {
+      quantityError = `Maximum ${selectedPinConfig?.max} pins allowed`
     }
   }
 
-  const isValid = pinValue && !quantityError && totalCost > 0 && balance !== null && balance >= totalCost
-
   const handleContinue = () => {
-    setError('')
-    if (!pinValue) {
+    setError(null)
+    if (!selectedValue) {
       setError('Please select a pin value')
       return
     }
-    if (!quantity) {
+    if (!quantity || quantityNum === 0) {
       setError('Please enter quantity')
       return
     }
@@ -94,59 +122,45 @@ export default function RechargePinsPage() {
   }
 
   const handleConfirm = async () => {
-    const balanceBefore = balance
     setProcessing(true)
+    setSubmitting(true)
+    setError(null)
 
     try {
-      const res = await fetch('/api/gsubz/recharge-pins/purchase', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          network: networkId,
-          value: pinValue,
-          number: quantity
-        })
+      const result = await generateRechargePins({
+        network: selectedNetwork,
+        value: String(selectedValue),
+        number: quantity,
       })
 
-      if (res.status === 429) {
-        setError('Too many requests. Maximum 5 per minute. Please wait before trying again.')
+      if (!result.success) {
+        setError(result.error || 'Failed to generate pins. Please try again.')
         setShowConfirm(false)
-        setProcessing(false)
         return
       }
 
-      const data = await res.json()
-      setResult(data)
-      setShowConfirm(false)
-
-      if (data.success) {
-        const newBal = await getWalletBalance()
-        setSuccessData({
-          pins: data.pins || [],
-          network,
-          value: parseInt(pinValue),
-          quantity: quantityNum,
-          totalCost,
-          transactionId: data.transactionId || ''
-        })
-        setShowSuccess(true)
-        setPinValue('')
-        setQuantity('')
-        setBalance(newBal?.balance || 0)
-      } else {
-        setError(data.error || data.message || 'Transaction failed. Please try again.')
-      }
-    } catch {
-      setError('An error occurred. Please try again.')
+      setSuccessData({
+        pins: result.pins || [],
+        network: selectedNetworkName,
+        value: selectedValue,
+        quantity: quantityNum,
+        totalCost,
+        transactionId: result.transactionId,
+      })
+      setShowSuccess(true)
+      setSelectedValue(null)
+      setQuantity('')
+      
+      // Refresh balance
+      const newBalance = await getWalletBalance()
+      setBalance(newBalance?.balance || 0)
+    } catch (err) {
+      setError('An unexpected error occurred. Please try again.')
     } finally {
       setProcessing(false)
+      setSubmitting(false)
+      setShowConfirm(false)
     }
-  }
-
-  const handleCopyPin = (pin: string, index: number) => {
-    navigator.clipboard.writeText(pin)
-    setCopiedPinIndex(index)
-    setTimeout(() => setCopiedPinIndex(null), 2000)
   }
 
   const handleDownloadPins = () => {
@@ -171,9 +185,15 @@ Keep this safe. Do not share these pins with anyone.`
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `${networkId}-pins-${Date.now()}.txt`
+    a.download = `${selectedNetwork}-pins-${Date.now()}.txt`
     a.click()
     URL.revokeObjectURL(url)
+  }
+
+  const handleCopyPin = (pin: string, index: number) => {
+    navigator.clipboard.writeText(pin)
+    setCopiedIndex(index)
+    setTimeout(() => setCopiedIndex(null), 2000)
   }
 
   return (
@@ -186,20 +206,24 @@ Keep this safe. Do not share these pins with anyone.`
         </Link>
       </div>
 
-      <div className="flex-1 px-4 overflow-y-auto flex flex-col pb-32">
-        {/* Network Tabs */}
-        <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-          {networks.map((n) => (
-            <button 
-              key={n} 
-              className={`net-tab ${network === n ? 'active' : ''}`} 
+      <div className="flex-1 px-3 sm:px-4 overflow-y-auto flex flex-col pb-32">
+        {/* Network Tabs - Compact */}
+        <div className="flex gap-1.5 mb-5 overflow-x-auto pb-2 -mx-3 px-3 sm:-mx-4 sm:px-4">
+          {NETWORKS.map((n) => (
+            <button
+              key={n.id}
               onClick={() => {
-                setNetwork(n)
-                setError('')
+                setSelectedNetwork(n.id)
+                setError(null)
               }}
+              className={`flex-shrink-0 px-3 py-2 rounded-lg flex items-center gap-1.5 text-xs font-semibold transition ${
+                selectedNetwork === n.id
+                  ? 'bg-[var(--primary)] text-white'
+                  : 'bg-[var(--surface)] text-[var(--text-2)] border border-[var(--border)]'
+              }`}
             >
-              <NetworkLogo network={n} size="tab" active={network === n} page="recharge" />
-              <span>{n}</span>
+              <NetworkLogo network={n.name} size="small" active={selectedNetwork === n.id} page="recharge" />
+              <span>{n.name}</span>
             </button>
           ))}
         </div>
@@ -207,196 +231,193 @@ Keep this safe. Do not share these pins with anyone.`
         {/* Error Banner */}
         {error && (
           <div className="flex gap-2.5 p-3 rounded-lg bg-[#fef2f2] border border-[#fecaca] text-[#dc2626] text-sm mb-4 flex-shrink-0">
-            <AlertCircle style={{ width: 16, height: 16, flexShrink: 0, marginTop: 2 }} />
+            <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
             <span>{error}</span>
           </div>
         )}
 
         {/* Pin Value Selection */}
-        <div className="form-group">
-          <label className="form-label">Pin Value</label>
-          <div className="grid grid-cols-2 gap-2 mb-4">
-            {PIN_VALUES.map((pv) => (
-              <button
-                key={pv.value}
-                onClick={() => {
-                  setPinValue(pv.value.toString())
-                  setQuantity('')
-                  setError('')
-                }}
-                className={`px-3 py-2 rounded-lg text-sm font-semibold transition ${
-                  pinValue === pv.value.toString()
-                    ? 'bg-[var(--primary)] text-white'
-                    : 'bg-[var(--surface)] text-[var(--text-1)] border border-[var(--border)]'
-                }`}
-              >
-                ₦{pv.value}
-              </button>
-            ))}
-          </div>
+        <div className="form-group mb-4">
+          <label className="form-label text-xs">Pin Value</label>
+          <Select value={selectedValue?.toString() || ''} onValueChange={(val) => {
+            setSelectedValue(parseInt(val))
+            setQuantity('')
+            setError(null)
+          }}>
+            <SelectTrigger className="h-10 text-sm">
+              <SelectValue placeholder="Select pin value" />
+            </SelectTrigger>
+            <SelectContent>
+              {PIN_VALUES.map((pv) => (
+                <SelectItem key={pv.value} value={pv.value.toString()}>
+                  ₦{pv.value}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Quantity Input */}
-        {pinValue && (
-          <div className="form-group">
-            <label className="form-label">
-              Quantity (Min: {pinConfig?.min}, Max: {pinConfig?.max})
-            </label>
+        {selectedValue && (
+          <div className="form-group mb-3">
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="form-label text-xs">Quantity</label>
+              <span className="text-[11px] text-[var(--text-3)]">Min: {selectedPinConfig?.min}, Max: {selectedPinConfig?.max}</span>
+            </div>
             <input
               type="number"
-              className={`form-input ${quantityError ? 'border-[#fca5a5]' : ''}`}
-              placeholder={`Enter quantity (${pinConfig?.min}-${pinConfig?.max})`}
+              className="form-input h-10 text-sm"
+              placeholder={`Between ${selectedPinConfig?.min} and ${selectedPinConfig?.max}`}
               value={quantity}
               onChange={(e) => {
                 setQuantity(e.target.value)
-                setError('')
+                setError(null)
               }}
-              min={pinConfig?.min}
-              max={pinConfig?.max}
+              min={selectedPinConfig?.min}
+              max={selectedPinConfig?.max}
             />
-            {quantityError && (
-              <p className="text-xs text-[#dc2626] mt-1">{quantityError}</p>
-            )}
+            {quantityError && <p className="text-[11px] text-[#dc2626] mt-1">{quantityError}</p>}
           </div>
         )}
 
-        {/* Total & Balance */}
-        {pinValue && quantity && !quantityError && (
-          <div className="bg-[var(--surface)] border border-[var(--border)] rounded-lg p-3 mb-4">
-            <div className="flex justify-between text-sm mb-2">
-              <span className="text-[var(--text-2)]">Unit Price:</span>
-              <span className="font-semibold text-[var(--text-1)]">₦{parseInt(pinValue).toLocaleString()}</span>
+        {/* Summary Card */}
+        {selectedValue && quantity && (
+          <div className="bg-[var(--surface)] rounded-lg border border-[var(--border)] p-3 mb-4 text-sm space-y-2">
+            <div className="flex justify-between">
+              <span className="text-[var(--text-3)]">Per Pin</span>
+              <span className="font-semibold">₦{selectedValue}</span>
             </div>
-            <div className="flex justify-between text-sm mb-2">
-              <span className="text-[var(--text-2)]">Total:</span>
-              <span className="font-bold text-lg text-[var(--primary)]">₦{totalCost.toLocaleString()}</span>
+            <div className="flex justify-between">
+              <span className="text-[var(--text-3)]">Quantity</span>
+              <span className="font-semibold">{quantityNum} pins</span>
             </div>
-            <div className="flex justify-between text-sm pt-2 border-t border-[var(--border)]">
-              <span className="text-[var(--text-2)]">Your Balance:</span>
-              <span className={`font-semibold ${balance! >= totalCost ? 'text-[#10b981]' : 'text-[#dc2626]'}`}>
+            <div className="border-t border-[var(--border)] pt-2 flex justify-between">
+              <span className="text-[var(--text-3)]">Total Cost</span>
+              <span className="font-bold text-[var(--primary)]">₦{totalCost.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between pt-2 border-t border-[var(--border)]">
+              <span className="text-[var(--text-3)]">Balance</span>
+              <span className={`font-semibold ${totalCost > (balance || 0) ? 'text-[#dc2626]' : 'text-[var(--text-1)]'}`}>
                 ₦{(balance || 0).toLocaleString()}
               </span>
             </div>
           </div>
         )}
 
-        {/* Spacer */}
-        <div className="flex-1" />
-
         {/* Continue Button */}
         <button
           onClick={handleContinue}
-          disabled={!isValid || loading}
-          className="form-submit"
-          style={{ opacity: !isValid || loading ? 0.6 : 1 }}
+          disabled={!canSubmit}
+          className="btn-primary h-10 text-sm"
         >
-          {loading ? (
-            <>
-              <Loader2 style={{ width: 16, height: 16, animation: 'spin 1s linear infinite' }} />
-              <span>Loading...</span>
-            </>
-          ) : (
-            'Continue'
-          )}
+          {loading ? 'Loading...' : submitting ? 'Processing...' : 'Continue'}
         </button>
       </div>
 
-      {/* Confirm Sheet */}
-      {showConfirm && (
-        <ConfirmSheet
-          onClose={() => {
-            setShowConfirm(false)
-            setProcessing(false)
-          }}
-          onConfirm={handleConfirm}
-          isProcessing={processing}
-          network={network}
-          title={`Confirm Purchase`}
-          details={[
-            { label: 'Network', value: network },
-            { label: 'Pin Value', value: `₦${pinValue}` },
-            { label: 'Quantity', value: `${quantity} pins` },
-            { label: 'Total Amount', value: `₦${totalCost.toLocaleString()}` },
-          ]}
-        />
-      )}
-
-      {/* Processing Overlay */}
-      {processing && <ProcessingOverlay />}
+      {/* Confirmation Sheet */}
+      <ConfirmSheet
+        show={showConfirm}
+        title="Confirm Recharge Pins"
+        network={selectedNetworkName}
+        page="recharge-pins"
+        details={[
+          { label: 'Pin Value', value: `₦${selectedValue}` },
+          { label: 'Quantity', value: `${quantityNum} pins` },
+          { label: 'Total Cost', value: `₦${totalCost.toLocaleString()}` },
+          { label: 'Balance After', value: `₦${((balance || 0) - totalCost).toLocaleString()}` },
+        ]}
+        onConfirm={handleConfirm}
+        onCancel={() => setShowConfirm(false)}
+        loading={processing}
+      />
 
       {/* Success Overlay */}
       {showSuccess && successData && (
-        <SuccessOverlay
-          onClose={() => {
-            setShowSuccess(false)
-            setResult(null)
-            setSuccessData(null)
-          }}
-        >
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-[#dbeafe] flex items-center justify-center">
-              <div className="w-12 h-12 rounded-full bg-[#bfdbfe] flex items-center justify-center">
-                <div style={{ width: 24, height: 24, color: '#1e40af' }}>✓</div>
-              </div>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50">
+          <div className="w-full sm:w-full max-w-lg max-h-[90vh] overflow-y-auto bg-white rounded-t-2xl sm:rounded-2xl p-4 sm:p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold">Pins Generated Successfully!</h2>
+              <button onClick={() => setShowSuccess(false)} className="text-2xl leading-none">✕</button>
             </div>
-            <h2 className="text-xl font-bold text-[var(--text-1)]">Success!</h2>
-            <p className="text-sm text-[var(--text-2)] text-center">
-              Your {successData.quantity} {network} recharge pin{successData.quantity > 1 ? 's have' : ' has'} been generated
-            </p>
 
-            {/* Pins List */}
-            <div className="w-full bg-[var(--surface)] rounded-lg p-4 max-h-64 overflow-y-auto">
-              <div className="text-xs font-semibold text-[var(--text-2)] mb-3">YOUR PINS</div>
-              <div className="space-y-2">
-                {successData.pins.map((p, i) => (
-                  <button
-                    key={i}
-                    onClick={() => handleCopyPin(p.pin, i)}
-                    className="w-full flex items-center justify-between bg-[var(--bg)] p-3 rounded-lg hover:bg-[#f5f5f5] transition group"
-                  >
-                    <div className="text-left">
-                      <div className="text-xs text-[var(--text-2)]">Pin {i + 1}</div>
-                      <div className="font-mono font-semibold text-[var(--text-1)]">{p.pin}</div>
-                    </div>
-                    {copiedPinIndex === i ? (
-                      <Check style={{ width: 16, height: 16, color: '#10b981' }} />
-                    ) : (
-                      <Copy style={{ width: 16, height: 16, color: 'var(--text-2)', opacity: 0.5, groupHover: { opacity: 1 } }} />
-                    )}
-                  </button>
-                ))}
+            {/* Summary */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm space-y-2">
+              <div className="flex justify-between">
+                <span className="text-[var(--text-3)]">Network</span>
+                <span className="font-semibold">{successData.network}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[var(--text-3)]">Pin Value</span>
+                <span className="font-semibold">₦{successData.value}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[var(--text-3)]">Quantity</span>
+                <span className="font-semibold">{successData.quantity} pins</span>
+              </div>
+              <div className="flex justify-between pt-2 border-t border-blue-200">
+                <span className="text-[var(--text-3)]">Total Charged</span>
+                <span className="font-bold text-blue-600">₦{successData.totalCost.toLocaleString()}</span>
               </div>
             </div>
 
             {/* Transaction ID */}
-            <div className="w-full bg-[var(--surface)] rounded-lg p-3 text-center">
-              <div className="text-xs text-[var(--text-2)] mb-1">Transaction ID</div>
-              <div className="font-mono font-semibold text-sm text-[var(--text-1)]">{successData.transactionId}</div>
+            <div className="bg-[var(--surface)] rounded-lg p-3 text-xs">
+              <p className="text-[var(--text-3)] mb-1">Transaction ID</p>
+              <p className="font-mono font-bold text-[var(--text-1)] break-all">{successData.transactionId}</p>
             </div>
 
-            {/* Actions */}
-            <div className="flex gap-2 w-full">
+            {/* Pins List */}
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-[var(--text-3)]">YOUR PINS ({successData.pins.length})</p>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {successData.pins.map((p, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center justify-between gap-2 bg-[var(--surface)] p-2.5 rounded-lg text-sm"
+                  >
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <span className="text-[var(--text-3)] font-semibold flex-shrink-0">{i + 1}.</span>
+                      <span className="font-mono font-bold text-[var(--text-1)] break-all">{p.pin}</span>
+                    </div>
+                    <button
+                      onClick={() => handleCopyPin(p.pin, i)}
+                      className={`flex-shrink-0 p-1.5 rounded transition text-xs font-semibold ${
+                        copiedIndex === i
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-[var(--primary)]/10 text-[var(--primary)] hover:bg-[var(--primary)]/20'
+                      }`}
+                    >
+                      {copiedIndex === i ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="space-y-2 pt-2">
               <button
                 onClick={handleDownloadPins}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-[var(--primary)] text-white rounded-lg font-semibold text-sm hover:opacity-90 transition"
+                className="w-full px-4 py-2.5 rounded-lg bg-[var(--primary)] text-white font-semibold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition"
               >
-                <Download style={{ width: 16, height: 16 }} />
-                Download
+                <Download className="w-4 h-4" />
+                Download Pins
               </button>
               <button
-                onClick={() => {
-                  setShowSuccess(false)
-                  setResult(null)
-                  setSuccessData(null)
-                }}
-                className="flex-1 px-4 py-2 bg-[var(--surface)] text-[var(--text-1)] rounded-lg font-semibold text-sm border border-[var(--border)] hover:bg-[#f5f5f5] transition"
+                onClick={() => setShowSuccess(false)}
+                className="w-full px-4 py-2.5 rounded-lg border border-[var(--border)] font-semibold text-sm hover:bg-[var(--surface)] transition"
               >
                 Done
               </button>
             </div>
+
+            <p className="text-[11px] text-[var(--text-3)] text-center pt-2">Keep this safe. Do not share these pins with anyone.</p>
           </div>
-        </SuccessOverlay>
+        </div>
       )}
+
+      {/* Processing Overlay */}
+      <ProcessingOverlay isVisible={processing} />
     </div>
   )
 }
