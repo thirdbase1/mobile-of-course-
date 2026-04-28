@@ -23,7 +23,6 @@ export async function getWalletBalance() {
       currency: "NGN",
     }
   } catch (error) {
-    console.error("[v0] Error fetching wallet balance:", error)
     return {
       balance: 0,
       currency: "NGN",
