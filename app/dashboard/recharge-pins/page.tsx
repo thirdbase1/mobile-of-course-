@@ -17,12 +17,13 @@ import { ConfirmSheet } from '@/components/confirm-sheet';
 import { ProcessingOverlay } from '@/components/processing-overlay';
 import { generateRechargePins } from '@/lib/actions/recharge-pins';
 import { getWalletBalance } from '@/lib/actions/wallet';
+import { NetworkLogo } from '@/lib/utils/network-logo'
 
 const NETWORKS = [
-  { id: 'mtn', name: 'MTN' },
-  { id: 'glo', name: 'Glo' },
-  { id: 'airtel', name: 'Airtel' },
-  { id: '9mobile', name: '9mobile' },
+  { id: 'mtn', name: 'MTN', displayName: 'MTN' },
+  { id: 'glo', name: 'Glo', displayName: 'Glo' },
+  { id: 'airtel', name: 'Airtel', displayName: 'Airtel' },
+  { id: '9mobile', name: '9mobile', displayName: '9mobile' },
 ];
 
 const PIN_VALUES = [
@@ -34,7 +35,7 @@ const PIN_VALUES = [
 
 export default function RechargePinsPage() {
   const router = useRouter();
-  const [selectedNetwork, setSelectedNetwork] = useState(NETWORKS[0].id);
+  const [selectedNetwork, setSelectedNetwork] = useState('mtn');
   const [selectedValue, setSelectedValue] = useState<number | null>(null);
   const [quantity, setQuantity] = useState('1');
   const [balance, setBalance] = useState<number | null>(null);
@@ -73,6 +74,7 @@ export default function RechargePinsPage() {
     loadBalance();
   }, []);
 
+  const selectedNetworkName = NETWORKS.find(n => n.id === selectedNetwork)?.displayName || '';
   const totalCost = selectedValue ? selectedValue * parseInt(quantity || '1') : 0;
   const canSubmit = selectedValue && quantity && balance && balance >= totalCost;
 
@@ -90,13 +92,19 @@ export default function RechargePinsPage() {
         value: String(selectedValue),
         number: quantity,
       });
-      setSuccessPins(result?.pins || []);
-      setShowSuccess(true);
+      
+      if (result.success) {
+        setSuccessPins(result.pins || []);
+        setShowSuccess(true);
+      } else {
+        setError(result.error || 'Failed to generate pins');
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to generate pins');
     } finally {
       setProcessing(false);
       setSubmitting(false);
+      setShowConfirm(false);
     }
   };
 
@@ -165,21 +173,24 @@ export default function RechargePinsPage() {
           </div>
         )}
 
-        {/* Network Tabs */}
-        <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-          {NETWORKS.map((network) => (
-            <button
-              key={network.id}
-              onClick={() => setSelectedNetwork(network.id)}
-              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-                selectedNetwork === network.id
-                  ? 'bg-primary text-white'
-                  : 'bg-muted text-foreground'
-              }`}
-            >
-              {network.name}
-            </button>
-          ))}
+        {/* Network Selection with Icons */}
+        <div className="mb-8">
+          <label className="block text-sm font-medium mb-4">Select Network</label>
+          <div className="flex gap-3 overflow-x-auto pb-2">
+            {NETWORKS.map((network) => (
+              <button
+                key={network.id}
+                onClick={() => setSelectedNetwork(network.id)}
+                className={`flex flex-col items-center gap-2 pb-3 px-2 rounded-lg transition-all ${
+                  selectedNetwork === network.id
+                    ? 'border-b-2 border-primary'
+                    : 'border-b-2 border-transparent'
+                }`}
+              >
+                <NetworkLogo network={network.displayName} size="tab" page="airtime" />
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Pin Values Dropdown */}
@@ -223,7 +234,7 @@ export default function RechargePinsPage() {
         {/* Continue Button */}
         <Button
           onClick={handleContinue}
-          disabled={!canSubmit}
+          disabled={!canSubmit || loading}
           className="w-full h-12 rounded-2xl"
         >
           Continue
@@ -235,7 +246,7 @@ export default function RechargePinsPage() {
           title="Confirm Recharge Pins Purchase"
           page="recharge-pins"
           details={[
-            { label: 'Network', value: selectedNetwork.toUpperCase() },
+            { label: 'Network', value: selectedNetworkName },
             { label: 'Value', value: `₦${selectedValue}` },
             { label: 'Quantity', value },
             { label: 'Total', value: `₦${totalCost.toLocaleString()}` },

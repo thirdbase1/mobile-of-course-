@@ -2,6 +2,7 @@
 
 import { generateRechargePins as generatePinsAPI } from "@/lib/api/gsubz"
 import { createClient } from "@/lib/supabase/server"
+import { atomicDeductWallet } from "@/lib/utils/save-transaction"
 
 export async function generateRechargePins(data: { network: string; value: string; number: string }) {
   try {
@@ -47,9 +48,16 @@ export async function generateRechargePins(data: { network: string; value: strin
     }
 
     if (response.status === "success") {
-      // Deduct from wallet
-      const newBalance = wallet.balance - totalCost
-      await supabase.from("wallets").update({ balance: newBalance }).eq("user_id", user.id)
+      // Deduct from wallet atomically
+      try {
+        await atomicDeductWallet(user.id, totalCost)
+      } catch (walletError) {
+        console.error("[v0] Wallet deduction failed:", walletError)
+        return {
+          success: false,
+          error: "Failed to deduct from wallet. Please try again.",
+        }
+      }
 
       const transactionData = {
         user_id: user.id,
