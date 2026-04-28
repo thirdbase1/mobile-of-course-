@@ -265,118 +265,97 @@ export function CheckoutClient({ paymentReference, transaction: initialTransacti
   const amountCopyStr = transaction.amount.toString()
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans">
-      {/* Top bar */}
-      <header className="sticky top-0 z-20 bg-white border-b border-slate-200">
-        <div className="max-w-xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <img src="/icon.svg" alt="Mozosubz" className="w-7 h-7 rounded-md" />
-            <span className="font-bold text-slate-900 text-sm">Mozosubz</span>
+    <div className="min-h-screen bg-white font-sans">
+      {/* Dark header like PalmPay */}
+      <header className="sticky top-0 z-20 bg-slate-900 text-white">
+        <div className="max-w-xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+          <Link href="/dashboard" className="p-2 hover:bg-slate-800 rounded-lg transition">
+            <span className="text-xl">✕</span>
           </Link>
-
-          {/* Compact inline timer in header */}
-          <div
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-mono font-bold tabular-nums ${timerColors.bg} ${timerColors.border} ${timerColors.text}`}
-            aria-live="polite"
-          >
-            <Clock className="w-3.5 h-3.5" />
-            {formatTime(timeLeft)}
+          <div className="text-center">
+            <h1 className="text-lg font-bold">Mozosubz</h1>
+            <p className="text-xs text-slate-400">checkout.mozosubz.com</p>
           </div>
+          <button className="p-2 hover:bg-slate-800 rounded-lg transition">
+            <span className="text-xl">⋮</span>
+          </button>
         </div>
       </header>
 
-      <main className="max-w-xl mx-auto px-4 sm:px-6 py-6 pb-40 md:pb-24">
-        {/* Amount hero */}
-        <section className="relative bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl p-6 sm:p-7 mb-4 text-white overflow-hidden shadow-lg shadow-blue-600/20">
-          <div className="absolute -right-10 -top-10 w-40 h-40 rounded-full bg-white/5 pointer-events-none" />
-          <div className="absolute -right-20 -bottom-20 w-56 h-56 rounded-full bg-white/5 pointer-events-none" />
-
-          <p className="text-[11px] font-semibold text-blue-100 uppercase tracking-wider mb-2 relative">
-            Transfer exactly
-          </p>
-          <div className="flex items-baseline gap-1 mb-4 relative">
-            <span className="text-2xl font-bold text-blue-100">₦</span>
-            <span className="text-4xl sm:text-5xl font-bold tabular-nums">{amountStr}</span>
+      <main className="max-w-xl mx-auto px-4 sm:px-6 py-8 pb-40 md:pb-24">
+        {/* Payment method title */}
+        <section className="mb-8">
+          <h2 className="text-3xl font-bold text-slate-900 mb-6">Pay with bank transfer</h2>
+          
+          {/* Amount hero - Large and prominent */}
+          <div className="text-center mb-8">
+            <span className="text-5xl sm:text-6xl font-bold text-blue-600 tabular-nums">
+              ₦{(transaction.amount).toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
           </div>
-          <button
-            onClick={() => handleCopy(amountCopyStr, "amount")}
-            className="relative inline-flex items-center gap-1.5 bg-white/15 hover:bg-white/25 backdrop-blur text-xs font-semibold px-3 py-1.5 rounded-full transition"
-          >
-            {copied === "amount" ? (
-              <>
-                <Check className="w-3.5 h-3.5" />
-                Amount copied
-              </>
-            ) : (
-              <>
-                <Copy className="w-3.5 h-3.5" />
-                Copy amount
-              </>
-            )}
-          </button>
         </section>
 
         {/* Bank details card */}
         {transaction.accountNumber && (
-          <section className="bg-white border border-slate-200 rounded-2xl overflow-hidden mb-4 shadow-sm">
-            {/* Bank */}
-            <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
-                <Building2 className="w-4.5 h-4.5 text-slate-600" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[11px] text-slate-500 mb-0.5">Bank</p>
-                <p className="text-base font-bold text-slate-900 truncate">{transaction.bankName}</p>
+          <section className="bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden mb-6 p-6">
+            <p className="text-sm text-slate-600 mb-4">Please transfer to the following account</p>
+            
+            {/* Bank name */}
+            <div className="mb-6">
+              <p className="text-xs text-slate-600 mb-2">Bank Name:</p>
+              <div className="flex items-center gap-2">
+                <Building2 className="w-5 h-5 text-slate-600" />
+                <p className="text-lg font-semibold text-slate-900">{transaction.bankName}</p>
               </div>
             </div>
 
-            {/* Account number — tap entire row to copy */}
-            <button
-              onClick={() => handleCopy(transaction.accountNumber || "", "account")}
-              className="w-full px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3 hover:bg-slate-50 transition text-left group"
-            >
-              <div className="flex-1 min-w-0">
-                <p className="text-[11px] text-slate-500 mb-1">Account number</p>
-                <p className="text-xl sm:text-2xl font-mono font-bold text-slate-900 tracking-wider tabular-nums truncate">
+            {/* Account number */}
+            <div className="mb-6">
+              <p className="text-xs text-slate-600 mb-2">Account Number(Only for this transaction)</p>
+              <div className="flex items-center justify-between">
+                <p className="text-2xl font-bold text-blue-600 font-mono tracking-wider">
                   {transaction.accountNumber}
                 </p>
+                <button
+                  onClick={() => handleCopy(transaction.accountNumber || "", "account")}
+                  className={`px-4 py-2 text-sm font-semibold rounded-lg border transition ${
+                    copied === "account"
+                      ? "bg-emerald-100 text-emerald-700 border-emerald-300"
+                      : "bg-white text-blue-600 border-blue-300 hover:bg-blue-50"
+                  }`}
+                >
+                  {copied === "account" ? "Copied" : "Copy"}
+                </button>
               </div>
-              <span
-                className={`flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-lg transition ${
-                  copied === "account"
-                    ? "bg-emerald-100 text-emerald-700"
-                    : "bg-blue-50 text-blue-600 group-hover:bg-blue-100"
-                }`}
-              >
-                {copied === "account" ? (
-                  <>
-                    <Check className="w-3.5 h-3.5" />
-                    Copied
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-3.5 h-3.5" />
-                    Copy
-                  </>
-                )}
-              </span>
-            </button>
+            </div>
 
             {/* Account name */}
             {transaction.accountName && (
-              <div className="px-5 py-4">
-                <p className="text-[11px] text-slate-500 mb-1">Account name</p>
+              <div>
+                <p className="text-xs text-slate-600 mb-2">Account Name:</p>
                 <p className="text-sm font-semibold text-slate-900">{transaction.accountName}</p>
               </div>
             )}
           </section>
         )}
 
+        {/* Order expires timer */}
+        <div className="text-center mb-8">
+          <p className={`text-sm font-semibold ${
+            timeLeft <= 2 * 60 * 1000 ? 'text-red-600' :
+            timeLeft <= 5 * 60 * 1000 ? 'text-amber-600' :
+            'text-slate-600'
+          }`}>
+            Order Expires in <span className={
+              timeLeft <= 2 * 60 * 1000 ? 'text-red-600' :
+              timeLeft <= 5 * 60 * 1000 ? 'text-amber-600' :
+              'text-slate-900'
+            }>{formatTime(timeLeft)}</span>
+          </p>
+        </div>
+
         {/* Polling indicator */}
-        <div
-          className="flex items-center justify-center gap-2 py-3 text-xs font-medium text-slate-600"
-          aria-live="polite"
-        >
+        <div className="flex items-center justify-center gap-2 py-3 text-xs font-medium text-slate-600 mb-6">
           <span className="relative flex h-2 w-2">
             <span
               className={`animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 ${

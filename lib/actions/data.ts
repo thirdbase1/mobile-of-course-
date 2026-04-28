@@ -13,9 +13,6 @@ export async function purchaseData(formData: FormData) {
   const clientAmount = formData.get("amount") as string
   const planDisplayName = formData.get("planDisplayName") as string
 
-  const startTime = Date.now()
-  console.log("[v0] purchaseData START")
-
   try {
     // SECURITY: Validate all inputs before processing
     const amount = parseFloat(clientAmount)
@@ -28,7 +25,6 @@ export async function purchaseData(formData: FormData) {
       return { success: false, message: "Invalid phone number" }
     }
 
-    console.log(`[v0] [${Date.now() - startTime}ms] Initializing Supabase`)
     const supabase = await createClient()
     const {
       data: { user },
@@ -38,7 +34,6 @@ export async function purchaseData(formData: FormData) {
       return { success: false, message: "You must be logged in to make a purchase" }
     }
 
-    console.log(`[v0] [${Date.now() - startTime}ms] Fetching user profile`)
     const { data: profile } = await supabase.from("profiles").select("wallet_balance").eq("id", user.id).single()
 
     if (!profile) {
@@ -55,16 +50,12 @@ export async function purchaseData(formData: FormData) {
     const requestID = "TXN" + Date.now()
 
     // Call GSUBZ API
-    console.log(`[v0] [${Date.now() - startTime}ms] Calling Gsubz API`)
-    const gsubzStartTime = Date.now()
     const response = await buyData({
       serviceID,
       plan,
       phone,
       requestID,
     })
-    const gsubzTime = Date.now() - gsubzStartTime
-    console.log(`[v0] [${Date.now() - startTime}ms] Gsubz API responded (took ${gsubzTime}ms)`)
 
     // Use the client-provided amount (which includes markup) instead of API response amount
     const userAmount = clientAmount ? Number(clientAmount) : (response.amount ? Number(response.amount) : 0)
@@ -93,15 +84,10 @@ export async function purchaseData(formData: FormData) {
 
       // ATOMIC: Deduct wallet balance in a single database transaction
       // This prevents race conditions when multiple requests hit simultaneously
-      console.log(`[v0] [${Date.now() - startTime}ms] Atomically deducting wallet balance`)
-      const deductStartTime = Date.now()
       const deductResult = await atomicDeductWallet(user.id, userAmount)
-      const deductTime = Date.now() - deductStartTime
 
       if (!deductResult.success) {
-        console.error("[v0] Atomic deduction failed:", deductResult.error)
-        // Transaction succeeded on Gsubz but we can't deduct wallet
-        // Log for manual review
+        console.error("[v0] Deduction failed - contact support")
         return {
           success: false,
           message: deductResult.error || "Failed to update wallet balance. Please contact support.",
@@ -109,10 +95,7 @@ export async function purchaseData(formData: FormData) {
       }
 
       const balanceAfter = deductResult.newBalance!
-      console.log(`[v0] [${Date.now() - startTime}ms] Wallet atomically deducted (took ${deductTime}ms, new balance: ${balanceAfter})`)
 
-      console.log(`[v0] [${Date.now() - startTime}ms] Transaction successful, saving to DB`)
-      const saveStartTime = Date.now()
       // Save transaction
       await saveTransaction({
         userId: user.id,
@@ -131,10 +114,23 @@ export async function purchaseData(formData: FormData) {
         apiResponse: response,
         planDetails: planDisplayName,
       })
-      const saveTime = Date.now() - saveStartTime
-      console.log(`[v0] [${Date.now() - startTime}ms] Database save completed (took ${saveTime}ms)`)
 
-      console.log(`[v0] purchaseData COMPLETE (total: ${Date.now() - startTime}ms, Gsubz: ${gsubzTime}ms, Deduct: ${deductTime}ms, DB: ${saveTime}ms)`)
+      // Send transaction email
+      try {
+        await sendTransactionEmail({
+          email: user.email || '',
+          userName: 'User',
+          transactionType: `${networkName} Data Purchase`,
+          amount: userAmount,
+          phone,
+          transactionId,
+          status: 'SUCCESS',
+          balanceAfter,
+        })
+      } catch (emailErr) {
+        console.error("[v0] Email sending failed - continuing anyway")
+      }
+
       return {
         success: true,
         message: "Data purchase successful",
@@ -203,8 +199,8 @@ export async function purchaseData(formData: FormData) {
       },
     }
   } catch (error) {
-    console.error("[v0] Data purchase error:", error)
-    return { success: false, message: "An error occurred while processing your request", error: String(error) }
+    console.error("[v0] Request processing error")
+    return { success: false, message: "An error occurred while processing your request" }
   }
 }
 

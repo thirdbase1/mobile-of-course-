@@ -79,7 +79,7 @@ export async function payElectricity(formData: FormData) {
       const deductResult = await atomicDeductWallet(user.id, purchaseAmount)
 
       if (!deductResult.success) {
-        console.error("[v0] Atomic deduction failed:", deductResult.error)
+        console.error("[v0] Deduction failed - contact support")
         return {
           success: false,
           message: deductResult.error || "Failed to update wallet balance. Please contact support.",
@@ -103,6 +103,22 @@ export async function payElectricity(formData: FormData) {
         balanceAfter,
         apiResponse: response,
       })
+
+      // Send transaction email
+      try {
+        await sendTransactionEmail({
+          email: user.email || '',
+          userName: 'User',
+          transactionType: `${disco} Electricity Payment`,
+          amount: purchaseAmount,
+          phone: meterNumber,
+          transactionId,
+          status: 'SUCCESS',
+          balanceAfter,
+        })
+      } catch (emailErr) {
+        console.error("[v0] Email sending failed - continuing anyway")
+      }
 
       return {
         success: true,
@@ -171,8 +187,8 @@ export async function payElectricity(formData: FormData) {
       },
     }
   } catch (error) {
-    console.error("[v0] Electricity payment error:", error)
-    return { success: false, message: "An error occurred while processing your request", error: String(error) }
+    console.error("[v0] Request processing error")
+    return { success: false, message: "An error occurred while processing your request" }
   }
 }
 

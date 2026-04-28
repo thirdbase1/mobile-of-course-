@@ -14,14 +14,17 @@ export function ServiceGrid() {
   return (
     <div className="services-card">
       <div className="services-grid">
-        {services.map((service) => (
-          <Link key={service.name} href={service.href} className="service-btn">
-            <div className="service-icon">
-              <service.icon style={{ width: 28, height: 28, strokeWidth: 1.5 }} />
-            </div>
-            <span className="service-label">{service.name}</span>
-          </Link>
-        ))}
+        {services.map((service) => {
+          const Icon = service.icon
+          return (
+            <Link key={service.name} href={service.href} className="service-btn">
+              <div className="service-icon">
+                <Icon style={{ width: 28, height: 28, strokeWidth: 1.5 }} />
+              </div>
+              <span className="service-label">{service.name}</span>
+            </Link>
+          )
+        })}
       </div>
     </div>
   )

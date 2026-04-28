@@ -71,7 +71,7 @@ export async function subscribeCable(formData: FormData) {
       const deductResult = await atomicDeductWallet(user.id, purchaseAmount)
 
       if (!deductResult.success) {
-        console.error("[v0] Atomic deduction failed:", deductResult.error)
+        console.error("[v0] Deduction failed - contact support")
         return {
           success: false,
           message: deductResult.error || "Failed to update wallet balance. Please contact support.",
@@ -96,6 +96,22 @@ export async function subscribeCable(formData: FormData) {
         apiResponse: response,
         planDetails: packageDisplayName,
       })
+
+      // Send transaction email
+      try {
+        await sendTransactionEmail({
+          email: user.email || '',
+          userName: 'User',
+          transactionType: `${provider} TV Subscription`,
+          amount: purchaseAmount,
+          phone: smartcard,
+          transactionId,
+          status: 'SUCCESS',
+          balanceAfter,
+        })
+      } catch (emailErr) {
+        console.error("[v0] Email sending failed - continuing anyway")
+      }
 
       return {
         success: true,
@@ -164,8 +180,8 @@ export async function subscribeCable(formData: FormData) {
       },
     }
   } catch (error) {
-    console.error("[v0] Cable subscription error:", error)
-    return { success: false, message: "An error occurred while processing your request", error: String(error) }
+    console.error("[v0] Request processing error")
+    return { success: false, message: "An error occurred while processing your request" }
   }
 }
 
@@ -193,9 +209,6 @@ export async function fetchCablePlans(provider: string) {
       .eq("service_id", service)
       .eq("is_active", true)
 
-    console.log(`[v0] Fetched cable pricing rules for ${service}:`, pricingRules)
-    console.log(`[v0] Original cable plans:`, plans.plans)
-
     // Apply markup to plans if pricing rules exist
     const enhancedPlans = (plans.plans || []).map((plan: any) => {
       const rule = pricingRules?.find((r) => r.plan_name.toLowerCase() === plan.displayName.toLowerCase())
@@ -204,8 +217,6 @@ export async function fetchCablePlans(provider: string) {
         const basePrice = parseFloat(plan.price)
         const markup = rule.markup_type === "fixed" ? rule.markup_value : (basePrice * rule.markup_value) / 100
         const finalPrice = basePrice + markup
-
-        console.log(`[v0] Applying cable markup to ${plan.displayName}: ${basePrice} + ${markup} = ${finalPrice}`)
 
         return {
           ...plan,

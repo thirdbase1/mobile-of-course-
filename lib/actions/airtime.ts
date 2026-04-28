@@ -12,7 +12,6 @@ export async function purchaseAirtime(formData: FormData) {
   const amount = formData.get("amount") as string
 
   const startTime = Date.now()
-  console.log("[v0] purchaseAirtime START")
 
   try {
     // SECURITY: Validate inputs
@@ -25,7 +24,6 @@ export async function purchaseAirtime(formData: FormData) {
       return { success: false, message: "Invalid phone number" }
     }
 
-    console.log(`[v0] [${Date.now() - startTime}ms] Initializing Supabase`)
     const supabase = await createClient()
     const {
       data: { user },
@@ -35,7 +33,6 @@ export async function purchaseAirtime(formData: FormData) {
       return { success: false, message: "You must be logged in to make a purchase" }
     }
 
-    console.log(`[v0] [${Date.now() - startTime}ms] Fetching user profile`)
     const { data: profile } = await supabase.from("profiles").select("wallet_balance").eq("id", user.id).single()
 
     if (!profile) {
@@ -62,7 +59,6 @@ export async function purchaseAirtime(formData: FormData) {
     const requestID = `TXN${Date.now()}${Math.floor(Math.random() * 1000)}`
 
     // Call GSUBZ API
-    console.log(`[v0] [${Date.now() - startTime}ms] Calling Gsubz API`)
     const gsubzStartTime = Date.now()
     const response = await buyAirtime({
       serviceID,
@@ -71,7 +67,6 @@ export async function purchaseAirtime(formData: FormData) {
       requestID,
     })
     const gsubzTime = Date.now() - gsubzStartTime
-    console.log(`[v0] [${Date.now() - startTime}ms] Gsubz API responded (took ${gsubzTime}ms)`)
 
     // Determine success
     const isSuccess =
@@ -85,13 +80,12 @@ export async function purchaseAirtime(formData: FormData) {
       const transactionId = String(response.transactionID || requestID)
 
       // ATOMIC: Deduct wallet balance in a single database transaction
-      console.log(`[v0] [${Date.now() - startTime}ms] Atomically deducting wallet balance`)
       const deductStartTime = Date.now()
       const deductResult = await atomicDeductWallet(user.id, userAmount)
       const deductTime = Date.now() - deductStartTime
 
       if (!deductResult.success) {
-        console.error("[v0] Atomic deduction failed:", deductResult.error)
+        console.error("[v0] Atomic deduction failed - contact support")
         return {
           success: false,
           message: deductResult.error || "Failed to update wallet balance. Please contact support.",
@@ -99,11 +93,9 @@ export async function purchaseAirtime(formData: FormData) {
       }
 
       const balanceAfter = deductResult.newBalance!
-      console.log(`[v0] [${Date.now() - startTime}ms] Wallet atomically deducted (took ${deductTime}ms, new balance: ${balanceAfter})`)
 
-      console.log(`[v0] [${Date.now() - startTime}ms] Transaction successful, saving to DB`)
-      const saveStartTime = Date.now()
       // Save transaction
+      const saveStartTime = Date.now()
       await saveTransaction({
         userId: user.id,
         transactionId,
@@ -119,9 +111,24 @@ export async function purchaseAirtime(formData: FormData) {
         apiResponse: response,
       })
       const saveTime = Date.now() - saveStartTime
-      console.log(`[v0] [${Date.now() - startTime}ms] Database save completed (took ${saveTime}ms)`)
 
-      console.log(`[v0] purchaseAirtime COMPLETE (total: ${Date.now() - startTime}ms, Gsubz: ${gsubzTime}ms, Deduct: ${deductTime}ms, DB: ${saveTime}ms)`)
+      // Send transaction email
+      try {
+        await sendTransactionEmail({
+          email: user.email || '',
+          userName: profile.name || user.email || 'User',
+          transactionType: 'Airtime Purchase',
+          amount: userAmount,
+          phone,
+          network,
+          transactionId,
+          status: 'SUCCESS',
+          balanceAfter,
+        })
+      } catch (emailErr) {
+        console.error("[v0] Email sending failed - continuing anyway")
+      }
+
       return {
         success: true,
         message: "Airtime purchase successful",
