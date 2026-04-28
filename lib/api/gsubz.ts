@@ -60,8 +60,15 @@ async function makeApiRequest(endpoint: string, method: "GET" | "POST" = "POST",
     // Don't set Content-Type when using FormData - let fetch handle it
   }
 
+  console.log("[v0] makeApiRequest to:", API_BASE_URL + endpoint)
+  console.log("[v0] makeApiRequest headers:", headers)
+  console.log("[v0] makeApiRequest method:", method)
+  
   const response = await fetch(`${API_BASE_URL}${endpoint}`, options)
+  console.log("[v0] makeApiRequest response status:", response.status)
+  
   const data = await response.json()
+  console.log("[v0] makeApiRequest response data:", data)
 
   return data
 }
@@ -257,5 +264,13 @@ export async function generateRechargePins(data: {
   formData.append("value", data.value)
   formData.append("number", data.number)
 
-  return makeApiRequest("/apiV2/generate/", "POST", formData)
+  console.log("[v0] generateRechargePins FormData:", {
+    network: data.network,
+    value: data.value,
+    number: data.number,
+  })
+
+  const result = await makeApiRequest("/apiV2/generate/", "POST", formData)
+  console.log("[v0] generateRechargePins raw result:", result)
+  return result
 }

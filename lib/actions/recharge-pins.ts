@@ -8,12 +8,17 @@ import { renderShell, escapeHtml, formatNaira, formatDateTime } from "@/lib/emai
 
 export async function generateRechargePins(data: { network: string; value: string; number: string }) {
   try {
+    console.log("[v0] generateRechargePins called with:", data)
+    
     const supabase = await createClient()
     const {
       data: { user },
     } = await supabase.auth.getUser()
 
+    console.log("[v0] User:", user?.id)
+
     if (!user) {
+      console.log("[v0] No user found - returning login error")
       return {
         success: false,
         error: "You must be logged in to generate pins",
@@ -23,9 +28,12 @@ export async function generateRechargePins(data: { network: string; value: strin
     // Check wallet balance
     const { data: profile } = await supabase.from("profiles").select("wallet_balance").eq("id", user.id).single()
 
+    console.log("[v0] Profile wallet balance:", profile?.wallet_balance)
+
     const totalCost = Number(data.value) * Number(data.number)
 
     if (!profile || profile.wallet_balance < totalCost) {
+      console.log("[v0] Insufficient balance:", { balance: profile?.wallet_balance, needed: totalCost })
       return {
         success: false,
         error: `Insufficient wallet balance. You need ₦${totalCost.toLocaleString()} but your balance is ₦${(profile?.wallet_balance || 0).toLocaleString()}`,
@@ -33,11 +41,14 @@ export async function generateRechargePins(data: { network: string; value: strin
     }
 
     // Call Gsubz API to generate pins
+    console.log("[v0] Calling generatePinsAPI...")
     const response = await generatePinsAPI({
-      network: data.network.toLowerCase(), // Gsubz expects: airtel, glo, 9mobile, mtn (all lowercase)
-      value: data.value, // Gsubz expects: "100", "200", "400", "500"
-      number: data.number, // Gsubz expects: "10", "20", etc as string
+      network: data.network.toLowerCase(),
+      value: data.value,
+      number: data.number,
     })
+
+    console.log("[v0] Gsubz API Response:", response)
 
     // Handle Gsubz API response - can be status "success" or "error"
     if (!response) {
