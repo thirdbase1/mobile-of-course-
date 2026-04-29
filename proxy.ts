@@ -107,14 +107,21 @@ export async function proxy(request: NextRequest) {
       }
     }
 
-    // Redirect unauthenticated users to login (except public pages and admin)
+    // Redirect unauthenticated users to login (except public pages and auth pages)
     if (!user && request.nextUrl.pathname.startsWith("/dashboard")) {
       const url = request.nextUrl.clone()
       url.pathname = "/login"
       return NextResponse.redirect(url)
     }
 
-    // Redirect authenticated users away from login (only login page, not register)
+    // Also protect admin routes for unauthenticated users
+    if (!user && request.nextUrl.pathname.startsWith("/admin")) {
+      const url = request.nextUrl.clone()
+      url.pathname = "/login"
+      return NextResponse.redirect(url)
+    }
+
+    // Redirect authenticated users away from login (only login page, not register or register-success)
     if (user && request.nextUrl.pathname === "/login") {
       const url = request.nextUrl.clone()
       url.pathname = "/dashboard"
@@ -122,24 +129,31 @@ export async function proxy(request: NextRequest) {
     }
 
     // Allow signup process even for partially authenticated users (unconfirmed emails)
-    // Only redirect from /register if they're FULLY authenticated
-    // We check if they have email_confirmed_at to ensure email verification is complete
+    // Only redirect from /register if they're FULLY authenticated (email confirmed)
     if (user && request.nextUrl.pathname === "/register") {
-      // Check if email is confirmed
-      const { confirmed_at } = user.user_metadata || {}
-      if (user.email_confirmed_at || confirmed_at) {
-        // Email is confirmed, redirect to dashboard
+      // Check if email is confirmed - if yes, they should be in dashboard/register-success flow
+      if (user.email_confirmed_at) {
         const url = request.nextUrl.clone()
         url.pathname = "/dashboard"
         return NextResponse.redirect(url)
       }
-      // Allow unconfirmed users to stay on /register page (they shouldn't be there, but allow it)
+      // Allow unconfirmed users to stay on /register page
     }
+
+    // Also allow unconfirmed users to view register-success page
+    // Don't redirect from register-success - they need to confirm email first
 
     // Redirect authenticated users from landing page to dashboard
     if (user && request.nextUrl.pathname === "/") {
       const url = request.nextUrl.clone()
       url.pathname = "/dashboard"
+      return NextResponse.redirect(url)
+    }
+
+    // Redirect unauthenticated users from register-success back to register
+    if (!user && request.nextUrl.pathname === "/register-success") {
+      const url = request.nextUrl.clone()
+      url.pathname = "/register"
       return NextResponse.redirect(url)
     }
 

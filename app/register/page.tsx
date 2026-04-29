@@ -247,8 +247,8 @@ function RegisterFormContent() {
       return
     }
 
-    if (phone.trim() && !phoneAvailable) {
-      setError("Valid, available phone required")
+    if (!phone.trim() || !phoneAvailable) {
+      setError("Valid, available phone number required")
       setIsLoading(false)
       return
     }
@@ -257,6 +257,40 @@ function RegisterFormContent() {
       setError("Password min 6 chars")
       setIsLoading(false)
       return
+    }
+
+    // Final validation: Re-check email/phone availability before signup
+    // This prevents race conditions where validation passed but another signup happened
+    try {
+      // Check email one more time
+      const emailCheckRes = await fetch("/api/auth/check-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+      })
+      const emailCheckData = await emailCheckRes.json()
+      
+      if (!emailCheckData.available) {
+        setError("Email already registered")
+        setIsLoading(false)
+        return
+      }
+
+      // Check phone one more time
+      const phoneCheckRes = await fetch("/api/auth/check-phone", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: phone.trim() }),
+      })
+      const phoneCheckData = await phoneCheckRes.json()
+      
+      if (!phoneCheckData.available) {
+        setError("Phone already registered")
+        setIsLoading(false)
+        return
+      }
+    } catch (err) {
+      // If validation check fails, let Supabase handle it
     }
 
     try {
@@ -374,13 +408,14 @@ function RegisterFormContent() {
 
         <div>
           <label htmlFor="phone" className="block text-xs font-semibold text-blue-100 mb-1">
-            Phone Number (Optional)
+            Phone Number <span className="text-red-300">*</span>
           </label>
           <div className="relative">
             <input
               id="phone"
               type="tel"
               placeholder="+234 800 000 0000"
+              required
               value={phone}
               onChange={handlePhoneChange}
               disabled={isLoading}

@@ -31,6 +31,8 @@ export async function POST(request: Request) {
       },
     })
 
+    let phoneExists = false
+
     // Check if phone exists in profiles table
     const { data, error, count } = await supabase
       .from('profiles')
@@ -41,8 +43,26 @@ export async function POST(request: Request) {
       return Response.json({ available: null, error: error.message }, { status: 500 })
     }
 
-    // Phone is available if count is 0, taken if count > 0
-    const available = count === 0
+    // Phone is taken if count > 0
+    phoneExists = (count ?? 0) > 0
+
+    // Also check in auth users metadata as backup
+    if (!phoneExists) {
+      try {
+        const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers()
+        
+        if (!authError && authUsers?.users) {
+          phoneExists = authUsers.users.some(u => {
+            const userPhone = u.user_metadata?.phone || u.phone
+            return userPhone && userPhone.replace(/\D/g, '') === digitsOnly
+          })
+        }
+      } catch (err) {
+        // Silent fail - continue with profiles check
+      }
+    }
+
+    const available = !phoneExists
 
     return Response.json({ 
       available,
@@ -54,3 +74,4 @@ export async function POST(request: Request) {
     return Response.json({ available: null, error: 'Server error' }, { status: 500 })
   }
 }
+
