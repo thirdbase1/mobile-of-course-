@@ -260,7 +260,7 @@ export function CheckoutClient({ paymentReference, transaction: initialTransacti
       : "text-red-500"
 
   return (
-    <div className="min-h-screen w-full bg-white font-sans flex flex-col">
+    <div className="min-h-screen w-full bg-white font-sans flex flex-col overflow-hidden">
       <main className="flex-1 overflow-y-auto w-full px-4 sm:px-6 py-7">
         <div className="w-full max-w-md mx-auto">
           {/* Title — centered, dark navy */}
