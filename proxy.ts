@@ -3,26 +3,6 @@ import { NextResponse, type NextRequest } from "next/server"
 import { isHardcodedAdmin } from "@/lib/utils/hardcoded-admin"
 
 export async function proxy(request: NextRequest) {
-  const host = request.headers.get('host') || ''
-  const protocol = request.headers.get('x-forwarded-proto') || 'https'
-
-  // Redirect http to https
-  if (protocol === 'http') {
-    return NextResponse.redirect(
-      `https://${host}${request.nextUrl.pathname}${request.nextUrl.search}`,
-      { status: 301 }
-    )
-  }
-
-  // Redirect www.mozosubz.xyz to mozosubz.xyz
-  if (host.startsWith('www.')) {
-    const newHost = host.replace('www.', '')
-    return NextResponse.redirect(
-      `https://${newHost}${request.nextUrl.pathname}${request.nextUrl.search}`,
-      { status: 301 }
-    )
-  }
-
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
