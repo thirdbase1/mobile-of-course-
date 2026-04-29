@@ -27,6 +27,7 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<any>(null);
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [redirecting, setRedirecting] = useState(false);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [fullName, setFullName] = useState('');
   const [username, setUsername] = useState('');
@@ -42,41 +43,46 @@ export default function ProfilePage() {
 
   useEffect(() => {
     const loadProfile = async () => {
-      const supabase = createClient();
-      
-      // Use getUser() instead of getSession() - authenticates with Supabase server
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      try {
+        const supabase = createClient();
+        
+        // Use getUser() instead of getSession() - authenticates with Supabase server
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
 
-      if (!user) {
+        if (!user) {
+          setRedirecting(true);
+          router.push('/login');
+          return;
+        }
+
+        setUser(user);
+
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+
+        if (profileError) {
+          // Silent fail - profile may not exist yet, continue with empty profile
+        }
+
+        if (profileData) {
+          setProfile(profileData);
+          setFullName(profileData.full_name || '');
+          setUsername(profileData.username || '');
+          setPhone(profileData.phone_number || '');
+        }
+      } catch (error) {
+        console.error('[v0] Error in loadProfile:', error);
+        setRedirecting(true);
         router.push('/login');
         return;
+      } finally {
+        setLoading(false);
       }
-
-      setUser(user);
-
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      if (profileError) {
-        console.log('[v0] Error loading profile:', profileError.message);
-      }
-
-      if (profileData) {
-        console.log('[v0] Profile loaded:', profileData);
-        setProfile(profileData);
-        setFullName(profileData.full_name || '');
-        setUsername(profileData.username || '');
-        setPhone(profileData.phone_number || '');
-      } else {
-        console.warn('[v0] Profile not found');
-      }
-
-      setLoading(false);
     };
 
     loadProfile();
@@ -248,7 +254,8 @@ export default function ProfilePage() {
       await fetch('/api/auth/signout', { method: 'POST' });
       router.push('/login');
     } catch (err) {
-      console.error('Logout error:', err);
+      // Logout failed, still try to redirect
+      router.push('/login');
     }
   };
 
@@ -260,6 +267,17 @@ export default function ProfilePage() {
     }
     return parts[0][0].toUpperCase();
   };
+
+  // If redirecting, show minimal skeleton
+  if (redirecting) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-muted-foreground">Redirecting...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

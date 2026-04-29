@@ -1,48 +1,52 @@
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  // Optimize images for slow networks
+// @ts-nocheck
+// This file was auto-created and injected by v0.
+// DO NOT MODIFY THIS FILE DIRECTLY.
+// EDIT THE USER CONFIG IN ./next.user-config.mjs INSTEAD.
+
+import userConfigImport from './next.user-config.mjs'
+import { fileURLToPath } from 'url'
+import path from 'path'
+
+const __v0_turbopack_root = undefined ?? path.dirname(fileURLToPath(import.meta.url))
+
+export default async function v0NextConfig(phase, { defaultConfig }) {
+  const userConfig = typeof userConfigImport === 'function'
+    ? await userConfigImport(phase, { defaultConfig })
+    : userConfigImport
+
+  return {
+  ...userConfig,
+  distDir: '.next',
+  devIndicators: false,
   images: {
-    formats: ['image/webp', 'image/avif'],
-    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
-    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'ik.imagekit.io',
-      },
-    ],
+    ...userConfig.images,
+    unoptimized: process.env.NODE_ENV === 'development',
   },
-  compress: true,
-  poweredByHeader: false,
-  productionBrowserSourceMaps: false,
-  
-  // Enable React strict mode for debugging
-  reactStrictMode: true,
-  
-  // Optimize experimental features for performance
+  logging: {
+    ...userConfig.logging,
+    fetches: { fullUrl: true, hmrRefreshes: true },
+    browserToTerminal: true,
+  },
+  turbopack: {
+    ...userConfig.turbopack,
+    root: __v0_turbopack_root,
+  },
   experimental: {
-    optimizePackageImports: [
-      '@radix-ui/react-dialog',
-      '@radix-ui/react-dropdown-menu',
-      '@radix-ui/react-popover',
-      '@radix-ui/react-select',
-      'lucide-react',
-    ],
-    optimizeCss: true,
+    ...userConfig.experimental,
+    transitionIndicator: true,
+    turbopackFileSystemCacheForDev: process.env.TURBOPACK_PERSISTENT_CACHE !== 'false' && process.env.TURBOPACK_PERSISTENT_CACHE !== '0',
+    serverActions: {
+      ...userConfig.experimental?.serverActions,
+      allowedOrigins: [
+        ...(userConfig.experimental?.serverActions?.allowedOrigins || []),
+        '*.vusercontent.net',
+      ],
+    },
   },
-
-  // Minify and compress CSS/JS aggressively
-  swcMinify: true,
-  
-  // Enable SWC-based transforms for better performance
-  swcTracingOptions: {
-    enabled: false,
-  },
+  allowedDevOrigins: [
+    ...(userConfig.allowedDevOrigins || []),
+    '*.vusercontent.net',
+    '*.dev-vm.vusercontent.net',
+  ],
 }
-
-export default nextConfig
-
-
+}
