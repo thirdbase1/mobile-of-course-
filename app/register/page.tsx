@@ -21,16 +21,12 @@ function RegisterFormContent() {
   const [usernameError, setUsernameError] = useState<string | null>(null)
   const [checkingUsername, setCheckingUsername] = useState(false)
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null)
-  const [emailError, setEmailError] = useState<string | null>(null)
-  const [checkingEmail, setCheckingEmail] = useState(false)
-  const [emailAvailable, setEmailAvailable] = useState<boolean | null>(null)
   const [phoneError, setPhoneError] = useState<string | null>(null)
   const [checkingPhone, setCheckingPhone] = useState(false)
   const [phoneAvailable, setPhoneAvailable] = useState<boolean | null>(null)
   const router = useRouter()
   const { toast } = useToast()
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
-  const debounceEmailRef = useRef<NodeJS.Timeout | null>(null)
   const debouncePhoneRef = useRef<NodeJS.Timeout | null>(null)
 
   const checkUsername = useCallback(async (value: string) => {
@@ -106,64 +102,6 @@ function RegisterFormContent() {
     }
   }
 
-  const checkEmail = useCallback(async (value: string) => {
-    if (!value.trim()) {
-      setEmailAvailable(null)
-      setEmailError(null)
-      setCheckingEmail(false)
-      return
-    }
-
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
-      setEmailError("Invalid email format")
-      setEmailAvailable(false)
-      setCheckingEmail(false)
-      return
-    }
-
-    setCheckingEmail(true)
-    setEmailError(null)
-
-    try {
-      const response = await fetch("/api/auth/check-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: value.toLowerCase().trim() }),
-      })
-
-      const data = await response.json()
-      if (data.available) {
-        setEmailAvailable(true)
-        setEmailError(null)
-      } else {
-        setEmailAvailable(false)
-        setEmailError("Email already registered")
-      }
-    } catch (error) {
-      setEmailAvailable(null)
-    } finally {
-      setCheckingEmail(false)
-    }
-  }, [])
-
-  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.toLowerCase()
-    setEmail(value)
-    
-    if (debounceEmailRef.current) clearTimeout(debounceEmailRef.current)
-
-    if (value.trim()) {
-      setCheckingEmail(true)
-      debounceEmailRef.current = setTimeout(() => {
-        checkEmail(value)
-      }, 500)
-    } else {
-      setEmailAvailable(null)
-      setEmailError(null)
-      setCheckingEmail(false)
-    }
-  }
-
   const checkPhone = useCallback(async (value: string) => {
     if (!value.trim()) {
       setPhoneAvailable(null)
@@ -173,8 +111,8 @@ function RegisterFormContent() {
     }
 
     const digitsOnly = value.replace(/\D/g, '')
-    if (digitsOnly.length < 10) {
-      setPhoneError("At least 10 digits required")
+    if (digitsOnly.length !== 11) {
+      setPhoneError("Phone must be exactly 11 digits (e.g., 09056428348)")
       setPhoneAvailable(false)
       setCheckingPhone(false)
       return
@@ -241,8 +179,8 @@ function RegisterFormContent() {
       return
     }
 
-    if (!email.trim() || !emailAvailable) {
-      setError("Valid, available email required")
+    if (!email.trim()) {
+      setError("Valid email required")
       setIsLoading(false)
       return
     }
@@ -257,40 +195,6 @@ function RegisterFormContent() {
       setError("Password min 6 chars")
       setIsLoading(false)
       return
-    }
-
-    // Final validation: Re-check email/phone availability before signup
-    // This prevents race conditions where validation passed but another signup happened
-    try {
-      // Check email one more time
-      const emailCheckRes = await fetch("/api/auth/check-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim().toLowerCase() }),
-      })
-      const emailCheckData = await emailCheckRes.json()
-      
-      if (!emailCheckData.available) {
-        setError("Email already registered")
-        setIsLoading(false)
-        return
-      }
-
-      // Check phone one more time
-      const phoneCheckRes = await fetch("/api/auth/check-phone", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: phone.trim() }),
-      })
-      const phoneCheckData = await phoneCheckRes.json()
-      
-      if (!phoneCheckData.available) {
-        setError("Phone already registered")
-        setIsLoading(false)
-        return
-      }
-    } catch (err) {
-      // If validation check fails, let Supabase handle it
     }
 
     try {
@@ -388,22 +292,16 @@ function RegisterFormContent() {
           <label htmlFor="email" className="block text-xs font-semibold text-blue-100 mb-1">
             Email
           </label>
-          <div className="relative">
-            <input
-              id="email"
-              type="email"
-              placeholder="you@example.com"
-              required
-              value={email}
-              onChange={handleEmailChange}
-              disabled={isLoading}
-              className="w-full h-9 px-3 pr-10 rounded-lg bg-white/10 border border-white/20 text-white placeholder:text-white/50 text-xs font-medium outline-none focus:border-blue-400/50 focus:bg-white/20 transition-all disabled:opacity-50"
-            />
-            {checkingEmail && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 animate-spin text-blue-300" />}
-            {!checkingEmail && emailAvailable === true && <CheckCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-green-400" />}
-            {!checkingEmail && emailAvailable === false && <AlertCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-red-400" />}
-          </div>
-          {emailError && <p className="text-xs text-red-300 mt-0.5">{emailError}</p>}
+          <input
+            id="email"
+            type="email"
+            placeholder="you@example.com"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            disabled={isLoading}
+            className="w-full h-9 px-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder:text-white/50 text-xs font-medium outline-none focus:border-blue-400/50 focus:bg-white/20 transition-all disabled:opacity-50"
+          />
         </div>
 
         <div>
@@ -464,7 +362,7 @@ function RegisterFormContent() {
 
         <button
           type="submit"
-          disabled={isLoading || !usernameAvailable || !emailAvailable || (phone.trim() && !phoneAvailable)}
+          disabled={isLoading || !usernameAvailable || !phoneAvailable}
           className="w-full h-9 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg text-xs font-bold hover:from-blue-600 hover:to-blue-700 disabled:from-gray-500 disabled:to-gray-600 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5 mt-4"
         >
           {isLoading ? (

@@ -10,10 +10,10 @@ export async function POST(request: Request) {
 
     const trimmedPhone = phone.trim()
 
-    // Basic phone validation (10+ digits)
+    // Validate phone is exactly 11 digits (e.g., 09056428348)
     const digitsOnly = trimmedPhone.replace(/\D/g, '')
-    if (digitsOnly.length < 10) {
-      return Response.json({ available: false, error: 'Phone too short' })
+    if (digitsOnly.length !== 11) {
+      return Response.json({ available: false, error: 'Phone must be exactly 11 digits' })
     }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
