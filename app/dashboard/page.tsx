@@ -19,53 +19,48 @@ export default function DashboardPage() {
   const [isAdmin, setIsAdmin] = useState(false)
   const [user, setUser] = useState<any>(null)
   const [profile, setProfile] = useState<any>(null)
-  const [transactions, setTransactions] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [showConfirmedBanner, setShowConfirmedBanner] = useState(false)
+  const [transactions, setTransactions] = useState<any[] | null>(null)
+  const [banner, setBanner] = useState<
+    | { kind: "confirmed"; title: string; subtitle: string }
+    | { kind: "welcome"; title: string; subtitle: string }
+    | null
+  >(null)
 
   // Initialize session manager to detect multi-device logins
   useEffect(() => {
     const cleanup = setupSessionManager()
     return () => cleanup()
   }, [])
-  // exchange, it redirects here with ?confirmed=1. Show a one-time welcome
-  // banner and clean the URL so refreshing doesn't re-trigger it.
+
+  // One-time top-of-page banners.
+  //   ?confirmed=1 — set by the auth callback after email confirmation
+  //   ?welcome=1   — set by /login after a successful sign-in, so the user
+  //                  gets visible feedback that login worked (mirrors the
+  //                  unconfirmed-email and session-expired notices on /login)
+  // We clean the URL after reading so refreshing doesn't re-trigger them.
   useEffect(() => {
-    if (searchParams.get("confirmed") === "1") {
-      setShowConfirmedBanner(true)
-      // Clean the URL without adding a history entry
-      router.replace("/dashboard", { scroll: false })
-      // Auto-dismiss after 6s
-      const id = setTimeout(() => setShowConfirmedBanner(false), 6000)
-      return () => clearTimeout(id)
+    const confirmed = searchParams.get("confirmed") === "1"
+    const welcome = searchParams.get("welcome") === "1"
+    if (!confirmed && !welcome) return
+
+    if (confirmed) {
+      setBanner({
+        kind: "confirmed",
+        title: "Email confirmed — welcome to Mozosubz!",
+        subtitle: "Fund your wallet to start buying airtime, data, and more.",
+      })
+    } else {
+      setBanner({
+        kind: "welcome",
+        title: "Signed in successfully",
+        subtitle: "Welcome back. Your wallet is ready.",
+      })
     }
+
+    router.replace("/dashboard", { scroll: false })
+    const id = setTimeout(() => setBanner(null), 5000)
+    return () => clearTimeout(id)
   }, [searchParams, router])
-
-  // Skeleton components
-  const SkeletonCard = () => (
-    <div className="bg-white border border-slate-200 rounded-xl p-5 mb-4 shadow-sm">
-      <div className="flex items-center justify-between mb-3">
-        <div className="h-4 bg-slate-200 rounded w-1/3 animate-pulse"></div>
-        <div className="h-5 w-5 bg-slate-200 rounded animate-pulse"></div>
-      </div>
-      <div className="h-8 bg-slate-100 rounded w-1/2 animate-pulse"></div>
-    </div>
-  )
-
-  const SkeletonTransaction = () => (
-    <div className="border-b border-slate-100 py-4 px-4 animate-pulse">
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-3 flex-1">
-          <div className="h-10 w-10 bg-slate-200 rounded-lg"></div>
-          <div className="flex-1">
-            <div className="h-4 bg-slate-200 rounded w-2/3 mb-2"></div>
-            <div className="h-3 bg-slate-100 rounded w-1/2"></div>
-          </div>
-        </div>
-        <div className="h-5 bg-slate-200 rounded w-1/6"></div>
-      </div>
-    </div>
-  )
 
   useEffect(() => {
     const load = async () => {
@@ -75,7 +70,8 @@ export default function DashboardPage() {
 
       if (!user || error) {
         console.error("[v0] Auth error:", error)
-        setLoading(false)
+        // Mark transactions as "loaded but empty" so the placeholders go away
+        setTransactions((prev) => prev ?? [])
         return
       }
 
@@ -123,8 +119,6 @@ export default function DashboardPage() {
         console.log("[v0] Transactions loaded:", transactionsData?.length || 0)
         setTransactions(transactionsData || [])
       }
-
-      setLoading(false)
     }
 
     load()
@@ -133,42 +127,10 @@ export default function DashboardPage() {
     return () => clearInterval(interval)
   }, [])
 
-  if (loading) {
-    return (
-      <div className="bg-slate-50 w-full">
-        <div className="sticky top-0 z-40 bg-white border-b border-slate-200 px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="h-8 w-32 bg-slate-200 rounded animate-pulse"></div>
-            <div className="flex items-center gap-3">
-              <div className="h-9 w-20 bg-slate-200 rounded-full animate-pulse"></div>
-            </div>
-          </div>
-        </div>
-        <div className="px-4 sm:px-6 lg:px-8 py-8 w-full">
-          <SkeletonCard />
-          <SkeletonCard />
-          <div className="mt-8">
-            <div className="h-6 bg-slate-200 rounded w-1/4 mb-5 animate-pulse"></div>
-            <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-              <SkeletonTransaction />
-              <SkeletonTransaction />
-              <SkeletonTransaction />
-              <SkeletonTransaction />
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  if (!user) {
-    return (
-      <div className="bg-slate-50 w-full flex items-center justify-center py-20">
-        <p className="text-slate-600">Not authenticated</p>
-      </div>
-    )
-  }
-
+  // No full-page skeleton — we render the actual layout instantly and only
+  // the data-dependent slots (wallet card, transaction list) show inline
+  // shimmers until their data arrives. This makes the dashboard feel fast
+  // even on a slow first render.
   const walletBalance = profile?.wallet_balance ?? 0
   const bvn = profile?.bvn
   const accountNumber = profile?.monnify_account_number
@@ -198,8 +160,8 @@ export default function DashboardPage() {
 
       {/* Main Content */}
       <main className="px-4 sm:px-6 lg:px-8 py-8 w-full">
-        {/* Email-confirmed welcome banner (one-time) */}
-        {showConfirmedBanner && (
+        {/* One-time top banner: email-confirmed OR welcome-back after login */}
+        {banner && (
           <div
             role="status"
             className="mb-6 flex items-start gap-3 rounded-xl border border-green-200 bg-green-50 p-4 shadow-sm animate-in fade-in slide-in-from-top-2 duration-500"
@@ -208,15 +170,11 @@ export default function DashboardPage() {
               <CheckCircle2 className="w-5 h-5 text-white" strokeWidth={2.5} />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-green-900">
-                Email confirmed — welcome to Mozosubz!
-              </p>
-              <p className="text-xs text-green-700/90 mt-0.5">
-                Fund your wallet to start buying airtime, data, and more.
-              </p>
+              <p className="text-sm font-semibold text-green-900">{banner.title}</p>
+              <p className="text-xs text-green-700/90 mt-0.5">{banner.subtitle}</p>
             </div>
             <button
-              onClick={() => setShowConfirmedBanner(false)}
+              onClick={() => setBanner(null)}
               className="flex-shrink-0 p-1 rounded-md text-green-700 hover:bg-green-100 transition-colors"
               aria-label="Dismiss"
             >
@@ -225,15 +183,30 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Wallet Card */}
+        {/* Wallet Card — render instantly. Until we have a user.id we show
+            a thin placeholder card; once the auth check resolves the real
+            WalletCard mounts and runs its own balance verification. */}
         <div className="mb-8 md:mb-12">
-          <WalletCard 
-            balance={walletBalance} 
-            userId={user.id}
-            bvn={bvn}
-            accountNumber={accountNumber}
-            bankName={bankName}
-          />
+          {user ? (
+            <WalletCard
+              balance={walletBalance}
+              userId={user.id}
+              bvn={bvn}
+              accountNumber={accountNumber}
+              bankName={bankName}
+            />
+          ) : (
+            <div className="wallet-card">
+              <div className="relative z-10">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="balance-label">Wallet Balance</span>
+                </div>
+                <div className="balance-amount mb-4">
+                  <span className="inline-block h-7 w-32 bg-white/20 rounded-md animate-pulse" />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Services Grid */}
@@ -252,8 +225,30 @@ export default function DashboardPage() {
               See all <ChevronRight size={16} />
             </Link>
           </div>
-          <div className="divide-y divide-slate-200">
-            <TransactionList transactions={transactions} />
+          <div className="divide-y divide-slate-200 p-4">
+            {transactions === null ? (
+              // Inline placeholders while the first fetch is in flight
+              <div className="space-y-2">
+                {[0, 1, 2].map((i) => (
+                  <div
+                    key={i}
+                    className="flex items-center gap-3 p-4 bg-muted/40 rounded-xl animate-pulse"
+                  >
+                    <div className="w-12 h-12 rounded-full bg-slate-200 flex-shrink-0" />
+                    <div className="flex-1 min-w-0 space-y-2">
+                      <div className="h-4 bg-slate-200 rounded w-2/5" />
+                      <div className="h-3 bg-slate-200/70 rounded w-1/3" />
+                    </div>
+                    <div className="space-y-2 text-right">
+                      <div className="h-4 bg-slate-200 rounded w-16 ml-auto" />
+                      <div className="h-3 bg-slate-200/70 rounded w-12 ml-auto" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <TransactionList transactions={transactions} />
+            )}
           </div>
         </div>
       </main>

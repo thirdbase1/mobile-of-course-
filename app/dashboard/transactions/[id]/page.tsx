@@ -66,11 +66,39 @@ export default function TransactionDetailPage() {
   }, [params.id, router, supabase]);
 
   if (loading) {
+    // Layout-stable loader: render the same shell (top bar + content area)
+    // with a few thin shimmer rows so the page doesn't visually jump when
+    // the real receipt arrives.
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="text-center">
-          <div className="w-12 h-12 bg-muted rounded-full animate-pulse mx-auto mb-4" />
-          <p className="text-sm text-muted-foreground">Loading...</p>
+      <div className="min-h-screen bg-background">
+        <div className="w-full flex flex-col min-h-screen max-w-4xl md:mx-auto">
+          <div className="sticky top-0 z-50 bg-background border-b border-muted-foreground/10">
+            <div className="flex items-center justify-between p-4 px-4 md:px-6 lg:px-8">
+              <button
+                onClick={() => router.back()}
+                className="flex items-center gap-2 text-foreground font-semibold hover:bg-muted p-2 rounded-lg transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>Receipt</span>
+              </button>
+            </div>
+          </div>
+          <div className="flex-1 px-4 md:px-6 lg:px-8 py-6 space-y-4">
+            <div className="flex flex-col items-center gap-2 mb-2">
+              <div className="w-12 h-12 rounded-full bg-muted animate-pulse" />
+              <div className="h-3 w-16 bg-muted rounded animate-pulse" />
+            </div>
+            {[0, 1].map((i) => (
+              <div key={i} className="bg-card border border-border rounded-2xl p-4 space-y-3">
+                <div className="h-3 w-24 bg-muted rounded animate-pulse" />
+                <div className="space-y-2">
+                  <div className="h-4 bg-muted rounded animate-pulse" />
+                  <div className="h-4 w-2/3 bg-muted rounded animate-pulse" />
+                  <div className="h-4 w-1/2 bg-muted rounded animate-pulse" />
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );

@@ -13,34 +13,30 @@ export default function DepositPage() {
   const MIN = 100
   const MAX = 100000
 
-  // Load deposit rules on mount
+  // Load deposit rules on mount. We DON'T gate the page on this — the form
+  // renders instantly and the "you will receive" line shows a tiny dash
+  // until rules arrive (usually <300ms). This avoids the "page stuck on
+  // skeleton" issue when the network is slow.
   useEffect(() => {
+    let cancelled = false
+
     const loadRules = async () => {
       try {
         const data = await getDepositRules()
-        setRules(data)
-      } catch (error) {
-        console.error('[v0] Failed to load deposit rules:', error)
+        if (!cancelled && data) setRules(data)
+      } catch (err) {
+        console.error('[v0] Failed to load deposit rules:', err)
       }
     }
 
     loadRules()
-  }, [])
 
-  // Periodically refresh rules to pick up admin changes (real-time updates)
-  useEffect(() => {
-    const interval = setInterval(async () => {
-      try {
-        const freshRules = await getDepositRules()
-        if (freshRules) {
-          setRules(freshRules)
-        }
-      } catch (error) {
-        console.error('[v0] Failed to refresh deposit rules:', error)
-      }
-    }, 10000) // Refresh every 10 seconds
-
-    return () => clearInterval(interval)
+    // Periodically refresh to pick up admin changes (real-time updates).
+    const interval = setInterval(loadRules, 10_000)
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
   }, [])
 
   const numAmount = amount ? parseFloat(amount) : 0
@@ -99,53 +95,13 @@ export default function DepositPage() {
   }
 
   const quickAmounts = [500, 1000, 2000, 5000]
-
-  // Show skeleton loading state if rules aren't loaded yet
-  if (!rules) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center px-4">
-        <div className="w-full max-w-md border border-gray-200 rounded-2xl p-6 shadow-sm">
-          
-          {/* Header Skeleton */}
-          <div className="mb-6">
-            <div className="h-6 w-32 bg-gray-200 rounded animate-pulse mb-2"></div>
-            <div className="h-4 w-48 bg-gray-100 rounded animate-pulse"></div>
-          </div>
-
-          {/* Input Skeleton */}
-          <div className="mb-3">
-            <div className="h-4 w-24 bg-gray-200 rounded animate-pulse mb-2"></div>
-            <div className="h-12 w-full bg-gray-100 rounded-xl animate-pulse"></div>
-          </div>
-
-          {/* Quick Buttons Skeleton */}
-          <div className="grid grid-cols-4 gap-2 mb-4">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-10 bg-gray-100 rounded-xl animate-pulse"></div>
-            ))}
-          </div>
-
-          {/* Info Skeleton */}
-          <div className="h-3 w-56 bg-gray-100 rounded animate-pulse mb-6"></div>
-
-          {/* Receive Box Skeleton */}
-          <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-xl">
-            <div className="h-4 w-40 bg-gray-200 rounded animate-pulse mb-2"></div>
-            <div className="h-6 w-32 bg-gray-200 rounded animate-pulse"></div>
-          </div>
-
-          {/* Button Skeleton */}
-          <div className="h-12 w-full bg-gray-300 rounded-xl animate-pulse"></div>
-
-        </div>
-      </div>
-    )
-  }
+  const rulesLoaded = !!rules
+  const showReceiveBox = numAmount > 0 && !error
 
   return (
     <div className="min-h-screen bg-white flex items-center justify-center px-4">
       <div className="w-full max-w-md border border-gray-200 rounded-2xl p-6 shadow-sm">
-        
+
         {/* Header */}
         <h1 className="text-xl font-semibold mb-1">Add Funds</h1>
         <p className="text-sm text-gray-500 mb-6">Fund your wallet securely</p>
@@ -186,40 +142,47 @@ export default function DepositPage() {
           Minimum: ₦{MIN.toLocaleString()} • Maximum: ₦{MAX.toLocaleString()}
         </p>
 
-        {/* You Will Receive - Only show when valid amount */}
-        {calculation && !error && (
+        {/* You Will Receive — only when an amount is typed and there's no error.
+            If rules haven't loaded yet, show a thin inline indicator instead of
+            blocking the entire page. */}
+        {showReceiveBox && (
           <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-xl">
             <p className="text-sm text-gray-600">
               You will receive{' '}
-              <span className="font-semibold text-black">₦{calculation.netAmount.toLocaleString()}</span>
+              {calculation ? (
+                <span className="font-semibold text-black">
+                  ₦{calculation.netAmount.toLocaleString()}
+                </span>
+              ) : (
+                <span className="inline-block align-middle h-4 w-20 bg-gray-200 rounded animate-pulse" />
+              )}
             </p>
-            <p className="text-xs text-gray-400 mt-1">
-              Final amount after processing
-            </p>
+            <p className="text-xs text-gray-400 mt-1">Final amount after processing</p>
           </div>
         )}
 
         {/* Error Message */}
-        {error && (
-          <p className="text-xs text-red-500 mb-4">
-            {error}
-          </p>
-        )}
+        {error && <p className="text-xs text-red-500 mb-4">{error}</p>}
 
         {/* Continue Button */}
         <button
           onClick={handleContinue}
-          disabled={!calculation || calculation.depositAmount <= 0 || processing || !!error}
+          disabled={
+            !rulesLoaded ||
+            !calculation ||
+            calculation.depositAmount <= 0 ||
+            processing ||
+            !!error
+          }
           className="w-full bg-black text-white py-3 rounded-xl text-sm font-medium hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {processing ? 'Processing...' : 'Continue'}
+          {processing ? 'Processing...' : !rulesLoaded ? 'Loading...' : 'Continue'}
         </button>
 
         {/* Footer */}
         <p className="text-xs text-gray-400 text-center mt-4">
           Secure payments powered by Monnify
         </p>
-
       </div>
     </div>
   )

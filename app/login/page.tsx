@@ -58,7 +58,10 @@ function LoginForm() {
         body: JSON.stringify({ email: email.trim() }),
       }).catch(() => {})
 
-      router.push("/dashboard")
+      // Redirect with ?welcome=1 so the dashboard can show a one-time
+      // "Signed in successfully" banner — symmetric with the existing
+      // "session expired" notice on this page.
+      router.push("/dashboard?welcome=1")
       router.refresh()
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "An error occurred"

@@ -268,51 +268,10 @@ export default function ProfilePage() {
     return parts[0][0].toUpperCase();
   };
 
-  // If redirecting, show minimal skeleton
-  if (redirecting) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-muted-foreground">Redirecting...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background p-4 md:p-6 lg:p-8">
-        <div className="w-full md:max-w-2xl md:mx-auto lg:max-w-3xl">
-          {/* Header skeleton */}
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 bg-muted rounded-lg animate-pulse" />
-            <div className="h-6 w-20 bg-muted rounded animate-pulse" />
-          </div>
-
-          {/* Avatar skeleton */}
-          <div className="flex justify-center mb-6">
-            <div className="w-16 h-16 bg-muted rounded-full animate-pulse" />
-          </div>
-
-          {/* Info skeleton */}
-          <div className="space-y-2 mb-6 text-center">
-            <div className="h-5 w-32 bg-muted rounded mx-auto animate-pulse" />
-            <div className="h-4 w-40 bg-muted rounded mx-auto animate-pulse" />
-          </div>
-
-          {/* Menu skeleton */}
-          <div className="space-y-3">
-            {[1, 2, 3, 4].map((i) => (
-              <div
-                key={i}
-                className="h-14 bg-muted rounded-xl animate-pulse"
-              />
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // No full-page skeletons. The header + menu rows render instantly; only
+  // the avatar/name area shows a small inline shimmer until the profile
+  // fetch resolves. The redirecting state also renders inside the same
+  // shell so the layout doesn't jump.
 
   return (
     <div className="min-h-screen bg-background">
@@ -371,15 +330,24 @@ export default function ProfilePage() {
             className="hidden"
           />
 
-          <h2 className="text-base font-bold text-center">{fullName || 'User'}</h2>
-          {username && (
-            <p className="text-xs text-[#1a56db] text-center font-semibold">
-              @{username}
-            </p>
+          {loading ? (
+            <div className="flex flex-col items-center gap-2 mt-1">
+              <div className="h-4 w-28 bg-muted rounded animate-pulse" />
+              <div className="h-3 w-40 bg-muted rounded animate-pulse" />
+            </div>
+          ) : (
+            <>
+              <h2 className="text-base font-bold text-center">{fullName || 'User'}</h2>
+              {username && (
+                <p className="text-xs text-[#1a56db] text-center font-semibold">
+                  @{username}
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground text-center">
+                {user?.email}
+              </p>
+            </>
           )}
-          <p className="text-xs text-muted-foreground text-center">
-            {user?.email}
-          </p>
         </div>
 
         {/* Success Message */}
