@@ -12,9 +12,6 @@ import {
   ShieldCheck,
   Loader2,
   ArrowRight,
-  X,
-  ChevronDown,
-  MoreVertical,
 } from "lucide-react"
 import {
   AlertDialog,
@@ -264,37 +261,6 @@ export function CheckoutClient({ paymentReference, transaction: initialTransacti
 
   return (
     <div className="min-h-screen w-full bg-white font-sans flex flex-col">
-      {/* Dark in-app browser style header */}
-      <header className="sticky top-0 z-20 bg-slate-900 text-white w-full">
-        <div className="w-full px-3 py-3 flex items-center gap-1">
-          <Link
-            href="/dashboard"
-            aria-label="Close checkout"
-            className="p-1.5 hover:bg-slate-800 rounded-md transition flex-shrink-0"
-          >
-            <X className="w-6 h-6" strokeWidth={2.25} />
-          </Link>
-          <button
-            type="button"
-            aria-label="Minimize"
-            className="p-1.5 hover:bg-slate-800 rounded-md transition flex-shrink-0"
-          >
-            <ChevronDown className="w-6 h-6" strokeWidth={2.25} />
-          </button>
-          <div className="text-center flex-1 min-w-0 px-1">
-            <h1 className="text-base font-semibold leading-tight truncate">Mozosubz-Checkout</h1>
-            <p className="text-[11px] text-slate-300 leading-tight truncate">checkout.mozosubz.xyz</p>
-          </div>
-          <button
-            type="button"
-            aria-label="More options"
-            className="p-1.5 hover:bg-slate-800 rounded-md transition flex-shrink-0"
-          >
-            <MoreVertical className="w-6 h-6" strokeWidth={2.25} />
-          </button>
-        </div>
-      </header>
-
       <main className="flex-1 overflow-y-auto w-full px-4 sm:px-6 py-7">
         <div className="w-full max-w-md mx-auto">
           {/* Title — centered, dark navy */}
