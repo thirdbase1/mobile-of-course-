@@ -42,14 +42,15 @@ export function isValidPhone(phone: any): boolean {
 /**
  * Validate and normalize amount (monetary value)
  * Prevents amount injection attacks
+ * Note: Allows 0 for balance queries, but requires positive for transactions
  */
 export function isValidAmount(amount: any): boolean {
   if (typeof amount !== "number" && typeof amount !== "string") return false
 
   const numAmount = typeof amount === "string" ? parseFloat(amount) : amount
 
-  // Amount must be positive and not NaN
-  if (isNaN(numAmount) || numAmount <= 0) return false
+  // Amount must be >= 0 and not NaN (0 is valid for balance)
+  if (isNaN(numAmount) || numAmount < 0) return false
 
   // Maximum reasonable amount (prevent overflow)
   if (numAmount > 999999999) return false

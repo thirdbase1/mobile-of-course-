@@ -8,53 +8,48 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get('type')
 
     if (!service || !type) {
-      console.log('[v0] API /plans: Missing params - service:', service, 'type:', type)
       return NextResponse.json(
-        { error: 'Missing service or type parameter' },
+        { error: 'Missing service or type parameter', plans: [] },
         { status: 400 }
       )
     }
-
-    console.log('[v0] API /plans: Starting fetch for service:', service, 'type:', type)
 
     let plansData: any = null
 
     try {
       if (type === 'DATA') {
-        console.log('[v0] API /plans: Calling getDataPlans with:', service)
         plansData = await getDataPlans(service)
       } else if (type === 'CABLE') {
-        console.log('[v0] API /plans: Calling getCablePlans with:', service)
         plansData = await getCablePlans(service)
       }
     } catch (fetchError) {
-      console.error('[v0] API /plans: Error calling gsubz:', fetchError)
       return NextResponse.json(
-        { error: 'Failed to fetch from Gsubz', details: String(fetchError), plans: [] },
+        { error: 'Failed to fetch from Gsubz', plans: [] },
         { status: 200 }
       )
     }
 
-    console.log('[v0] API /plans: Raw plans data structure:', {
-      hasPlans: !!plansData?.plans,
-      plansCount: plansData?.plans?.length,
-      keys: plansData ? Object.keys(plansData) : [],
-    })
+    // Handle error responses from Gsubz API
+    if (!plansData || plansData.error || plansData.status === 'error') {
+      return NextResponse.json({
+        error: plansData?.message || plansData?.error || 'No plans available',
+        plans: []
+      })
+    }
     
     // Ensure we return an array of plans
     const plans = plansData?.plans || []
-    console.log('[v0] API /plans: Final returning', plans.length, 'plans')
-    console.log('[v0] API /plans: Plan names:', plans.map((p: any) => p.displayName))
 
     return NextResponse.json({
       ...plansData,
-      plans: plans
+      plans: plans,
+      error: plans.length === 0 ? 'No plans available' : null
     })
   } catch (error) {
-    console.error('[v0] API /plans: Unexpected error:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch plans', details: String(error), plans: [] },
+      { error: 'Failed to fetch plans', plans: [] },
       { status: 200 }
     )
   }
 }
+

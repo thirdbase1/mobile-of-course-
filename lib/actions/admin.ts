@@ -65,14 +65,13 @@ export async function getUserDetails(userId: string) {
 
 // Credit user wallet
 export async function creditUserWallet(userId: string, amount: number, reason: string) {
-  console.log('[v0] creditUserWallet called')
-
   // SECURITY: Validate all inputs to prevent injection
   if (!isValidUUID(userId)) {
     return { error: 'Invalid user ID format' }
   }
 
-  if (!isValidAmount(amount) || amount <= 0) {
+  // Amount must be positive (not zero) for transactions
+  if (typeof amount !== 'number' || amount <= 0 || isNaN(amount)) {
     return { error: 'Invalid amount' }
   }
 
@@ -83,11 +82,8 @@ export async function creditUserWallet(userId: string, amount: number, reason: s
   } = await supabase.auth.getUser()
 
   if (!adminUser) {
-    console.error('[v0] No admin user authenticated')
     return { error: 'Not authenticated' }
   }
-
-  console.log('[v0] Admin user:', adminUser.id)
 
   // Get current wallet balance - use admin client for profile read
   const adminSupabase = createAdminClient()
@@ -98,11 +94,8 @@ export async function creditUserWallet(userId: string, amount: number, reason: s
     .single()
 
   if (profileError) {
-    console.error('[v0] Profile error:', profileError)
     return { error: 'User not found' }
   }
-
-  console.log('[v0] User profile found:', { userId, currentBalance: userProfile.wallet_balance })
 
   const balanceBefore = userProfile.wallet_balance || 0
   
@@ -114,8 +107,6 @@ export async function creditUserWallet(userId: string, amount: number, reason: s
     return { error: error instanceof Error ? error.message : 'Invalid balance calculation' }
   }
 
-  console.log('[v0] About to update balance:', { balanceBefore, amount, newBalance })
-
   // Update wallet - use admin client for profile update
   const { error: updateError } = await adminSupabase
     .from('profiles')
@@ -123,11 +114,8 @@ export async function creditUserWallet(userId: string, amount: number, reason: s
     .eq('id', userId)
 
   if (updateError) {
-    console.error('[v0] Error updating wallet:', updateError)
     return { error: updateError.message }
   }
-
-  console.log('[v0] Wallet updated successfully')
 
   // Log transaction - create EXACT same transaction record as Monnify deposit
   // Use admin client to bypass RLS
@@ -148,16 +136,9 @@ export async function creditUserWallet(userId: string, amount: number, reason: s
     payment_method: 'ADMIN',
   })
 
-  if (txError) {
-    console.error('[v0] Error logging transaction:', txError)
-  } else {
-    console.log('[v0] Transaction logged successfully')
-  }
-
   revalidatePath('/admin/users')
   revalidatePath('/admin/transactions')
   
-  console.log('[v0] Credit complete, returning success')
   return { success: true, newBalance }
 }
 
@@ -168,7 +149,8 @@ export async function debitUserWallet(userId: string, amount: number, reason: st
     return { error: 'Invalid user ID format' }
   }
 
-  if (!isValidAmount(amount) || amount <= 0) {
+  // Amount must be positive (not zero) for transactions
+  if (typeof amount !== 'number' || amount <= 0 || isNaN(amount)) {
     return { error: 'Invalid amount' }
   }
 
