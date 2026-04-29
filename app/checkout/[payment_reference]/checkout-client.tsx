@@ -173,7 +173,9 @@ export function CheckoutClient({ paymentReference, transaction: initialTransacti
   // Terminal states
   // ──────────────────────────────────────────────
   if (transaction.status === "SUCCESS") {
-    const credited = transaction.amount - (transaction.processing_fee || 0)
+    const amount = Number(transaction.amount) || 0
+    const processingFee = Number(transaction.processing_fee) || 0
+    const credited = amount - processingFee
     return (
       <ResultShell>
         <div className="w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-5">
@@ -182,7 +184,7 @@ export function CheckoutClient({ paymentReference, transaction: initialTransacti
         <h1 className="text-2xl font-bold text-slate-900 mb-2">Payment received</h1>
         <p className="text-slate-600 mb-6">
           Your wallet has been credited with{" "}
-          <span className="font-bold text-slate-900">₦{credited.toLocaleString()}</span>.
+          <span className="font-bold text-slate-900">₦{Math.max(0, credited).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>.
         </p>
         <ReferenceCard label="Transaction reference" value={transaction.transactionReference || transaction.id} />
         <Link
