@@ -22,9 +22,10 @@ import { Footer } from "@/components/footer"
 import { SiteHeader } from "@/components/site-header"
 
 export const metadata = {
-  title: "Mozosubz (Mozo) - Instant Airtime & Cheap Data | Best Rates Nigeria",
-  description: "Mozo instant airtime, cheapest data bundles, cheap data online. Fast bill payments. Buy MTN SME, Data Share, Glo, Airtel, 9mobile airtime & data. Pay DStv, GOtv, electricity bills instantly. Lowest rates!",
-  keywords: "mozo, mozosub, mozosubz, instant airtime Nigeria, cheapest data, cheap data, cheap data website, cheap data bundles, MTN SME data, MTN data share, MTN gifting, MTN AWOOF, Glo data, Glo SME, Airtel SME, Airtel gifting, 9mobile data, cheapest airtime, fastest airtime top-up, best data rates, affordable cable TV, instant bill payment, cheapest electricity, DStv payment, GOtv subscription, quick recharge, online payment Nigeria, airtime top-up, data bundle, cable subscription, bill payment platform, buy data online, buy airtime online, data plan Nigeria, cheapest airtime rates, fast data delivery, cheapest data plans, data recharge Nigeria, buy cheapest data"
+  title: "Buy Cheap Data in Nigeria | Mozosubz VTU – Airtime, DStv, GOtv & Bills",
+  description:
+    "Mozosubz is the fastest VTU service in Nigeria. Cheap MTN, Glo, Airtel and 9mobile data, instant airtime, DStv, GOtv, Startimes and electricity bill payments — auto-refund on failure.",
+  alternates: { canonical: "https://mozosubz.xyz" },
 }
 
 // Real network logos already used across the dashboard (airtime page)
@@ -140,56 +141,80 @@ const FAQS = [
 export default function HomePage() {
   const schemaData = {
     "@context": "https://schema.org",
-    "@type": "WebApplication",
-    "name": "Mozosubz",
-    "alternateName": ["Mozo", "Mozosub"],
-    "description": "Instant airtime, cheap data (MTN SME, Data Share, Gifting, AWOOF, Glo Data, Glo SME, Airtel SME, Airtel Gifting, 9mobile), cable TV and electricity bill payment platform for Nigeria.",
-    "url": "https://mozosubz.xyz",
-    "applicationCategory": "BusinessApplication",
-    "operatingSystem": "All",
-    "softwareVersion": "1.0",
-    "image": "https://mozosubz.xyz/og-image.jpg",
-    "offers": [
+    "@graph": [
       {
-        "@type": "Offer",
-        "name": "MTN Data Plans",
-        "description": "MTN SME Data, Data Share, Gifting, AWOOF - Cheapest data bundles for Nigeria",
-        "priceCurrency": "NGN"
+        "@type": "WebApplication",
+        "@id": "https://mozosubz.xyz/#webapp",
+        name: "Mozosubz",
+        alternateName: ["Mozo", "Mozosub"],
+        description:
+          "Instant airtime, cheap data (MTN SME, Data Share, Gifting, AWOOF, Glo Data, Glo SME, Airtel SME, Airtel Gifting, 9mobile), cable TV and electricity bill payment platform for Nigeria.",
+        url: "https://mozosubz.xyz",
+        applicationCategory: "FinanceApplication",
+        operatingSystem: "All",
+        image: "https://mozosubz.xyz/og-image.jpg",
+        offers: [
+          {
+            "@type": "Offer",
+            name: "MTN Data Plans",
+            description: "MTN SME Data, Data Share, Gifting, AWOOF — cheapest data bundles in Nigeria",
+            priceCurrency: "NGN",
+          },
+          {
+            "@type": "Offer",
+            name: "Glo Data Plans",
+            description: "Glo Data and SME — cheap data bundles",
+            priceCurrency: "NGN",
+          },
+          {
+            "@type": "Offer",
+            name: "Airtel Data Plans",
+            description: "Airtel SME and Gifting data plans",
+            priceCurrency: "NGN",
+          },
+          {
+            "@type": "Offer",
+            name: "9mobile Data Plans",
+            description: "9mobile data bundles — instant top-up",
+            priceCurrency: "NGN",
+          },
+        ],
+        aggregateRating: {
+          "@type": "AggregateRating",
+          ratingValue: "4.8",
+          ratingCount: "2500",
+          bestRating: "5",
+          worstRating: "1",
+        },
       },
       {
-        "@type": "Offer",
-        "name": "Glo Data Plans",
-        "description": "Glo Data and SME - Cheap data bundles",
-        "priceCurrency": "NGN"
+        "@type": "Service",
+        "@id": "https://mozosubz.xyz/#service",
+        serviceType: "VTU – Airtime, Data, Cable TV & Electricity Bill Payments",
+        provider: { "@id": "https://mozosubz.xyz/#organization" },
+        areaServed: { "@type": "Country", name: "Nigeria" },
+        hasOfferCatalog: {
+          "@type": "OfferCatalog",
+          name: "Mozosubz services",
+          itemListElement: [
+            { "@type": "Offer", itemOffered: { "@type": "Service", name: "Instant Airtime (MTN, Glo, Airtel, 9mobile)" } },
+            { "@type": "Offer", itemOffered: { "@type": "Service", name: "Cheap Data Bundles (SME, Gifting, AWOOF)" } },
+            { "@type": "Offer", itemOffered: { "@type": "Service", name: "Cable TV (DStv, GOtv, Startimes)" } },
+            { "@type": "Offer", itemOffered: { "@type": "Service", name: "Electricity Bill Payment (12 DISCOs)" } },
+            { "@type": "Offer", itemOffered: { "@type": "Service", name: "Recharge Pin Generator" } },
+          ],
+        },
       },
       {
-        "@type": "Offer",
-        "name": "Airtel Data Plans",
-        "description": "Airtel SME and Gifting data plans",
-        "priceCurrency": "NGN"
+        "@type": "FAQPage",
+        "@id": "https://mozosubz.xyz/#faq",
+        mainEntity: FAQS.map((f) => ({
+          "@type": "Question",
+          name: f.q,
+          acceptedAnswer: { "@type": "Answer", text: f.a },
+        })),
       },
-      {
-        "@type": "Offer",
-        "name": "9mobile Data Plans",
-        "description": "9mobile Data bundles - instant top-up",
-        "priceCurrency": "NGN"
-      }
     ],
-    "aggregateRating": {
-      "@type": "AggregateRating",
-      "ratingValue": "4.8",
-      "ratingCount": "2500",
-      "bestRating": "5",
-      "worstRating": "1"
-    },
-    "sameAs": [
-      "https://twitter.com/Mozosubz",
-      "https://instagram.com/Mozosubz"
-    ],
-    "potentialAction": {
-      "@type": "TradeAction",
-      "target": "https://mozosubz.xyz"
-    }
   }
 
   return (

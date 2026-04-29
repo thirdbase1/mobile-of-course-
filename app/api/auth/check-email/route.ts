@@ -1,6 +1,10 @@
 import { createClient } from "@supabase/supabase-js"
 
+// Run at the edge for low-latency availability checks.
+export const runtime = "edge"
 export const dynamic = "force-dynamic"
+
+const EMAIL_RX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export async function POST(request: Request) {
   try {
@@ -12,7 +16,7 @@ export async function POST(request: Request) {
 
     const trimmedEmail = email.toLowerCase().trim()
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+    if (!EMAIL_RX.test(trimmedEmail)) {
       return Response.json({ available: false, error: "Invalid email format" })
     }
 
@@ -28,52 +32,27 @@ export async function POST(request: Request) {
       auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
     })
 
-    let emailExists = false
+    // Single indexed lookup against `profiles` (uniq_profiles_email_lower).
+    // The signup trigger keeps profiles in sync with auth.users, so this
+    // is the source of truth and runs in O(1) on the unique index.
+    const { count, error } = await supabase
+      .from("profiles")
+      .select("id", { count: "exact", head: true })
+      .ilike("email", trimmedEmail)
+      .limit(1)
 
-    // 1) Source of truth: auth.users (Supabase enforces unique email here).
-    //    Page through admin.listUsers because each page is capped (default 50, max 1000).
-    try {
-      let page = 1
-      const perPage = 1000
-      // Hard cap to prevent runaway loops on huge user bases.
-      const maxPages = 20
-      while (page <= maxPages) {
-        const { data, error } = await supabase.auth.admin.listUsers({ page, perPage })
-        if (error) break
-        const users = data?.users ?? []
-        if (users.some((u) => (u.email ?? "").toLowerCase() === trimmedEmail)) {
-          emailExists = true
-          break
-        }
-        if (users.length < perPage) break
-        page += 1
-      }
-    } catch {
-      // fall through to profiles check
+    if (error) {
+      // Fail CLOSED so duplicates can't slip through silently.
+      return Response.json(
+        { available: false, error: "Could not verify email availability" },
+        { status: 500 },
+      )
     }
 
-    // 2) Backup: profiles table (case-insensitive).
-    if (!emailExists) {
-      const { count, error } = await supabase
-        .from("profiles")
-        .select("id", { count: "exact", head: true })
-        .ilike("email", trimmedEmail)
-
-      if (error) {
-        // If profiles is missing/broken AND auth check didn't find it, we cannot be sure.
-        // Fail CLOSED so the user is forced to try a different email instead of silently
-        // letting a duplicate through.
-        return Response.json(
-          { available: false, error: "Could not verify email availability" },
-          { status: 500 },
-        )
-      }
-
-      emailExists = (count ?? 0) > 0
-    }
+    const available = (count ?? 0) === 0
 
     return Response.json(
-      { available: !emailExists, checked: true },
+      { available, checked: true },
       { headers: { "Cache-Control": "no-store" } },
     )
   } catch {

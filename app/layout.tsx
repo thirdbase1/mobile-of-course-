@@ -22,9 +22,37 @@ const spaceGrotesk = Space_Grotesk({
 })
 
 export const metadata: Metadata = {
-  title: "Mozosubz (Mozo) - Instant Airtime, Cheapest Data & Bills | Nigeria",
-  description: "Mozo - Buy instant airtime, cheapest data bundles, cheap data online. Fastest data top-up on MTN SME, Glo, Airtel, 9mobile. Pay DStv, GOtv, electricity bills instantly. Lowest rates guaranteed!",
-  keywords: "mozo, mozosub, mozosubz, instant airtime, cheapest data, cheap data, cheap data website, cheap data bundles, cheapest airtime, fastest data top-up, best data rates, MTN SME data, MTN data share, MTN gifting, MTN AWOOF, Glo data, Glo SME data, Airtel SME data, Airtel gifting, 9mobile data, affordable cable TV, instant bill payment, cheapest electricity, DStv payment, GOtv subscription, quick recharge, online top-up, Nigeria airtime, internet data bundle, airtime recharge, data subscription, cable tv subscription, electricity bill payment, bill payments Nigeria, online billing platform, fastest recharge, best rates airtime, buy data online, buy airtime online, data plan",
+  title: {
+    default: "Mozosubz | Buy Cheap Data, Airtime & Pay Bills in Nigeria",
+    template: "%s | Mozosubz",
+  },
+  description:
+    "Mozosubz is Nigeria's fastest VTU platform — instant airtime, cheap MTN, Glo, Airtel & 9mobile data, plus DStv, GOtv, Startimes and electricity bill payments. Auto-refund on failure, instant wallet credit.",
+  keywords: [
+    "mozosubz",
+    "mozosub",
+    "mozo nigeria",
+    "vtu nigeria",
+    "buy cheap data nigeria",
+    "instant airtime nigeria",
+    "MTN SME data",
+    "MTN AWOOF",
+    "Glo SME data",
+    "Airtel SME data",
+    "9mobile data",
+    "DStv payment online",
+    "GOtv subscription",
+    "Startimes payment",
+    "electricity bill payment nigeria",
+    "prepaid meter token",
+    "recharge pin generator",
+    "cheapest data plan nigeria",
+    "fastest airtime top-up",
+  ].join(", "),
+  applicationName: "Mozosubz",
+  authors: [{ name: "Mozosubz" }],
+  creator: "Mozosubz",
+  publisher: "Mozosubz",
   generator: "v0.app",
   manifest: "/manifest.json",
   icons: {
@@ -39,26 +67,39 @@ export const metadata: Metadata = {
   formatDetection: {
     telephone: false,
   },
-  robots: "index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1",
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-snippet": -1,
+      "max-image-preview": "large",
+      "max-video-preview": -1,
+    },
+  },
   openGraph: {
-    title: "Mozosubz - Instant Airtime & Cheapest Data",
-    description: "Buy instant airtime, cheapest data, fast bill payments. MTN, Glo, Airtel, 9mobile, DStv, GOtv. Lowest rates, instant delivery!",
+    title: "Mozosubz | Buy Cheap Data, Airtime & Pay Bills in Nigeria",
+    description:
+      "Instant airtime, cheap MTN/Glo/Airtel/9mobile data plans, DStv, GOtv, Startimes and electricity bill payments. Auto-refund on failure, wallet credited instantly.",
     url: "https://mozosubz.xyz",
     siteName: "Mozosubz",
+    locale: "en_NG",
     type: "website",
     images: [
       {
         url: "https://mozosubz.xyz/og-image.jpg",
         width: 1200,
         height: 630,
-        alt: "Mozosubz - Instant Airtime and Cheapest Data Top-up Service Nigeria",
-      }
-    ]
+        alt: "Mozosubz — Buy cheap data, airtime and pay bills in Nigeria",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Mozosubz - Instant Airtime & Cheapest Data",
-    description: "Buy instant airtime, cheapest data, pay bills fast!",
+    title: "Mozosubz | Cheap Data, Airtime & Bill Payments in Nigeria",
+    description:
+      "The fastest VTU service in Nigeria. Cheap data, instant airtime, DStv/GOtv and electricity bill payments.",
     creator: "@Mozosubz",
     images: ["https://mozosubz.xyz/og-image.jpg"],
   },
@@ -66,6 +107,7 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "https://mozosubz.xyz",
   },
+  category: "finance",
 }
 
 export const viewport: Viewport = {
@@ -88,6 +130,52 @@ export default function RootLayout({
         <meta name="viewport" content="viewport-fit=cover" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
+        {/* Preconnect to Supabase so the very first auth/data request is faster. */}
+        <link rel="preconnect" href="https://qiwjopejiggjcagstgqu.supabase.co" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://qiwjopejiggjcagstgqu.supabase.co" />
+        {/* Site-wide Organization + WebSite schema (helps Google understand the brand). */}
+        <Script
+          id="schema-organization"
+          type="application/ld+json"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@graph": [
+                {
+                  "@type": "Organization",
+                  "@id": "https://mozosubz.xyz/#organization",
+                  name: "Mozosubz",
+                  alternateName: ["Mozo", "Mozosub"],
+                  url: "https://mozosubz.xyz",
+                  logo: "https://mozosubz.xyz/icon.svg",
+                  description:
+                    "Mozosubz is Nigeria's fastest VTU platform for cheap data, instant airtime, cable TV and electricity bill payments.",
+                  areaServed: { "@type": "Country", name: "Nigeria" },
+                  sameAs: [
+                    "https://twitter.com/Mozosubz",
+                    "https://instagram.com/Mozosubz",
+                  ],
+                },
+                {
+                  "@type": "WebSite",
+                  "@id": "https://mozosubz.xyz/#website",
+                  url: "https://mozosubz.xyz",
+                  name: "Mozosubz",
+                  description:
+                    "Buy cheap data, instant airtime and pay DStv, GOtv & electricity bills in Nigeria.",
+                  publisher: { "@id": "https://mozosubz.xyz/#organization" },
+                  inLanguage: "en-NG",
+                  potentialAction: {
+                    "@type": "SearchAction",
+                    target: "https://mozosubz.xyz/services?q={search_term_string}",
+                    "query-input": "required name=search_term_string",
+                  },
+                },
+              ],
+            }),
+          }}
+        />
       </head>
       <body className={`${dmSans.className} ${spaceGrotesk.variable} antialiased overflow-y-auto overflow-x-hidden`}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>

@@ -1,5 +1,7 @@
 import { createClient } from "@supabase/supabase-js"
 
+// Run at the edge for low-latency availability checks.
+export const runtime = "edge"
 export const dynamic = "force-dynamic"
 
 export async function POST(request: Request) {
@@ -27,50 +29,28 @@ export async function POST(request: Request) {
       auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
     })
 
-    let phoneExists = false
-
-    // 1) Primary: profiles.phone_number (digits-only).
+    // Single indexed lookup against profiles.phone_number
+    // (partial unique index uniq_profiles_phone_number).
+    // The signup trigger keeps profiles in sync with auth.users, so we no
+    // longer have to scan auth.admin.listUsers on every keystroke.
     const { count, error } = await supabase
       .from("profiles")
       .select("id", { count: "exact", head: true })
       .eq("phone_number", digitsOnly)
+      .limit(1)
 
     if (error) {
-      // Don't silently allow signup if we can't verify. Fail closed.
+      // Fail CLOSED so we never silently accept a duplicate.
       return Response.json(
         { available: false, error: "Could not verify phone availability" },
         { status: 500 },
       )
     }
 
-    phoneExists = (count ?? 0) > 0
-
-    // 2) Backup: scan auth.users metadata (covers users created before profiles existed).
-    if (!phoneExists) {
-      try {
-        let page = 1
-        const perPage = 1000
-        const maxPages = 20
-        while (page <= maxPages && !phoneExists) {
-          const { data, error: authError } = await supabase.auth.admin.listUsers({ page, perPage })
-          if (authError) break
-          const users = data?.users ?? []
-          phoneExists = users.some((u) => {
-            const meta = (u.user_metadata ?? {}) as Record<string, unknown>
-            const metaPhone = typeof meta.phone === "string" ? meta.phone : ""
-            const candidate = (metaPhone || u.phone || "").replace(/\D/g, "")
-            return candidate.length === 11 && candidate === digitsOnly
-          })
-          if (users.length < perPage) break
-          page += 1
-        }
-      } catch {
-        // ignore
-      }
-    }
+    const available = (count ?? 0) === 0
 
     return Response.json(
-      { available: !phoneExists, checked: true },
+      { available, checked: true },
       { headers: { "Cache-Control": "no-store" } },
     )
   } catch {
