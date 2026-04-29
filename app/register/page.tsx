@@ -21,9 +21,17 @@ function RegisterFormContent() {
   const [usernameError, setUsernameError] = useState<string | null>(null)
   const [checkingUsername, setCheckingUsername] = useState(false)
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null)
+  const [emailError, setEmailError] = useState<string | null>(null)
+  const [checkingEmail, setCheckingEmail] = useState(false)
+  const [emailAvailable, setEmailAvailable] = useState<boolean | null>(null)
+  const [phoneError, setPhoneError] = useState<string | null>(null)
+  const [checkingPhone, setCheckingPhone] = useState(false)
+  const [phoneAvailable, setPhoneAvailable] = useState<boolean | null>(null)
   const router = useRouter()
   const { toast } = useToast()
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const debounceEmailRef = useRef<NodeJS.Timeout | null>(null)
+  const debouncePhoneRef = useRef<NodeJS.Timeout | null>(null)
 
   const checkUsername = useCallback(async (value: string) => {
     if (!value.trim()) {
@@ -98,6 +106,123 @@ function RegisterFormContent() {
     }
   }
 
+  const checkEmail = useCallback(async (value: string) => {
+    if (!value.trim()) {
+      setEmailAvailable(null)
+      setEmailError(null)
+      setCheckingEmail(false)
+      return
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+      setEmailError("Invalid email format")
+      setEmailAvailable(false)
+      setCheckingEmail(false)
+      return
+    }
+
+    setCheckingEmail(true)
+    setEmailError(null)
+
+    try {
+      const response = await fetch("/api/auth/check-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: value.toLowerCase().trim() }),
+      })
+
+      const data = await response.json()
+      if (data.available) {
+        setEmailAvailable(true)
+        setEmailError(null)
+      } else {
+        setEmailAvailable(false)
+        setEmailError("Email already registered")
+      }
+    } catch (error) {
+      setEmailAvailable(null)
+    } finally {
+      setCheckingEmail(false)
+    }
+  }, [])
+
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.toLowerCase()
+    setEmail(value)
+    
+    if (debounceEmailRef.current) clearTimeout(debounceEmailRef.current)
+
+    if (value.trim()) {
+      setCheckingEmail(true)
+      debounceEmailRef.current = setTimeout(() => {
+        checkEmail(value)
+      }, 500)
+    } else {
+      setEmailAvailable(null)
+      setEmailError(null)
+      setCheckingEmail(false)
+    }
+  }
+
+  const checkPhone = useCallback(async (value: string) => {
+    if (!value.trim()) {
+      setPhoneAvailable(null)
+      setPhoneError(null)
+      setCheckingPhone(false)
+      return
+    }
+
+    const digitsOnly = value.replace(/\D/g, '')
+    if (digitsOnly.length < 10) {
+      setPhoneError("At least 10 digits required")
+      setPhoneAvailable(false)
+      setCheckingPhone(false)
+      return
+    }
+
+    setCheckingPhone(true)
+    setPhoneError(null)
+
+    try {
+      const response = await fetch("/api/auth/check-phone", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: value.trim() }),
+      })
+
+      const data = await response.json()
+      if (data.available) {
+        setPhoneAvailable(true)
+        setPhoneError(null)
+      } else {
+        setPhoneAvailable(false)
+        setPhoneError("Phone already registered")
+      }
+    } catch (error) {
+      setPhoneAvailable(null)
+    } finally {
+      setCheckingPhone(false)
+    }
+  }, [])
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setPhone(value)
+    
+    if (debouncePhoneRef.current) clearTimeout(debouncePhoneRef.current)
+
+    if (value.trim()) {
+      setCheckingPhone(true)
+      debouncePhoneRef.current = setTimeout(() => {
+        checkPhone(value)
+      }, 500)
+    } else {
+      setPhoneAvailable(null)
+      setPhoneError(null)
+      setCheckingPhone(false)
+    }
+  }
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
     const supabase = createClient()
@@ -116,14 +241,14 @@ function RegisterFormContent() {
       return
     }
 
-    if (!email.trim() || !email.includes("@")) {
-      setError("Valid email required")
+    if (!email.trim() || !emailAvailable) {
+      setError("Valid, available email required")
       setIsLoading(false)
       return
     }
 
-    if (phone.trim() && !/^\d{10,}$/.test(phone.trim().replace(/\D/g, ''))) {
-      setError("Valid phone number required (10+ digits)")
+    if (phone.trim() && !phoneAvailable) {
+      setError("Valid, available phone required")
       setIsLoading(false)
       return
     }
@@ -132,42 +257,6 @@ function RegisterFormContent() {
       setError("Password min 6 chars")
       setIsLoading(false)
       return
-    }
-
-    // Check if email already exists
-    try {
-      const { data: existingEmail } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('email', email.trim().toLowerCase())
-        .single()
-
-      if (existingEmail) {
-        setError("Email already registered")
-        setIsLoading(false)
-        return
-      }
-    } catch {
-      // Email doesn't exist, continue
-    }
-
-    // Check if phone already exists (if phone is provided)
-    if (phone.trim()) {
-      try {
-        const { data: existingPhone } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('phone_number', phone.trim())
-          .single()
-
-        if (existingPhone) {
-          setError("Phone number already registered")
-          setIsLoading(false)
-          return
-        }
-      } catch {
-        // Phone doesn't exist, continue
-      }
     }
 
     try {
@@ -189,8 +278,7 @@ function RegisterFormContent() {
         return
       }
 
-      // Fire-and-forget branded welcome email. We don't await so slow email
-      // delivery never blocks navigation to the success screen.
+      // Fire-and-forget branded welcome email
       fetch("/api/email/welcome", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -266,31 +354,43 @@ function RegisterFormContent() {
           <label htmlFor="email" className="block text-xs font-semibold text-blue-100 mb-1">
             Email
           </label>
-          <input
-            id="email"
-            type="email"
-            placeholder="you@example.com"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            disabled={isLoading}
-            className="w-full h-9 px-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder:text-white/50 text-xs font-medium outline-none focus:border-blue-400/50 focus:bg-white/20 transition-all"
-          />
+          <div className="relative">
+            <input
+              id="email"
+              type="email"
+              placeholder="you@example.com"
+              required
+              value={email}
+              onChange={handleEmailChange}
+              disabled={isLoading}
+              className="w-full h-9 px-3 pr-10 rounded-lg bg-white/10 border border-white/20 text-white placeholder:text-white/50 text-xs font-medium outline-none focus:border-blue-400/50 focus:bg-white/20 transition-all disabled:opacity-50"
+            />
+            {checkingEmail && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 animate-spin text-blue-300" />}
+            {!checkingEmail && emailAvailable === true && <CheckCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-green-400" />}
+            {!checkingEmail && emailAvailable === false && <AlertCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-red-400" />}
+          </div>
+          {emailError && <p className="text-xs text-red-300 mt-0.5">{emailError}</p>}
         </div>
 
         <div>
           <label htmlFor="phone" className="block text-xs font-semibold text-blue-100 mb-1">
-            Phone Number
+            Phone Number (Optional)
           </label>
-          <input
-            id="phone"
-            type="tel"
-            placeholder="+234 800 000 0000"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            disabled={isLoading}
-            className="w-full h-9 px-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder:text-white/50 text-xs font-medium outline-none focus:border-blue-400/50 focus:bg-white/20 transition-all"
-          />
+          <div className="relative">
+            <input
+              id="phone"
+              type="tel"
+              placeholder="+234 800 000 0000"
+              value={phone}
+              onChange={handlePhoneChange}
+              disabled={isLoading}
+              className="w-full h-9 px-3 pr-10 rounded-lg bg-white/10 border border-white/20 text-white placeholder:text-white/50 text-xs font-medium outline-none focus:border-blue-400/50 focus:bg-white/20 transition-all disabled:opacity-50"
+            />
+            {checkingPhone && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 animate-spin text-blue-300" />}
+            {!checkingPhone && phoneAvailable === true && phone.trim() && <CheckCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-green-400" />}
+            {!checkingPhone && phoneAvailable === false && phone.trim() && <AlertCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-red-400" />}
+          </div>
+          {phoneError && <p className="text-xs text-red-300 mt-0.5">{phoneError}</p>}
         </div>
 
         <div>
@@ -329,7 +429,7 @@ function RegisterFormContent() {
 
         <button
           type="submit"
-          disabled={isLoading || !usernameAvailable}
+          disabled={isLoading || !usernameAvailable || !emailAvailable || (phone.trim() && !phoneAvailable)}
           className="w-full h-9 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg text-xs font-bold hover:from-blue-600 hover:to-blue-700 disabled:from-gray-500 disabled:to-gray-600 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5 mt-4"
         >
           {isLoading ? (
