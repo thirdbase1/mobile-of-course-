@@ -115,11 +115,10 @@ export default function DashboardPage() {
       }
       setTransactions(txList)
 
-      // Subscribe to live updates for THIS user. profiles is in the
-      // supabase_realtime publication; transactions isn't (the table
-      // doesn't currently exist), so the second listener is a no-op
-      // until that table is added — wiring it in advance means we
-      // don't have to touch this file again later.
+      // Subscribe to live updates for THIS user. Both `profiles` and
+      // `transactions` are in the supabase_realtime publication and RLS
+      // limits each subscriber to their own rows, so the dashboard
+      // updates the moment a wallet is credited or a transaction lands.
       channel = supabase
         .channel(`dashboard:${authedUser.id}`)
         .on(
