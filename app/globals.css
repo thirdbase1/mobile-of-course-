@@ -50,7 +50,10 @@ html {
 }
 
 /* Disable smooth scroll on slow networks and mobile */
-html[data-slow-network='true'],
+html[data-slow-network='true'] {
+  scroll-behavior: auto;
+}
+
 @media (max-width: 768px) {
   html {
     scroll-behavior: auto;
