@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Settings, ChevronRight, CheckCircle2, X } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
@@ -84,13 +84,41 @@ export function DashboardClient({
     return () => clearTimeout(id)
   }, [searchParams, router])
 
-  // Realtime: live profile (balance) + live transactions for THIS user.
-  // RLS scopes both tables to the owner, so we only ever receive our own
-  // rows over the channel.
+  // Refs let the polling loop see the latest values without re-running
+  // the effect every time state changes (which would tear down the channel).
+  const profileRef = useRef<any>(initialProfile)
+  const transactionsRef = useRef<any[]>(initialTransactions)
+  const realtimeConnectedRef = useRef<boolean>(false)
+
+  useEffect(() => {
+    profileRef.current = profile
+  }, [profile])
+
+  useEffect(() => {
+    transactionsRef.current = transactions
+  }, [transactions])
+
+  // Realtime + silent polling fallback.
+  //
+  // Primary path: a Supabase realtime channel pushes profile + transaction
+  // changes the instant they happen. RLS scopes both tables to the owner,
+  // so we only ever receive our own rows.
+  //
+  // Fallback path: a quiet background poll re-fetches the same data on an
+  // interval. It NEVER touches loading state, never shows a spinner, and
+  // only calls setState when the new value is actually different from
+  // what's already on screen — so the UI stays perfectly still unless
+  // something genuinely changed. The poll is also paused when the tab is
+  // hidden to save battery + bandwidth.
   useEffect(() => {
     if (!userId) return
     const supabase = createClient()
     let mounted = true
+
+    const fetchProfile = async () => {
+      const { data } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle()
+      return data
+    }
 
     const fetchTransactions = async () => {
       const { data } = await supabase
@@ -102,6 +130,47 @@ export function DashboardClient({
       return data ?? []
     }
 
+    // Compare the fields we actually render. If nothing changed, skip
+    // setState entirely so React doesn't even consider a re-render.
+    const profileChanged = (next: any, prev: any) => {
+      if (!next || !prev) return next !== prev
+      return (
+        next.wallet_balance !== prev.wallet_balance ||
+        next.bvn !== prev.bvn ||
+        next.monnify_account_number !== prev.monnify_account_number ||
+        next.monnify_bank_name !== prev.monnify_bank_name ||
+        next.is_admin !== prev.is_admin ||
+        next.full_name !== prev.full_name ||
+        next.phone !== prev.phone
+      )
+    }
+
+    const transactionsChanged = (next: any[], prev: any[]) => {
+      if (next.length !== prev.length) return true
+      for (let i = 0; i < next.length; i++) {
+        const a = next[i]
+        const b = prev[i]
+        if (a.id !== b.id || a.status !== b.status || a.amount !== b.amount) return true
+      }
+      return false
+    }
+
+    const applyProfile = (next: any) => {
+      if (!mounted || !next) return
+      if (!profileChanged(next, profileRef.current)) return
+      setProfile(next)
+      if (!isHardcodedAdmin(userEmail) && next?.is_admin === true) {
+        setIsAdmin(true)
+      }
+    }
+
+    const applyTransactions = (next: any[]) => {
+      if (!mounted) return
+      if (!transactionsChanged(next, transactionsRef.current)) return
+      setTransactions(next)
+    }
+
+    // ---- Realtime channel ----
     const channel = supabase
       .channel(`dashboard:${userId}`)
       .on(
@@ -113,11 +182,7 @@ export function DashboardClient({
           filter: `id=eq.${userId}`,
         },
         (payload) => {
-          if (!mounted) return
-          setProfile(payload.new)
-          if (!isHardcodedAdmin(userEmail) && (payload.new as any)?.is_admin === true) {
-            setIsAdmin(true)
-          }
+          applyProfile(payload.new)
         },
       )
       .on(
@@ -130,13 +195,57 @@ export function DashboardClient({
         },
         async () => {
           const fresh = await fetchTransactions()
-          if (mounted) setTransactions(fresh)
+          applyTransactions(fresh)
         },
       )
-      .subscribe()
+      .subscribe((status) => {
+        realtimeConnectedRef.current = status === "SUBSCRIBED"
+      })
+
+    // ---- Silent polling fallback ----
+    // Polls every 20s when realtime isn't confirmed connected, and every
+    // 60s as a safety net even when it is. Always silent — no loading UI,
+    // no state update unless data actually changed.
+    const tick = async () => {
+      if (!mounted) return
+      if (typeof document !== "undefined" && document.hidden) return
+      try {
+        const [p, t] = await Promise.all([fetchProfile(), fetchTransactions()])
+        applyProfile(p)
+        applyTransactions(t)
+      } catch {
+        // Network blip — ignore, next tick will retry. Never disturb the UI.
+      }
+    }
+
+    const fastInterval = setInterval(() => {
+      if (!realtimeConnectedRef.current) tick()
+    }, 20_000)
+
+    const safetyInterval = setInterval(() => {
+      tick()
+    }, 60_000)
+
+    // Re-sync immediately when the tab regains focus (catches anything
+    // missed while the tab was backgrounded).
+    const onFocus = () => {
+      if (!mounted) return
+      if (typeof document !== "undefined" && document.hidden) return
+      tick()
+    }
+    if (typeof window !== "undefined") {
+      window.addEventListener("focus", onFocus)
+      document.addEventListener("visibilitychange", onFocus)
+    }
 
     return () => {
       mounted = false
+      clearInterval(fastInterval)
+      clearInterval(safetyInterval)
+      if (typeof window !== "undefined") {
+        window.removeEventListener("focus", onFocus)
+        document.removeEventListener("visibilitychange", onFocus)
+      }
       supabase.removeChannel(channel)
     }
   }, [userId, userEmail])
