@@ -22,6 +22,9 @@ export const metadata: Metadata = {
   title: "About Mozosubz - Cheap Data, Instant Airtime & Bills Wallet",
   description: "About Mozosubz: Nigeria's fastest bill-payment wallet. Buy cheap data, instant airtime on MTN, Glo, Airtel, 9mobile. Pay DStv, GOtv, electricity. One wallet, all services.",
   keywords: "about mozosubz, cheap data provider, instant airtime provider, bill payment Nigeria, mozo wallet, cheapest data website, affordable airtime, online bill payment, Nigerian bill payment service, data top-up service",
+  alternates: {
+    canonical: "https://mozosubz.xyz/about",
+  },
 }
 
 const NETWORKS = [
