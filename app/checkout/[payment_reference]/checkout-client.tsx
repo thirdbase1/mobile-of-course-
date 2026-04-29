@@ -9,10 +9,12 @@ import {
   CheckCircle2,
   XCircle,
   AlertTriangle,
-  Building2,
   ShieldCheck,
   Loader2,
   ArrowRight,
+  X,
+  ChevronDown,
+  MoreVertical,
 } from "lucide-react"
 import {
   AlertDialog,
@@ -112,15 +114,6 @@ export function CheckoutClient({ paymentReference, transaction: initialTransacti
     const m = Math.floor(ms / 1000 / 60)
     return `${m}:${s.toString().padStart(2, "0")}`
   }
-
-  const timerTone =
-    timeLeft <= 2 * 60 * 1000 ? "danger" : timeLeft <= 5 * 60 * 1000 ? "warn" : "ok"
-
-  const timerColors = {
-    ok: { text: "text-blue-600", ring: "stroke-blue-600", bg: "bg-blue-50", border: "border-blue-100" },
-    warn: { text: "text-amber-600", ring: "stroke-amber-500", bg: "bg-amber-50", border: "border-amber-200" },
-    danger: { text: "text-red-600", ring: "stroke-red-600", bg: "bg-red-50", border: "border-red-200" },
-  }[timerTone]
 
   const handleCopy = async (text: string, field: string) => {
     try {
@@ -259,70 +252,95 @@ export function CheckoutClient({ paymentReference, transaction: initialTransacti
   }
 
   // ──────────────────────────────────────────────
-  // Pending state
+  // Pending state — PalmPay-style checkout layout
   // ──────────────────────────────────────────────
-  const amountStr = transaction.amount.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-  const amountCopyStr = transaction.amount.toString()
+  const timerIsDanger = timeLeft <= 2 * 60 * 1000
+  const timerIsWarn = !timerIsDanger && timeLeft <= 5 * 60 * 1000
+  const timerColor = timerIsDanger
+    ? "text-red-600"
+    : timerIsWarn
+      ? "text-amber-600"
+      : "text-red-500"
 
   return (
     <div className="min-h-screen w-full bg-white font-sans flex flex-col">
-      {/* Dark header like PalmPay */}
+      {/* Dark in-app browser style header */}
       <header className="sticky top-0 z-20 bg-slate-900 text-white w-full">
-        <div className="w-full px-4 sm:px-6 py-4 flex items-center justify-between">
-          <Link href="/dashboard" className="p-2 hover:bg-slate-800 rounded-lg transition flex-shrink-0">
-            <span className="text-xl">✕</span>
+        <div className="w-full px-3 py-3 flex items-center gap-1">
+          <Link
+            href="/dashboard"
+            aria-label="Close checkout"
+            className="p-1.5 hover:bg-slate-800 rounded-md transition flex-shrink-0"
+          >
+            <X className="w-6 h-6" strokeWidth={2.25} />
           </Link>
-          <div className="text-center flex-1">
-            <h1 className="text-lg font-bold">Mozosubz</h1>
-            <p className="text-xs text-slate-400">checkout.mozosubz.com</p>
+          <button
+            type="button"
+            aria-label="Minimize"
+            className="p-1.5 hover:bg-slate-800 rounded-md transition flex-shrink-0"
+          >
+            <ChevronDown className="w-6 h-6" strokeWidth={2.25} />
+          </button>
+          <div className="text-center flex-1 min-w-0 px-1">
+            <h1 className="text-base font-semibold leading-tight truncate">Mozosubz-Checkout</h1>
+            <p className="text-[11px] text-slate-300 leading-tight truncate">checkout.mozosubz.xyz</p>
           </div>
-          <button className="p-2 hover:bg-slate-800 rounded-lg transition flex-shrink-0">
-            <span className="text-xl">⋮</span>
+          <button
+            type="button"
+            aria-label="More options"
+            className="p-1.5 hover:bg-slate-800 rounded-md transition flex-shrink-0"
+          >
+            <MoreVertical className="w-6 h-6" strokeWidth={2.25} />
           </button>
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto w-full px-4 sm:px-6 py-8 pb-40 sm:pb-32">
-        <div className="w-full max-w-2xl mx-auto">
-          {/* Payment method title */}
-          <section className="mb-8">
-            <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-6">Pay with bank transfer</h2>
-            
-            {/* Amount hero - Large and prominent */}
-            <div className="text-center mb-8">
-              <span className="text-5xl sm:text-6xl lg:text-7xl font-bold text-blue-600 tabular-nums block">
-                ₦{(transaction.amount).toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-            </div>
-          </section>
+      <main className="flex-1 overflow-y-auto w-full px-4 sm:px-6 py-7">
+        <div className="w-full max-w-md mx-auto">
+          {/* Title — centered, dark navy */}
+          <h2 className="text-center text-2xl sm:text-3xl font-bold text-slate-900 mb-6">
+            Pay with bank transfer
+          </h2>
 
-          {/* Bank details card */}
+          {/* Amount — centered, blue, hero */}
+          <div className="text-center mb-7">
+            <span className="text-4xl sm:text-5xl font-bold text-blue-600 tabular-nums">
+              {"\u20A6"}
+              {transaction.amount.toLocaleString("en-NG", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+            </span>
+          </div>
+
+          {/* Bank details — light blue card */}
           {transaction.accountNumber && (
-            <section className="bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden mb-6 p-6">
-              <p className="text-sm text-slate-600 mb-4">Please transfer to the following account</p>
-              
-              {/* Bank name */}
-              <div className="mb-6">
-                <p className="text-xs text-slate-600 mb-2">Bank Name:</p>
-                <div className="flex items-center gap-2">
-                  <Building2 className="w-5 h-5 text-slate-600 flex-shrink-0" />
-                  <p className="text-lg font-semibold text-slate-900">{transaction.bankName}</p>
-                </div>
+            <section className="bg-blue-50 rounded-2xl p-5 sm:p-6 mb-5">
+              <p className="text-sm text-slate-700 mb-5">Please transfer to the following account</p>
+
+              {/* Bank Name (inline) */}
+              <div className="mb-5 flex items-center gap-3 flex-wrap">
+                <p className="text-sm text-slate-500">Bank Name:</p>
+                <p className="text-base font-bold text-slate-900">{transaction.bankName}</p>
               </div>
 
-              {/* Account number */}
-              <div className="mb-6">
-                <p className="text-xs text-slate-600 mb-2">Account Number(Only for this transaction)</p>
+              {/* Account Number */}
+              <div className="mb-5">
+                <p className="text-sm text-slate-500 mb-1.5">
+                  Account Number
+                  <span className="text-xs text-slate-400">(Only for this transaction)</span>
+                </p>
                 <div className="flex items-center justify-between gap-3 flex-wrap">
-                  <p className="text-xl sm:text-2xl font-bold text-blue-600 font-mono tracking-wider break-all">
+                  <p className="text-2xl sm:text-3xl font-bold text-blue-600 tabular-nums tracking-wide break-all">
                     {transaction.accountNumber}
                   </p>
                   <button
+                    type="button"
                     onClick={() => handleCopy(transaction.accountNumber || "", "account")}
-                    className={`px-4 py-2 text-sm font-semibold rounded-lg border transition flex-shrink-0 ${
+                    className={`px-5 py-1.5 text-sm font-semibold rounded-full border-2 transition flex-shrink-0 ${
                       copied === "account"
-                        ? "bg-emerald-100 text-emerald-700 border-emerald-300"
-                        : "bg-white text-blue-600 border-blue-300 hover:bg-blue-50"
+                        ? "bg-emerald-50 text-emerald-700 border-emerald-300"
+                        : "bg-white text-blue-600 border-blue-400 hover:bg-blue-50"
                     }`}
                   >
                     {copied === "account" ? "Copied" : "Copy"}
@@ -330,69 +348,47 @@ export function CheckoutClient({ paymentReference, transaction: initialTransacti
                 </div>
               </div>
 
-              {/* Account name */}
+              {/* Account Name (inline) */}
               {transaction.accountName && (
-                <div>
-                  <p className="text-xs text-slate-600 mb-2">Account Name:</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-sm text-slate-500">Account Name:</p>
                   <p className="text-sm font-semibold text-slate-900">{transaction.accountName}</p>
                 </div>
               )}
             </section>
           )}
 
-        {/* Order expires timer */}
-        <div className="text-center mb-8">
-          <p className={`text-sm font-semibold ${
-            timeLeft <= 2 * 60 * 1000 ? 'text-red-600' :
-            timeLeft <= 5 * 60 * 1000 ? 'text-amber-600' :
-            'text-slate-600'
-          }`}>
-            Order Expires in <span className={
-              timeLeft <= 2 * 60 * 1000 ? 'text-red-600' :
-              timeLeft <= 5 * 60 * 1000 ? 'text-amber-600' :
-              'text-slate-900'
-            }>{formatTime(timeLeft)}</span>
+          {/* Order expires timer — below card, red */}
+          <p className="text-center text-sm text-slate-700 mb-5">
+            Order Expires in{" "}
+            <span className={`font-semibold ${timerColor}`}>{formatTime(timeLeft)}</span>
           </p>
-        </div>
 
-        {/* Polling indicator */}
-        <div className="flex items-center justify-center gap-2 py-3 text-xs font-medium text-slate-600 mb-6">
-          <span className="relative flex h-2 w-2">
-            <span
-              className={`animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 ${
-                isPolling ? "" : "hidden"
+          {/* Status banner */}
+          {statusMessage && (
+            <div
+              className={`rounded-xl border p-3 mb-4 flex items-start gap-2 ${
+                statusMessage.kind === "error"
+                  ? "bg-red-50 border-red-200 text-red-800"
+                  : "bg-blue-50 border-blue-200 text-blue-800"
               }`}
-            />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-          </span>
-          Watching for your transfer
-        </div>
+              role="status"
+            >
+              {statusMessage.kind === "error" ? (
+                <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+              ) : (
+                <Loader2 className="w-4 h-4 flex-shrink-0 mt-0.5 animate-spin" />
+              )}
+              <p className="text-xs font-medium">{statusMessage.text}</p>
+            </div>
+          )}
 
-        {/* Danger / info banner */}
-        {statusMessage && (
-          <div
-            className={`rounded-xl border p-4 mb-4 flex items-start gap-3 ${
-              statusMessage.kind === "error"
-                ? "bg-red-50 border-red-200 text-red-800"
-                : "bg-blue-50 border-blue-200 text-blue-800"
-            }`}
-            role="status"
-          >
-            {statusMessage.kind === "error" ? (
-              <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-            ) : (
-              <Loader2 className="w-5 h-5 flex-shrink-0 mt-0.5 animate-spin" />
-            )}
-            <p className="text-sm font-medium">{statusMessage.text}</p>
-          </div>
-        )}
-
-        {/* Desktop action buttons */}
-        <div className="hidden sm:flex flex-col gap-3 mb-6">
+          {/* Primary action — full-width rounded-full pill */}
           <button
+            type="button"
             onClick={handleVerify}
             disabled={isVerifying}
-            className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition inline-flex items-center justify-center gap-2"
+            className="w-full py-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:opacity-60 disabled:cursor-not-allowed text-white text-base font-semibold rounded-full transition inline-flex items-center justify-center gap-2"
           >
             {isVerifying ? (
               <>
@@ -400,56 +396,40 @@ export function CheckoutClient({ paymentReference, transaction: initialTransacti
                 Verifying...
               </>
             ) : (
-              <>
-                <CheckCircle2 className="w-4 h-4" />
-                I&apos;ve made the payment
-              </>
+              "I've made the payment"
             )}
           </button>
+
+          {/* Cancel — subtle text link */}
           <button
+            type="button"
             onClick={handleCancelClick}
             disabled={isCancelling}
-            className="w-full py-3 text-slate-600 hover:text-slate-900 font-semibold rounded-lg transition text-sm"
+            className="mt-3 w-full py-2 text-slate-500 hover:text-slate-700 font-medium text-xs"
           >
             {isCancelling ? "Cancelling..." : "Cancel payment"}
           </button>
-        </div>
 
-        {/* Footer: secured-by badge */}
-        <div className="flex items-center justify-center gap-1.5 text-[11px] text-slate-500 pb-4">
-          <ShieldCheck className="w-3.5 h-3.5" />
-          Payments secured by Monnify
-        </div>
+          {/* Polling indicator (subtle) */}
+          <div className="mt-5 flex items-center justify-center gap-1.5 text-[11px] text-slate-500">
+            <span className="relative flex h-1.5 w-1.5">
+              <span
+                className={`animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 ${
+                  isPolling ? "" : "hidden"
+                }`}
+              />
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+            </span>
+            Watching for your transfer
+          </div>
+
+          {/* Secured-by */}
+          <div className="mt-2 flex items-center justify-center gap-1 text-[10px] text-slate-400 pb-4">
+            <ShieldCheck className="w-3 h-3" />
+            Payments secured by Monnify
+          </div>
         </div>
       </main>
-
-      {/* Sticky mobile action bar */}
-      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-slate-200 px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+12px)] shadow-[0_-4px_16px_-4px_rgba(15,23,42,0.08)]">
-        <button
-          onClick={handleVerify}
-          disabled={isVerifying}
-          className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition inline-flex items-center justify-center gap-2 mb-2"
-        >
-          {isVerifying ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Verifying...
-            </>
-          ) : (
-            <>
-              <CheckCircle2 className="w-4 h-4" />
-              I&apos;ve made the payment
-            </>
-          )}
-        </button>
-        <button
-          onClick={handleCancelClick}
-          disabled={isCancelling}
-          className="w-full py-2.5 text-slate-600 hover:text-slate-900 font-semibold text-xs"
-        >
-          {isCancelling ? "Cancelling..." : "Cancel payment"}
-        </button>
-      </div>
 
       {/* Cancel confirmation dialog */}
       <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
