@@ -20,6 +20,9 @@ export default function robots(): MetadataRoute.Robots {
           '/dashboard',
           '/checkout',
           '/confirm-email',
+          '/forgot-password',
+          '/reset-password',
+          '/register-success',
           '/*.json$',
         ],
       },
@@ -87,7 +90,7 @@ export default function robots(): MetadataRoute.Robots {
         crawlDelay: 1,
       },
     ],
-    sitemap: 'https://mozosubz.xyz/sitemap.xml',
-    host: 'https://mozosubz.xyz',
+    sitemap: 'https://www.mozosubz.xyz/sitemap.xml',
+    host: 'https://www.mozosubz.xyz',
   }
 }

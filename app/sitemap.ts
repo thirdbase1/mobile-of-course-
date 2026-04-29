@@ -1,7 +1,7 @@
 import { MetadataRoute } from 'next'
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = 'https://mozosubz.xyz'
+  const baseUrl = 'https://www.mozosubz.xyz'
   
   // All public pages that Google should crawl and index
   const publicPages: MetadataRoute.Sitemap = [
@@ -37,24 +37,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: new Date(),
       changeFrequency: 'monthly',
       priority: 0.8,
-    },
-    {
-      url: `${baseUrl}/forgot-password`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.7,
-    },
-    {
-      url: `${baseUrl}/reset-password`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.7,
-    },
-    {
-      url: `${baseUrl}/register-success`,
-      lastModified: new Date(),
-      changeFrequency: 'yearly',
-      priority: 0.6,
     },
     // Legal pages
     {
