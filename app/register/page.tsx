@@ -18,17 +18,26 @@ function RegisterFormContent() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+
   const [usernameError, setUsernameError] = useState<string | null>(null)
   const [checkingUsername, setCheckingUsername] = useState(false)
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null)
+
+  const [emailError, setEmailError] = useState<string | null>(null)
+  const [checkingEmail, setCheckingEmail] = useState(false)
+  const [emailAvailable, setEmailAvailable] = useState<boolean | null>(null)
+
   const [phoneError, setPhoneError] = useState<string | null>(null)
   const [checkingPhone, setCheckingPhone] = useState(false)
   const [phoneAvailable, setPhoneAvailable] = useState<boolean | null>(null)
+
   const router = useRouter()
   const { toast } = useToast()
-  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const debounceUsernameRef = useRef<NodeJS.Timeout | null>(null)
+  const debounceEmailRef = useRef<NodeJS.Timeout | null>(null)
   const debouncePhoneRef = useRef<NodeJS.Timeout | null>(null)
 
+  // ---------------------- Username availability ----------------------
   const checkUsername = useCallback(async (value: string) => {
     if (!value.trim()) {
       setUsernameAvailable(null)
@@ -36,21 +45,18 @@ function RegisterFormContent() {
       setCheckingUsername(false)
       return
     }
-
     if (value.length < 3) {
       setUsernameError("At least 3 characters")
       setUsernameAvailable(false)
       setCheckingUsername(false)
       return
     }
-
     if (value.includes(" ")) {
       setUsernameError("No spaces allowed")
       setUsernameAvailable(false)
       setCheckingUsername(false)
       return
     }
-
     if (!/^[a-z0-9_-]+$/.test(value)) {
       setUsernameError("Lowercase, numbers, hyphens only")
       setUsernameAvailable(false)
@@ -60,25 +66,23 @@ function RegisterFormContent() {
 
     setCheckingUsername(true)
     setUsernameError(null)
-
     try {
       const response = await fetch("/api/auth/check-username", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: value.toLowerCase().trim() }),
       })
-
       const data = await response.json()
-      if (data.available) {
+      if (data.available === true) {
         setUsernameAvailable(true)
         setUsernameError(null)
       } else {
         setUsernameAvailable(false)
-        setUsernameError("Username taken")
+        setUsernameError(data.error === "Username taken" || !data.error ? "Username taken" : data.error)
       }
-    } catch (error) {
-      console.error("Error checking username:", error)
-      setUsernameAvailable(null)
+    } catch {
+      setUsernameAvailable(false)
+      setUsernameError("Could not verify username")
     } finally {
       setCheckingUsername(false)
     }
@@ -87,14 +91,10 @@ function RegisterFormContent() {
   const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.toLowerCase()
     setUsername(value)
-    
-    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
-
+    if (debounceUsernameRef.current) clearTimeout(debounceUsernameRef.current)
     if (value.trim()) {
       setCheckingUsername(true)
-      debounceTimerRef.current = setTimeout(() => {
-        checkUsername(value)
-      }, 400)
+      debounceUsernameRef.current = setTimeout(() => checkUsername(value), 400)
     } else {
       setUsernameAvailable(null)
       setUsernameError(null)
@@ -102,6 +102,61 @@ function RegisterFormContent() {
     }
   }
 
+  // ---------------------- Email availability ----------------------
+  const checkEmail = useCallback(async (value: string) => {
+    const trimmed = value.toLowerCase().trim()
+    if (!trimmed) {
+      setEmailAvailable(null)
+      setEmailError(null)
+      setCheckingEmail(false)
+      return
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      setEmailError("Invalid email format")
+      setEmailAvailable(false)
+      setCheckingEmail(false)
+      return
+    }
+
+    setCheckingEmail(true)
+    setEmailError(null)
+    try {
+      const response = await fetch("/api/auth/check-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: trimmed }),
+      })
+      const data = await response.json()
+      if (data.available === true) {
+        setEmailAvailable(true)
+        setEmailError(null)
+      } else {
+        setEmailAvailable(false)
+        setEmailError(data.error || "Email already registered")
+      }
+    } catch {
+      setEmailAvailable(false)
+      setEmailError("Could not verify email")
+    } finally {
+      setCheckingEmail(false)
+    }
+  }, [])
+
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setEmail(value)
+    if (debounceEmailRef.current) clearTimeout(debounceEmailRef.current)
+    if (value.trim()) {
+      setCheckingEmail(true)
+      debounceEmailRef.current = setTimeout(() => checkEmail(value), 500)
+    } else {
+      setEmailAvailable(null)
+      setEmailError(null)
+      setCheckingEmail(false)
+    }
+  }
+
+  // ---------------------- Phone availability ----------------------
   const checkPhone = useCallback(async (value: string) => {
     if (!value.trim()) {
       setPhoneAvailable(null)
@@ -109,8 +164,7 @@ function RegisterFormContent() {
       setCheckingPhone(false)
       return
     }
-
-    const digitsOnly = value.replace(/\D/g, '')
+    const digitsOnly = value.replace(/\D/g, "")
     if (digitsOnly.length !== 11) {
       setPhoneError("Phone must be exactly 11 digits (e.g., 09056428348)")
       setPhoneAvailable(false)
@@ -120,24 +174,23 @@ function RegisterFormContent() {
 
     setCheckingPhone(true)
     setPhoneError(null)
-
     try {
       const response = await fetch("/api/auth/check-phone", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: value.trim() }),
+        body: JSON.stringify({ phone: digitsOnly }),
       })
-
       const data = await response.json()
-      if (data.available) {
+      if (data.available === true) {
         setPhoneAvailable(true)
         setPhoneError(null)
       } else {
         setPhoneAvailable(false)
-        setPhoneError("Phone already registered")
+        setPhoneError(data.error || "Phone already registered")
       }
-    } catch (error) {
-      setPhoneAvailable(null)
+    } catch {
+      setPhoneAvailable(false)
+      setPhoneError("Could not verify phone")
     } finally {
       setCheckingPhone(false)
     }
@@ -146,14 +199,10 @@ function RegisterFormContent() {
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
     setPhone(value)
-    
     if (debouncePhoneRef.current) clearTimeout(debouncePhoneRef.current)
-
     if (value.trim()) {
       setCheckingPhone(true)
-      debouncePhoneRef.current = setTimeout(() => {
-        checkPhone(value)
-      }, 500)
+      debouncePhoneRef.current = setTimeout(() => checkPhone(value), 500)
     } else {
       setPhoneAvailable(null)
       setPhoneError(null)
@@ -161,6 +210,7 @@ function RegisterFormContent() {
     }
   }
 
+  // ---------------------- Submit ----------------------
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
     const supabase = createClient()
@@ -172,51 +222,103 @@ function RegisterFormContent() {
       setIsLoading(false)
       return
     }
-
     if (!username.trim() || !usernameAvailable) {
-      setError("Choose valid username")
+      setError("Choose a valid, available username")
       setIsLoading(false)
       return
     }
-
-    if (!email.trim()) {
-      setError("Valid email required")
+    if (!email.trim() || !emailAvailable) {
+      setError("Use a valid, available email")
       setIsLoading(false)
       return
     }
-
     if (!phone.trim() || !phoneAvailable) {
-      setError("Valid, available phone number required")
+      setError("Use a valid, available phone number")
       setIsLoading(false)
       return
     }
-
     if (password.length < 6) {
       setError("Password min 6 chars")
       setIsLoading(false)
       return
     }
 
+    // Re-verify email + phone right before signup to close the race window.
     try {
-      const { error } = await supabase.auth.signUp({
-        email: email.trim(),
+      const phoneDigits = phone.replace(/\D/g, "")
+      const [emailRes, phoneRes] = await Promise.all([
+        fetch("/api/auth/check-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: email.toLowerCase().trim() }),
+        }).then((r) => r.json()),
+        fetch("/api/auth/check-phone", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone: phoneDigits }),
+        }).then((r) => r.json()),
+      ])
+
+      if (emailRes?.available !== true) {
+        setEmailAvailable(false)
+        setEmailError(emailRes?.error || "Email already registered")
+        setError("Email already registered")
+        setIsLoading(false)
+        return
+      }
+      if (phoneRes?.available !== true) {
+        setPhoneAvailable(false)
+        setPhoneError(phoneRes?.error || "Phone already registered")
+        setError("Phone already registered")
+        setIsLoading(false)
+        return
+      }
+    } catch {
+      setError("Could not verify your details. Please try again.")
+      setIsLoading(false)
+      return
+    }
+
+    try {
+      const phoneDigits = phone.replace(/\D/g, "")
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: email.toLowerCase().trim(),
         password,
         options: {
-          emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/dashboard`,
+          emailRedirectTo:
+            process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ||
+            `${window.location.origin}/dashboard`,
           data: {
             full_name: fullName.trim(),
             username: username.toLowerCase().trim(),
-            phone: phone.trim(),
+            phone: phoneDigits,
           },
         },
       })
-      if (error) {
-        setError(error.message.includes("registered") ? "Email already used" : error.message || "Signup failed")
+
+      if (signUpError) {
+        const msg = signUpError.message?.toLowerCase() ?? ""
+        if (msg.includes("registered") || msg.includes("already")) {
+          setError("Email already registered")
+        } else {
+          setError(signUpError.message || "Signup failed")
+        }
         setIsLoading(false)
         return
       }
 
-      // Fire-and-forget branded welcome email
+      // CRITICAL: When Supabase has email-enumeration protection on (the default),
+      // signing up with an existing email returns NO error but the new "user" has
+      // an empty `identities` array. Treat that as "email already registered".
+      if (data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+        setEmailAvailable(false)
+        setEmailError("Email already registered")
+        setError("Email already registered")
+        setIsLoading(false)
+        return
+      }
+
+      // Fire-and-forget welcome email
       fetch("/api/email/welcome", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -224,18 +326,26 @@ function RegisterFormContent() {
       }).catch(() => {})
 
       router.push(`/register-success?email=${encodeURIComponent(email.trim())}`)
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "An error occurred"
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "An error occurred"
       setError(message)
       toast({
         title: "Registration failed",
         description: message,
         variant: "destructive",
       })
-    } finally {
       setIsLoading(false)
     }
   }
+
+  const submitDisabled =
+    isLoading ||
+    !usernameAvailable ||
+    !emailAvailable ||
+    !phoneAvailable ||
+    checkingUsername ||
+    checkingEmail ||
+    checkingPhone
 
   return (
     <>
@@ -257,10 +367,17 @@ function RegisterFormContent() {
         </div>
 
         <div>
-          <label htmlFor="username" className="block text-xs font-semibold text-blue-100 mb-1 flex items-center justify-between">
-            <span>Username <span className="text-red-300">*</span></span>
+          <label
+            htmlFor="username"
+            className="block text-xs font-semibold text-blue-100 mb-1 flex items-center justify-between"
+          >
+            <span>
+              Username <span className="text-red-300">*</span>
+            </span>
             {username && checkingUsername && <span className="text-xs text-blue-300">Checking...</span>}
-            {username && !checkingUsername && usernameAvailable && <span className="text-xs text-green-300">Available!</span>}
+            {username && !checkingUsername && usernameAvailable && (
+              <span className="text-xs text-green-300">Available!</span>
+            )}
           </label>
           <div className="relative">
             <input
@@ -282,26 +399,51 @@ function RegisterFormContent() {
             <div className="absolute right-2.5 top-2.5">
               {checkingUsername && <Loader2 className="w-4 h-4 text-blue-300 animate-spin" />}
               {!checkingUsername && usernameAvailable && <CheckCircle className="w-4 h-4 text-green-400" />}
-              {!checkingUsername && usernameAvailable === false && username && <AlertCircle className="w-4 h-4 text-red-400" />}
+              {!checkingUsername && usernameAvailable === false && username && (
+                <AlertCircle className="w-4 h-4 text-red-400" />
+              )}
             </div>
           </div>
           {usernameError && <p className="text-xs text-red-300 mt-0.5">{usernameError}</p>}
         </div>
 
         <div>
-          <label htmlFor="email" className="block text-xs font-semibold text-blue-100 mb-1">
-            Email
+          <label
+            htmlFor="email"
+            className="block text-xs font-semibold text-blue-100 mb-1 flex items-center justify-between"
+          >
+            <span>Email</span>
+            {email && checkingEmail && <span className="text-xs text-blue-300">Checking...</span>}
+            {email && !checkingEmail && emailAvailable && (
+              <span className="text-xs text-green-300">Available!</span>
+            )}
           </label>
-          <input
-            id="email"
-            type="email"
-            placeholder="you@example.com"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            disabled={isLoading}
-            className="w-full h-9 px-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder:text-white/50 text-xs font-medium outline-none focus:border-blue-400/50 focus:bg-white/20 transition-all disabled:opacity-50"
-          />
+          <div className="relative">
+            <input
+              id="email"
+              type="email"
+              placeholder="you@example.com"
+              required
+              value={email}
+              onChange={handleEmailChange}
+              disabled={isLoading}
+              className={`w-full h-9 px-3 pr-9 rounded-lg bg-white/10 border text-white placeholder:text-white/50 text-xs font-medium outline-none transition-all disabled:opacity-50 ${
+                email
+                  ? emailAvailable
+                    ? "border-green-400/50 focus:border-green-400 focus:bg-green-500/10"
+                    : "border-red-400/50 focus:border-red-400 focus:bg-red-500/10"
+                  : "border-white/20 focus:border-blue-400/50 focus:bg-white/20"
+              }`}
+            />
+            <div className="absolute right-2.5 top-2.5">
+              {checkingEmail && <Loader2 className="w-4 h-4 text-blue-300 animate-spin" />}
+              {!checkingEmail && emailAvailable && <CheckCircle className="w-4 h-4 text-green-400" />}
+              {!checkingEmail && emailAvailable === false && email && (
+                <AlertCircle className="w-4 h-4 text-red-400" />
+              )}
+            </div>
+          </div>
+          {emailError && <p className="text-xs text-red-300 mt-0.5">{emailError}</p>}
         </div>
 
         <div>
@@ -312,16 +454,22 @@ function RegisterFormContent() {
             <input
               id="phone"
               type="tel"
-              placeholder="+234 800 000 0000"
+              placeholder="09056428348"
               required
               value={phone}
               onChange={handlePhoneChange}
               disabled={isLoading}
               className="w-full h-9 px-3 pr-10 rounded-lg bg-white/10 border border-white/20 text-white placeholder:text-white/50 text-xs font-medium outline-none focus:border-blue-400/50 focus:bg-white/20 transition-all disabled:opacity-50"
             />
-            {checkingPhone && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 animate-spin text-blue-300" />}
-            {!checkingPhone && phoneAvailable === true && phone.trim() && <CheckCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-green-400" />}
-            {!checkingPhone && phoneAvailable === false && phone.trim() && <AlertCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-red-400" />}
+            {checkingPhone && (
+              <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 animate-spin text-blue-300" />
+            )}
+            {!checkingPhone && phoneAvailable === true && phone.trim() && (
+              <CheckCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-green-400" />
+            )}
+            {!checkingPhone && phoneAvailable === false && phone.trim() && (
+              <AlertCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-red-400" />
+            )}
           </div>
           {phoneError && <p className="text-xs text-red-300 mt-0.5">{phoneError}</p>}
         </div>
@@ -362,7 +510,7 @@ function RegisterFormContent() {
 
         <button
           type="submit"
-          disabled={isLoading || !usernameAvailable || !phoneAvailable}
+          disabled={submitDisabled}
           className="w-full h-9 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg text-xs font-bold hover:from-blue-600 hover:to-blue-700 disabled:from-gray-500 disabled:to-gray-600 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5 mt-4"
         >
           {isLoading ? (

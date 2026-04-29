@@ -1,77 +1,79 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from "@supabase/supabase-js"
+
+export const dynamic = "force-dynamic"
 
 export async function POST(request: Request) {
   try {
     const { phone } = await request.json()
 
-    if (!phone || typeof phone !== 'string') {
-      return Response.json({ available: false, error: 'Invalid phone' }, { status: 400 })
+    if (!phone || typeof phone !== "string") {
+      return Response.json({ available: false, error: "Invalid phone" }, { status: 400 })
     }
 
-    const trimmedPhone = phone.trim()
-
-    // Validate phone is exactly 11 digits (e.g., 09056428348)
-    const digitsOnly = trimmedPhone.replace(/\D/g, '')
+    const digitsOnly = phone.replace(/\D/g, "")
     if (digitsOnly.length !== 11) {
-      return Response.json({ available: false, error: 'Phone must be exactly 11 digits' })
+      return Response.json({ available: false, error: "Phone must be exactly 11 digits" })
     }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
     if (!supabaseUrl || !serviceRoleKey) {
-      return Response.json({ available: null, error: 'Server config error' }, { status: 500 })
+      // Fail CLOSED.
+      return Response.json({ available: false, error: "Server config error" }, { status: 500 })
     }
 
     const supabase = createClient(supabaseUrl, serviceRoleKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-        detectSessionInUrl: false,
-      },
+      auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
     })
 
     let phoneExists = false
 
-    // Check if phone exists in profiles table
-    const { data, error, count } = await supabase
-      .from('profiles')
-      .select('id', { count: 'exact', head: true })
-      .eq('phone_number', trimmedPhone)
+    // 1) Primary: profiles.phone_number (digits-only).
+    const { count, error } = await supabase
+      .from("profiles")
+      .select("id", { count: "exact", head: true })
+      .eq("phone_number", digitsOnly)
 
     if (error) {
-      return Response.json({ available: null, error: error.message }, { status: 500 })
+      // Don't silently allow signup if we can't verify. Fail closed.
+      return Response.json(
+        { available: false, error: "Could not verify phone availability" },
+        { status: 500 },
+      )
     }
 
-    // Phone is taken if count > 0
     phoneExists = (count ?? 0) > 0
 
-    // Also check in auth users metadata as backup
+    // 2) Backup: scan auth.users metadata (covers users created before profiles existed).
     if (!phoneExists) {
       try {
-        const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers()
-        
-        if (!authError && authUsers?.users) {
-          phoneExists = authUsers.users.some(u => {
-            const userPhone = u.user_metadata?.phone || u.phone
-            return userPhone && userPhone.replace(/\D/g, '') === digitsOnly
+        let page = 1
+        const perPage = 1000
+        const maxPages = 20
+        while (page <= maxPages && !phoneExists) {
+          const { data, error: authError } = await supabase.auth.admin.listUsers({ page, perPage })
+          if (authError) break
+          const users = data?.users ?? []
+          phoneExists = users.some((u) => {
+            const meta = (u.user_metadata ?? {}) as Record<string, unknown>
+            const metaPhone = typeof meta.phone === "string" ? meta.phone : ""
+            const candidate = (metaPhone || u.phone || "").replace(/\D/g, "")
+            return candidate.length === 11 && candidate === digitsOnly
           })
+          if (users.length < perPage) break
+          page += 1
         }
-      } catch (err) {
-        // Silent fail - continue with profiles check
+      } catch {
+        // ignore
       }
     }
 
-    const available = !phoneExists
-
-    return Response.json({ 
-      available,
-      checked: true
-    }, { 
-      headers: { 'Cache-Control': 'no-cache' }
-    })
-  } catch (error) {
-    return Response.json({ available: null, error: 'Server error' }, { status: 500 })
+    return Response.json(
+      { available: !phoneExists, checked: true },
+      { headers: { "Cache-Control": "no-store" } },
+    )
+  } catch {
+    return Response.json({ available: false, error: "Server error" }, { status: 500 })
   }
 }
-
