@@ -66,41 +66,6 @@ export async function proxy(request: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser()
 
-    // ----- Single-device enforcement -----
-    // For any authenticated request to a protected page, check that this
-    // device's cookie still matches the user's active_device_id in the DB.
-    // If not, force-logout. This is what kicks every other device off the
-    // moment a new login happens elsewhere.
-    if (user) {
-      const path = request.nextUrl.pathname
-      const isProtected =
-        path.startsWith("/dashboard") ||
-        path.startsWith("/admin") ||
-        path.startsWith("/profile") ||
-        path.startsWith("/wallet") ||
-        path.startsWith("/transactions")
-
-      if (isProtected) {
-        const cookieDeviceId = request.cookies.get("mz_device")?.value || ""
-        const { data: deviceRow } = await supabase
-          .from("profiles")
-          .select("active_device_id")
-          .eq("id", user.id)
-          .maybeSingle()
-
-        const activeDeviceId = deviceRow?.active_device_id || ""
-
-        // If the DB has an active device set and our cookie doesn't match it,
-        // this device is stale -> force-logout.
-        if (activeDeviceId && cookieDeviceId !== activeDeviceId) {
-          const url = request.nextUrl.clone()
-          url.pathname = "/api/auth/force-logout"
-          url.search = "?reason=device"
-          return NextResponse.redirect(url)
-        }
-      }
-    }
-
     // Check if accessing admin routes
     const isAdminRoute = request.nextUrl.pathname.startsWith("/admin")
 

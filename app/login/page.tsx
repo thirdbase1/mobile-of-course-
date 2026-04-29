@@ -21,11 +21,10 @@ function LoginForm() {
   const searchParams = useSearchParams()
   const { toast } = useToast()
 
-  // Show a friendly banner when the proxy force-logged this device because
-  // the account was claimed by another device.
+  // Show a friendly banner when the existing session manager redirected here
+  // because the account was opened on another device.
   useEffect(() => {
-    const reason = searchParams.get("reason")
-    if (reason === "device") {
+    if (searchParams.get("session_expired") === "1") {
       setNotice("You were signed out because your account is now active on another device.")
     }
   }, [searchParams])
@@ -44,18 +43,15 @@ function LoginForm() {
       })
       if (error) throw error
 
-      // Claim this device as the active one. This rotates active_device_id in
-      // the DB so any other signed-in device gets force-logged-out by the proxy
-      // on its next request. We MUST await this before navigating so the
-      // mz_device cookie is set before /dashboard is loaded.
-      try {
-        await fetch("/api/auth/claim-device", { method: "POST" })
-      } catch {
-        // non-fatal; proxy will still let the user in on this device
-      }
+      // Improvement to the existing single-device-login system: as soon as
+      // we're signed in, ask Supabase to revoke every OTHER refresh token
+      // for this user. Any other device that's logged in will lose access
+      // the moment its access token tries to refresh, and the existing
+      // setupSessionManager on /dashboard picks up the SIGNED_OUT event
+      // and redirects them. Fire-and-forget so it never blocks navigation.
+      supabase.auth.signOut({ scope: "others" }).catch(() => {})
 
-      // Fire-and-forget sign-in alert email. We don't await so email latency
-      // never blocks the navigation to the dashboard.
+      // Fire-and-forget sign-in alert email.
       fetch("/api/email/login-alert", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
