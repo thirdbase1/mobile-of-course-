@@ -203,9 +203,9 @@ export function DashboardClient({
       })
 
     // ---- Silent polling fallback ----
-    // Polls every 20s when realtime isn't confirmed connected, and every
-    // 60s as a safety net even when it is. Always silent — no loading UI,
-    // no state update unless data actually changed.
+    // Polls every 5s to keep balance fresh when realtime isn't confirmed
+    // connected, and every 30s as a safety net even when it is. Always
+    // silent — no loading UI, no state update unless data actually changed.
     const tick = async () => {
       if (!mounted) return
       if (typeof document !== "undefined" && document.hidden) return
@@ -220,11 +220,11 @@ export function DashboardClient({
 
     const fastInterval = setInterval(() => {
       if (!realtimeConnectedRef.current) tick()
-    }, 20_000)
+    }, 5_000)
 
     const safetyInterval = setInterval(() => {
       tick()
-    }, 60_000)
+    }, 30_000)
 
     // Re-sync immediately when the tab regains focus (catches anything
     // missed while the tab was backgrounded).
