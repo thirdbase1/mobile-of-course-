@@ -157,7 +157,11 @@ export function DashboardClient({
 
     const applyProfile = (next: any) => {
       if (!mounted || !next) return
-      if (!profileChanged(next, profileRef.current)) return
+      if (!profileChanged(next, profileRef.current)) {
+        console.log("[v0] Profile unchanged, skipping update")
+        return
+      }
+      console.log("[v0] Applying profile update:", next.wallet_balance, "from", profileRef.current?.wallet_balance)
       setProfile(next)
       if (!isHardcodedAdmin(userEmail) && next?.is_admin === true) {
         setIsAdmin(true)
@@ -166,7 +170,11 @@ export function DashboardClient({
 
     const applyTransactions = (next: any[]) => {
       if (!mounted) return
-      if (!transactionsChanged(next, transactionsRef.current)) return
+      if (!transactionsChanged(next, transactionsRef.current)) {
+        console.log("[v0] Transactions unchanged, skipping update")
+        return
+      }
+      console.log("[v0] Applying transactions update:", next?.length, "from", transactionsRef.current?.length)
       setTransactions(next)
     }
 
@@ -182,6 +190,7 @@ export function DashboardClient({
           filter: `id=eq.${userId}`,
         },
         (payload) => {
+          console.log("[v0] Realtime profile update:", payload.new?.wallet_balance)
           applyProfile(payload.new)
         },
       )
@@ -195,10 +204,12 @@ export function DashboardClient({
         },
         async () => {
           const fresh = await fetchTransactions()
+          console.log("[v0] Realtime transaction update:", fresh?.length)
           applyTransactions(fresh)
         },
       )
       .subscribe((status) => {
+        console.log("[v0] Realtime status:", status)
         realtimeConnectedRef.current = status === "SUBSCRIBED"
       })
 
@@ -213,10 +224,15 @@ export function DashboardClient({
         const [p, t] = await Promise.all([fetchProfile(), fetchTransactions()])
         applyProfile(p)
         applyTransactions(t)
-      } catch {
+        console.log("[v0] Polling tick: profile =", p?.wallet_balance, ", transactions =", t?.length)
+      } catch (error) {
         // Network blip — ignore, next tick will retry. Never disturb the UI.
+        console.log("[v0] Polling error:", error)
       }
     }
+
+    // Run immediate tick on mount to ensure we have fresh data
+    tick()
 
     const pollInterval = setInterval(() => {
       tick()
