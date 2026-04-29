@@ -2,28 +2,40 @@
 
 import type React from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { Suspense, useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
-import { Loader2, Eye, EyeOff } from "lucide-react"
+import { Loader2, Eye, EyeOff, AlertCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/ui/toaster"
 
 
-export default function LoginPage() {
+function LoginForm() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { toast } = useToast()
+
+  // Show a friendly banner when the proxy force-logged this device because
+  // the account was claimed by another device.
+  useEffect(() => {
+    const reason = searchParams.get("reason")
+    if (reason === "device") {
+      setNotice("You were signed out because your account is now active on another device.")
+    }
+  }, [searchParams])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     const supabase = createClient()
     setIsLoading(true)
     setError(null)
+    setNotice(null)
 
     try {
       const { error } = await supabase.auth.signInWithPassword({
@@ -31,6 +43,16 @@ export default function LoginPage() {
         password,
       })
       if (error) throw error
+
+      // Claim this device as the active one. This rotates active_device_id in
+      // the DB so any other signed-in device gets force-logged-out by the proxy
+      // on its next request. We MUST await this before navigating so the
+      // mz_device cookie is set before /dashboard is loaded.
+      try {
+        await fetch("/api/auth/claim-device", { method: "POST" })
+      } catch {
+        // non-fatal; proxy will still let the user in on this device
+      }
 
       // Fire-and-forget sign-in alert email. We don't await so email latency
       // never blocks the navigation to the dashboard.
@@ -68,6 +90,13 @@ export default function LoginPage() {
           <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6 shadow-2xl">
             <h1 className="text-xl font-bold text-white text-center mb-1">Welcome back</h1>
             <p className="text-blue-100 text-center text-xs mb-5">Sign in to your account</p>
+
+            {notice && (
+              <div className="mb-4 p-2.5 rounded-lg bg-amber-500/15 border border-amber-400/40 text-xs text-amber-100 flex items-start gap-2">
+                <AlertCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                <span>{notice}</span>
+              </div>
+            )}
 
             <form onSubmit={handleLogin} className="space-y-3">
               <div>
@@ -156,5 +185,19 @@ export default function LoginPage() {
 
       <Toaster />
     </>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen w-full bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center">
+          <Loader2 className="w-5 h-5 text-blue-200 animate-spin" />
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   )
 }

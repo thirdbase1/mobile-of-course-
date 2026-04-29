@@ -22,6 +22,7 @@ function RegisterFormContent() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [loadingStep, setLoadingStep] = useState<string>("")
 
   const [usernameError, setUsernameError] = useState<string | null>(null)
   const [checkingUsername, setCheckingUsername] = useState(false)
@@ -261,70 +262,46 @@ function RegisterFormContent() {
   // ---------------------- Submit ----------------------
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
-    setError(null)
 
+    // Cheap local-only validations - no network, no spinner needed yet.
     if (!fullName.trim()) {
       setError("Full name required")
-      setIsLoading(false)
       return
     }
     if (!username.trim() || !usernameAvailable) {
       setError("Choose a valid, available username")
-      setIsLoading(false)
       return
     }
     if (!email.trim() || !emailAvailable) {
       setError("Use a valid, available email")
-      setIsLoading(false)
       return
     }
     if (!phone.trim() || !phoneAvailable) {
       setError("Use a valid, available phone number")
-      setIsLoading(false)
       return
     }
     if (password.length < 6) {
       setError("Password min 6 chars")
-      setIsLoading(false)
       return
     }
 
-    // Re-verify email + phone right before signup to close the race window.
-    try {
-      const phoneDigits = phone.replace(/\D/g, "")
-      const [emailRes, phoneRes] = await Promise.all([
-        fetch("/api/auth/check-email", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: email.toLowerCase().trim() }),
-        }).then((r) => r.json()),
-        fetch("/api/auth/check-phone", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ phone: phoneDigits }),
-        }).then((r) => r.json()),
-      ])
+    setIsLoading(true)
+    setError(null)
+    setLoadingStep("Creating your account…")
 
-      if (emailRes?.available !== true) {
-        setEmailAvailable(false)
-        setEmailError(emailRes?.error || "Email already registered")
-        setError("Email already registered")
-        setIsLoading(false)
-        return
-      }
-      if (phoneRes?.available !== true) {
-        setPhoneAvailable(false)
-        setPhoneError(phoneRes?.error || "Phone already registered")
-        setError("Phone already registered")
-        setIsLoading(false)
-        return
-      }
-    } catch {
-      setError("Could not verify your details. Please try again.")
-      setIsLoading(false)
-      return
-    }
+    // We DO NOT re-verify email/phone here:
+    //   1) The live availability checks already passed (button disabled otherwise).
+    //   2) The DB has unique partial indexes on lower(email), lower(username) and
+    //      phone_number — Supabase will fail fast with a duplicate error if a race
+    //      did slip through, so we get the same safety with one round-trip instead
+    //      of three. This is what was making "Creating..." hang on slow networks.
+
+    // Hard timeout so the button can never silently freeze. 25s is generous for
+    // mobile data; Supabase normally answers in under 2s.
+    const TIMEOUT_MS = 25_000
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("TIMEOUT")), TIMEOUT_MS),
+    )
 
     try {
       // Lazy-load the Supabase client only when the user actually submits.
@@ -332,7 +309,8 @@ function RegisterFormContent() {
       const { createClient } = await import("@/lib/supabase/client")
       const supabase = createClient()
       const phoneDigits = phone.replace(/\D/g, "")
-      const { data, error: signUpError } = await supabase.auth.signUp({
+
+      const signUpPromise = supabase.auth.signUp({
         email: email.toLowerCase().trim(),
         password,
         options: {
@@ -347,14 +325,31 @@ function RegisterFormContent() {
         },
       })
 
+      // Show a friendlier label after a few seconds so the user knows we're
+      // still working and the button hasn't frozen.
+      const stepTimer = setTimeout(() => setLoadingStep("Almost there…"), 3500)
+
+      let data: Awaited<typeof signUpPromise>["data"] | null = null
+      let signUpError: Awaited<typeof signUpPromise>["error"] | null = null
+      try {
+        const result = (await Promise.race([signUpPromise, timeoutPromise])) as Awaited<
+          typeof signUpPromise
+        >
+        data = result.data
+        signUpError = result.error
+      } finally {
+        clearTimeout(stepTimer)
+      }
+
       if (signUpError) {
         const msg = signUpError.message?.toLowerCase() ?? ""
-        if (msg.includes("registered") || msg.includes("already")) {
+        if (msg.includes("registered") || msg.includes("already") || msg.includes("duplicate")) {
           setError("Email already registered")
         } else {
           setError(signUpError.message || "Signup failed")
         }
         setIsLoading(false)
+        setLoadingStep("")
         return
       }
 
@@ -366,10 +361,11 @@ function RegisterFormContent() {
         setEmailError("Email already registered")
         setError("Email already registered")
         setIsLoading(false)
+        setLoadingStep("")
         return
       }
 
-      // Fire-and-forget welcome email
+      // Fire-and-forget welcome email — never block the redirect on this.
       fetch("/api/email/welcome", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -379,13 +375,18 @@ function RegisterFormContent() {
       router.push(`/register-success?email=${encodeURIComponent(email.trim())}`)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "An error occurred"
-      setError(message)
+      const display =
+        message === "TIMEOUT"
+          ? "The network is slow. Please check your connection and try again."
+          : message
+      setError(display)
       toast({
         title: "Registration failed",
-        description: message,
+        description: display,
         variant: "destructive",
       })
       setIsLoading(false)
+      setLoadingStep("")
     }
   }
 
@@ -572,13 +573,13 @@ function RegisterFormContent() {
         disabled={submitDisabled}
         className="w-full h-9 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg text-xs font-bold hover:from-blue-600 hover:to-blue-700 disabled:from-gray-500 disabled:to-gray-600 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5 mt-4"
       >
-        {isLoading ? (
-          <>
-            <Loader2 className="w-3 h-3 animate-spin" />
-            <span>Creating...</span>
-          </>
-        ) : (
-          "Create Account"
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    <span>{loadingStep || "Creating…"}</span>
+                  </>
+                ) : (
+                  "Create Account"
         )}
       </button>
 
