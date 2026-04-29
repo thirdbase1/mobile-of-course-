@@ -150,12 +150,13 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(url)
     }
 
-    // Redirect unauthenticated users from register-success back to register
-    if (!user && request.nextUrl.pathname === "/register-success") {
-      const url = request.nextUrl.clone()
-      url.pathname = "/register"
-      return NextResponse.redirect(url)
-    }
+    // /register-success is intentionally public: Supabase signUp() with email
+    // confirmation enabled does NOT create a session, so the just-signed-up
+    // user has no auth cookies yet. Redirecting unauthenticated users away
+    // from this page broke the entire confirmation flow — they'd be bounced
+    // back to /register the moment we tried to navigate them to success.
+    // The page reads `email` from the URL and renders a static message, so
+    // it doesn't need authentication.
 
     return supabaseResponse
   } catch (error) {
