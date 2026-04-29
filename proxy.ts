@@ -59,7 +59,6 @@ export async function proxy(request: NextRequest) {
       }
       // If exchange fails, continue — the login redirect below will catch it
       // and the user can sign in manually or retry.
-      console.error("[v0] Code exchange failed:", exchangeError)
     }
 
     // Get user with authentication - more secure than getSession()
@@ -88,7 +87,7 @@ export async function proxy(request: NextRequest) {
           .eq('id', user.id)
         
         if (updateError) {
-          console.error("[v0] Error setting admin flag:", updateError)
+          // Silent fail - admin flag update is non-critical
         }
         
         return NextResponse.next({
@@ -115,11 +114,26 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(url)
     }
 
-    // Redirect authenticated users away from auth pages
-    if (user && (request.nextUrl.pathname === "/login" || request.nextUrl.pathname === "/register")) {
+    // Redirect authenticated users away from login (only login page, not register)
+    if (user && request.nextUrl.pathname === "/login") {
       const url = request.nextUrl.clone()
       url.pathname = "/dashboard"
       return NextResponse.redirect(url)
+    }
+
+    // Allow signup process even for partially authenticated users (unconfirmed emails)
+    // Only redirect from /register if they're FULLY authenticated
+    // We check if they have email_confirmed_at to ensure email verification is complete
+    if (user && request.nextUrl.pathname === "/register") {
+      // Check if email is confirmed
+      const { confirmed_at } = user.user_metadata || {}
+      if (user.email_confirmed_at || confirmed_at) {
+        // Email is confirmed, redirect to dashboard
+        const url = request.nextUrl.clone()
+        url.pathname = "/dashboard"
+        return NextResponse.redirect(url)
+      }
+      // Allow unconfirmed users to stay on /register page (they shouldn't be there, but allow it)
     }
 
     // Redirect authenticated users from landing page to dashboard
@@ -131,7 +145,6 @@ export async function proxy(request: NextRequest) {
 
     return supabaseResponse
   } catch (error) {
-    console.error("[v0] Proxy - Error:", error)
     // On error, allow the request to continue
     return NextResponse.next({
       request,

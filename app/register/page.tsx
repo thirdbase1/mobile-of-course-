@@ -122,10 +122,52 @@ function RegisterFormContent() {
       return
     }
 
+    if (phone.trim() && !/^\d{10,}$/.test(phone.trim().replace(/\D/g, ''))) {
+      setError("Valid phone number required (10+ digits)")
+      setIsLoading(false)
+      return
+    }
+
     if (password.length < 6) {
       setError("Password min 6 chars")
       setIsLoading(false)
       return
+    }
+
+    // Check if email already exists
+    try {
+      const { data: existingEmail } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', email.trim().toLowerCase())
+        .single()
+
+      if (existingEmail) {
+        setError("Email already registered")
+        setIsLoading(false)
+        return
+      }
+    } catch {
+      // Email doesn't exist, continue
+    }
+
+    // Check if phone already exists (if phone is provided)
+    if (phone.trim()) {
+      try {
+        const { data: existingPhone } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('phone_number', phone.trim())
+          .single()
+
+        if (existingPhone) {
+          setError("Phone number already registered")
+          setIsLoading(false)
+          return
+        }
+      } catch {
+        // Phone doesn't exist, continue
+      }
     }
 
     try {
