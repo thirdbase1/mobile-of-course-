@@ -3,7 +3,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { isHardcodedAdmin } from '@/lib/utils/hardcoded-admin'
 import { AdminSidebar } from '@/components/admin/sidebar'
 import '@/styles/admin.css'
-import { redirect } from 'next/navigation'
+import { notFound } from 'next/navigation'
 
 export const metadata = {
   title: 'Admin Panel - Mozosubz',
@@ -19,7 +19,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   } = await supabase.auth.getUser()
 
   if (!user) {
-    redirect('/login')
+    return notFound()
   }
 
   // Check hardcoded admin first
@@ -40,7 +40,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     .single()
 
   if (!profile?.is_admin) {
-    redirect('/login')
+    return notFound()
   }
 
   return (
