@@ -1,11 +1,9 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
-import { Eye, EyeOff, Copy, Check } from "lucide-react"
+import { Eye, EyeOff } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { getBankLogo, formatBankName } from "@/lib/utils/bank-utils"
-import { createClient } from "@/lib/supabase/client"
 
 interface WalletCardProps {
   balance: number
@@ -15,119 +13,63 @@ interface WalletCardProps {
   bvn?: string
 }
 
-export function WalletCard({ balance, userId, accountNumber: initialAccountNumber, bankName: initialBankName, bvn }: WalletCardProps) {
+// The dashboard now fetches the wallet balance once on mount and keeps it
+// in sync via a Supabase Realtime channel. This card receives the live
+// `balance` as a prop, so we no longer run our own auth + profile fetch
+// (the duplicate that was producing the "Loading..." flash AFTER the
+// dashboard had already painted). Render is instant and 100% reactive.
+export function WalletCard({
+  balance,
+  userId: _userId,
+  accountNumber: _accountNumber,
+  bankName: _bankName,
+  bvn: _bvn,
+}: WalletCardProps) {
   const [isHidden, setIsHidden] = useState(false)
   const [mounted, setMounted] = useState(false)
-  const [copied, setCopied] = useState(false)
-  const [verifiedBalance, setVerifiedBalance] = useState(balance)
-  const [verifying, setVerifying] = useState(true)
-  const { toast } = useToast()
+  const { toast: _toast } = useToast()
 
-  // Verify balance is from authenticated user on mount
+  // Restore the user's "hide balance" preference on mount.
   useEffect(() => {
-    const verifyBalance = async () => {
-      if (typeof window === 'undefined') {
-        setVerifying(false)
-        return
-      }
-
-      try {
-        const supabase = createClient()
-        
-        // Verify the logged-in user matches the userId prop
-        const { data: { user } } = await supabase.auth.getUser()
-        
-        if (!user || user.id !== userId) {
-          console.error("[v0] Balance verification failed: user mismatch")
-          toast({ title: "Security Error", description: "Unable to verify balance owner", variant: "destructive" })
-          setVerifying(false)
-          return
-        }
-
-        // Fetch balance directly from DB to ensure it's current
-        const { data: profile, error } = await supabase
-          .from("profiles")
-          .select("wallet_balance")
-          .eq("id", user.id)
-          .single()
-
-        if (error) {
-          console.error("[v0] Error fetching balance:", error)
-          setVerifying(false)
-          return
-        }
-
-        const currentBalance = profile?.wallet_balance ?? 0
-        console.log("[v0] Balance verified:", {
-          userId: user.id,
-          balance: currentBalance,
-          matches: currentBalance === balance,
-        })
-        
-        setVerifiedBalance(currentBalance)
-        setVerifying(false)
-      } catch (error) {
-        console.error("[v0] Balance verification error:", error)
-        setVerifying(false)
-      }
+    if (typeof window !== "undefined") {
+      setIsHidden(localStorage.getItem("walletBalanceHidden") === "true")
     }
-
-    verifyBalance()
-
-    // Load balance visibility state from localStorage on mount
-    const savedHidden = localStorage.getItem('walletBalanceHidden') === 'true'
-    setIsHidden(savedHidden)
     setMounted(true)
-  }, [userId, balance, toast])
+  }, [])
 
-  // Save balance visibility state to localStorage when it changes
   const handleToggleBalance = (newState: boolean) => {
     setIsHidden(newState)
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('walletBalanceHidden', String(newState))
+    if (typeof window !== "undefined") {
+      localStorage.setItem("walletBalanceHidden", String(newState))
     }
   }
 
-  const formattedBalance = verifiedBalance.toLocaleString("en-NG", {
+  const formattedBalance = balance.toLocaleString("en-NG", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })
-
-  const handleCopy = async () => {
-    if (initialAccountNumber) {
-      await navigator.clipboard.writeText(initialAccountNumber.replace(/\s/g, ""))
-      setCopied(true)
-      toast({ title: "Copied!", description: "Account number copied to clipboard" })
-      setTimeout(() => setCopied(false), 2000)
-    }
-  }
-
-  const bankLogo = getBankLogo(initialBankName)
-
-  if (verifying) {
-    return (
-      <div className="wallet-card">
-        <div className="relative z-10">
-          <div className="flex items-center justify-between mb-1">
-            <span className="balance-label">Wallet Balance</span>
-          </div>
-          <div className="balance-amount mb-4">Loading...</div>
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div className="wallet-card">
       <div className="relative z-10">
         <div className="flex items-center justify-between mb-1">
           <span className="balance-label">Wallet Balance</span>
-          <button onClick={() => handleToggleBalance(!isHidden)} className="eye-btn">
-            {isHidden ? <EyeOff style={{ width: 15, height: 15 }} /> : <Eye style={{ width: 15, height: 15 }} />}
+          <button
+            onClick={() => handleToggleBalance(!isHidden)}
+            className="eye-btn"
+            aria-label={isHidden ? "Show balance" : "Hide balance"}
+          >
+            {mounted && isHidden ? (
+              <EyeOff style={{ width: 15, height: 15 }} />
+            ) : (
+              <Eye style={{ width: 15, height: 15 }} />
+            )}
           </button>
         </div>
 
-        <div className="balance-amount mb-4">{isHidden ? "********" : `₦${formattedBalance}`}</div>
+        <div className="balance-amount mb-4">
+          {mounted && isHidden ? "********" : `\u20A6${formattedBalance}`}
+        </div>
 
         <div className="flex items-end justify-between">
           <div className="flex-1">

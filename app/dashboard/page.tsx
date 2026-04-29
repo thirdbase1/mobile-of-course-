@@ -62,69 +62,100 @@ export default function DashboardPage() {
     return () => clearTimeout(id)
   }, [searchParams, router])
 
+  // First load: one auth call, then profile + transactions IN PARALLEL.
+  // After the initial fetch we open a Supabase Realtime channel and let the
+  // database push us updates instead of polling every 3 seconds. RLS on
+  // profiles already restricts each user to their own row, and Realtime
+  // honors RLS, so no leak risk.
   useEffect(() => {
-    const load = async () => {
-      const supabase = createClient()
-      
-      const { data: { user }, error } = await supabase.auth.getUser()
+    let mounted = true
+    const supabase = createClient()
+    let channel: ReturnType<typeof supabase.channel> | null = null
 
-      if (!user || error) {
-        console.error("[v0] Auth error:", error)
-        // Mark transactions as "loaded but empty" so the placeholders go away
-        setTransactions((prev) => prev ?? [])
+    const fetchTransactions = async (userId: string) => {
+      const { data } = await supabase
+        .from("transactions")
+        .select("*")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(4)
+      return data ?? []
+    }
+
+    const init = async () => {
+      const {
+        data: { user: authedUser },
+        error: authError,
+      } = await supabase.auth.getUser()
+
+      if (!authedUser || authError) {
+        if (mounted) setTransactions((prev) => prev ?? [])
         return
       }
 
-      console.log("[v0] User authenticated:", user.id)
-      setUser(user)
+      if (!mounted) return
+      setUser(authedUser)
+      if (isHardcodedAdmin(authedUser.email)) setIsAdmin(true)
 
-      // Check if user is hardcoded admin
-      if (isHardcodedAdmin(user.email)) {
-        console.log("[v0] User is hardcoded admin:", user.email)
-        setIsAdmin(true)
-      }
+      // Profile + transactions fire at the same time. The dashboard paints
+      // as soon as the slower of the two resolves, instead of after both
+      // running back-to-back.
+      const [profileRes, txList] = await Promise.all([
+        supabase.from("profiles").select("*").eq("id", authedUser.id).single(),
+        fetchTransactions(authedUser.id),
+      ])
 
-      // Always fetch profile from database regardless of admin status
-      const { data: profileData, error: profileError } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single()
+      if (!mounted) return
 
-      if (profileError) {
-        console.error("[v0] Error fetching profile:", profileError)
-      } else {
-        console.log("[v0] Profile loaded:", {
-          id: profileData?.id,
-          wallet_balance: profileData?.wallet_balance,
-          is_admin: profileData?.is_admin,
-        })
-        setProfile(profileData)
-        // If not hardcoded admin, check database flag (set by proxy middleware)
-        if (!isHardcodedAdmin(user.email) && profileData?.is_admin === true) {
+      if (profileRes.data) {
+        setProfile(profileRes.data)
+        if (!isHardcodedAdmin(authedUser.email) && profileRes.data.is_admin === true) {
           setIsAdmin(true)
         }
       }
+      setTransactions(txList)
 
-      const { data: transactionsData, error: txError } = await supabase
-        .from("transactions")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(4)
-
-      if (txError) {
-        console.error("[v0] Error fetching transactions:", txError)
-      } else {
-        console.log("[v0] Transactions loaded:", transactionsData?.length || 0)
-        setTransactions(transactionsData || [])
-      }
+      // Subscribe to live updates for THIS user. profiles is in the
+      // supabase_realtime publication; transactions isn't (the table
+      // doesn't currently exist), so the second listener is a no-op
+      // until that table is added — wiring it in advance means we
+      // don't have to touch this file again later.
+      channel = supabase
+        .channel(`dashboard:${authedUser.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "profiles",
+            filter: `id=eq.${authedUser.id}`,
+          },
+          (payload) => {
+            if (mounted) setProfile(payload.new)
+          },
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "transactions",
+            filter: `user_id=eq.${authedUser.id}`,
+          },
+          async () => {
+            const fresh = await fetchTransactions(authedUser.id)
+            if (mounted) setTransactions(fresh)
+          },
+        )
+        .subscribe()
     }
 
-    load()
-    
-    const interval = setInterval(load, 3000)
-    return () => clearInterval(interval)
+    init()
+
+    return () => {
+      mounted = false
+      if (channel) supabase.removeChannel(channel)
+    }
   }, [])
 
   // No full-page skeleton — we render the actual layout instantly and only
