@@ -157,11 +157,7 @@ export function DashboardClient({
 
     const applyProfile = (next: any) => {
       if (!mounted || !next) return
-      if (!profileChanged(next, profileRef.current)) {
-        console.log("[v0] Profile unchanged, skipping update")
-        return
-      }
-      console.log("[v0] Applying profile update:", next.wallet_balance, "from", profileRef.current?.wallet_balance)
+      if (!profileChanged(next, profileRef.current)) return
       setProfile(next)
       if (!isHardcodedAdmin(userEmail) && next?.is_admin === true) {
         setIsAdmin(true)
@@ -170,53 +166,16 @@ export function DashboardClient({
 
     const applyTransactions = (next: any[]) => {
       if (!mounted) return
-      if (!transactionsChanged(next, transactionsRef.current)) {
-        console.log("[v0] Transactions unchanged, skipping update")
-        return
-      }
-      console.log("[v0] Applying transactions update:", next?.length, "from", transactionsRef.current?.length)
+      if (!transactionsChanged(next, transactionsRef.current)) return
       setTransactions(next)
     }
 
-    // ---- Realtime channel ----
-    const channel = supabase
-      .channel(`dashboard:${userId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "profiles",
-          filter: `id=eq.${userId}`,
-        },
-        (payload) => {
-          console.log("[v0] Realtime profile update:", payload.new?.wallet_balance)
-          applyProfile(payload.new)
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "transactions",
-          filter: `user_id=eq.${userId}`,
-        },
-        async () => {
-          const fresh = await fetchTransactions()
-          console.log("[v0] Realtime transaction update:", fresh?.length)
-          applyTransactions(fresh)
-        },
-      )
-      .subscribe((status) => {
-        console.log("[v0] Realtime status:", status)
-        realtimeConnectedRef.current = status === "SUBSCRIBED"
-      })
-
-    // ---- Silent polling ----
-    // Polls every 5s to keep balance fresh. Always runs as safety net
-    // even when realtime is active. Always silent — no loading UI,
-    // no state update unless data actually changed.
+    // ---- Polling-only approach ----
+    // We use polling instead of realtime for wallet balance because:
+    // - Realtime only works for changes made in the current session
+    // - When admin deducts money from user's account, it happens in admin's session
+    // - Realtime won't fire for the user's browser until they reload
+    // So we poll every 5s silently to catch cross-session updates.
     const tick = async () => {
       if (!mounted) return
       if (typeof document !== "undefined" && document.hidden) return
@@ -224,16 +183,15 @@ export function DashboardClient({
         const [p, t] = await Promise.all([fetchProfile(), fetchTransactions()])
         applyProfile(p)
         applyTransactions(t)
-        console.log("[v0] Polling tick: profile =", p?.wallet_balance, ", transactions =", t?.length)
       } catch (error) {
-        // Network blip — ignore, next tick will retry. Never disturb the UI.
-        console.log("[v0] Polling error:", error)
+        // Network blip — ignore, next tick will retry
       }
     }
 
-    // Run immediate tick on mount to ensure we have fresh data
+    // Run immediate tick on mount
     tick()
 
+    // Poll every 5 seconds for balance updates
     const pollInterval = setInterval(() => {
       tick()
     }, 5_000)
@@ -257,7 +215,6 @@ export function DashboardClient({
         window.removeEventListener("focus", onFocus)
         document.removeEventListener("visibilitychange", onFocus)
       }
-      supabase.removeChannel(channel)
     }
   }, [userId, userEmail])
 
