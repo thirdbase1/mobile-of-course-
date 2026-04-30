@@ -170,12 +170,43 @@ export function DashboardClient({
       setTransactions(next)
     }
 
-    // ---- Polling-only approach ----
-    // We use polling instead of realtime for wallet balance because:
-    // - Realtime only works for changes made in the current session
-    // - When admin deducts money from user's account, it happens in admin's session
-    // - Realtime won't fire for the user's browser until they reload
-    // So we poll every 5s silently to catch cross-session updates.
+    // ---- Realtime channel ----
+    // Supabase realtime broadcasts changes to all connected clients
+    // The key: RLS must allow users to see their profile even if an admin updated it
+    const channel = supabase
+      .channel(`dashboard:${userId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "profiles",
+          filter: `id=eq.${userId}`,
+        },
+        (payload) => {
+          applyProfile(payload.new)
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "transactions",
+          filter: `user_id=eq.${userId}`,
+        },
+        async () => {
+          const fresh = await fetchTransactions()
+          applyTransactions(fresh)
+        },
+      )
+      .subscribe((status) => {
+        realtimeConnectedRef.current = status === "SUBSCRIBED"
+      })
+
+    // ---- Silent polling fallback ----
+    // Polls every 5s as safety net even when realtime is active
+    // to catch any missed updates or network hiccups
     const tick = async () => {
       if (!mounted) return
       if (typeof document !== "undefined" && document.hidden) return
@@ -183,7 +214,7 @@ export function DashboardClient({
         const [p, t] = await Promise.all([fetchProfile(), fetchTransactions()])
         applyProfile(p)
         applyTransactions(t)
-      } catch (error) {
+      } catch {
         // Network blip — ignore, next tick will retry
       }
     }
@@ -191,7 +222,7 @@ export function DashboardClient({
     // Run immediate tick on mount
     tick()
 
-    // Poll every 5 seconds for balance updates
+    // Poll every 5 seconds as fallback
     const pollInterval = setInterval(() => {
       tick()
     }, 5_000)
@@ -215,6 +246,7 @@ export function DashboardClient({
         window.removeEventListener("focus", onFocus)
         document.removeEventListener("visibilitychange", onFocus)
       }
+      supabase.removeChannel(channel)
     }
   }, [userId, userEmail])
 
