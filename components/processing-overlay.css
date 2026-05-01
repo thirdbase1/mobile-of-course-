@@ -61,7 +61,9 @@
   inset: 0;
   animation: spin 1.2s linear infinite;
   will-change: transform;
-  transform-origin: 55px 55px;
+  transform-origin: center;
+  transform-box: fill-box;
+  display: block;
 }
 
 /* Inner ring - counter-clockwise, faint orange */
@@ -70,7 +72,9 @@
   inset: 16px;
   animation: spin-rev 1.8s linear infinite;
   will-change: transform;
-  transform-origin: 39px 39px;
+  transform-origin: center;
+  transform-box: fill-box;
+  display: block;
 }
 
 /* Logo icon - still, center, gentle pulse */

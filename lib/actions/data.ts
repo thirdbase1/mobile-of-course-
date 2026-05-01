@@ -116,21 +116,20 @@ export async function purchaseData(formData: FormData) {
         planDetails: planDisplayName,
       })
 
-      // Send transaction email
-      try {
-        await sendTransactionEmail({
-          email: user.email || '',
-          userName: 'User',
-          transactionType: `${networkName} Data Purchase`,
-          amount: userAmount,
-          phone,
-          transactionId,
-          status: 'SUCCESS',
-          balanceAfter,
-        })
-      } catch (emailErr) {
-        console.error("[v0] Email sending failed - continuing anyway")
-      }
+      // Send transaction email (fire-and-forget - don't await)
+      sendTransactionEmail({
+        userId: user.id,
+        category: "DATA",
+        serviceName: `${networkName} Data`,
+        amount: userAmount,
+        status: "SUCCESS",
+        transactionId,
+        paymentMethod: "Wallet",
+        extras: [
+          { label: "Phone", value: phone },
+          { label: "Plan", value: planDisplayName || plan },
+        ],
+      }).catch((err) => console.error("[v0] Email send failed:", err))
 
       // Revalidate dashboard to update balance and transactions
       revalidatePath("/dashboard")

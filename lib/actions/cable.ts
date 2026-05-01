@@ -98,21 +98,20 @@ export async function subscribeCable(formData: FormData) {
         planDetails: packageDisplayName,
       })
 
-      // Send transaction email
-      try {
-        await sendTransactionEmail({
-          email: user.email || '',
-          userName: 'User',
-          transactionType: `${provider} TV Subscription`,
-          amount: purchaseAmount,
-          phone: smartcard,
-          transactionId,
-          status: 'SUCCESS',
-          balanceAfter,
-        })
-      } catch (emailErr) {
-        console.error("[v0] Email sending failed - continuing anyway")
-      }
+      // Send transaction email (fire-and-forget - don't await)
+      sendTransactionEmail({
+        userId: user.id,
+        category: "CABLE",
+        serviceName: `${provider} TV`,
+        amount: purchaseAmount,
+        status: "SUCCESS",
+        transactionId,
+        paymentMethod: "Wallet",
+        extras: [
+          { label: "Package", value: package_name },
+          { label: "Smartcard", value: smartcard },
+        ],
+      }).catch((err) => console.error("[v0] Email send failed:", err))
 
       // Revalidate dashboard to update balance and transactions
       revalidatePath("/dashboard")

@@ -105,21 +105,20 @@ export async function payElectricity(formData: FormData) {
         apiResponse: response,
       })
 
-      // Send transaction email
-      try {
-        await sendTransactionEmail({
-          email: user.email || '',
-          userName: 'User',
-          transactionType: `${disco} Electricity Payment`,
-          amount: purchaseAmount,
-          phone: meterNumber,
-          transactionId,
-          status: 'SUCCESS',
-          balanceAfter,
-        })
-      } catch (emailErr) {
-        console.error("[v0] Email sending failed - continuing anyway")
-      }
+      // Send transaction email (fire-and-forget - don't await)
+      sendTransactionEmail({
+        userId: user.id,
+        category: "ELECTRICITY",
+        serviceName: `${disco} Electricity`,
+        amount: purchaseAmount,
+        status: "SUCCESS",
+        transactionId,
+        paymentMethod: "Wallet",
+        extras: [
+          { label: "Meter Type", value: meterType },
+          { label: "Meter Number", value: meterNumber },
+        ],
+      }).catch((err) => console.error("[v0] Email send failed:", err))
 
       // Revalidate dashboard to update balance and transactions
       revalidatePath("/dashboard")

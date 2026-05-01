@@ -113,22 +113,17 @@ export async function purchaseAirtime(formData: FormData) {
       })
       const saveTime = Date.now() - saveStartTime
 
-      // Send transaction email
-      try {
-        await sendTransactionEmail({
-          email: user.email || '',
-          userName: profile.name || user.email || 'User',
-          transactionType: 'Airtime Purchase',
-          amount: userAmount,
-          phone,
-          network,
-          transactionId,
-          status: 'SUCCESS',
-          balanceAfter,
-        })
-      } catch (emailErr) {
-        console.error("[v0] Email sending failed - continuing anyway")
-      }
+      // Send transaction email (fire-and-forget - don't await)
+      sendTransactionEmail({
+        userId: user.id,
+        category: "AIRTIME",
+        serviceName: `${network} Airtime`,
+        amount: userAmount,
+        status: "SUCCESS",
+        transactionId,
+        paymentMethod: "Wallet",
+        extras: [{ label: "Phone", value: phone }],
+      }).catch((err) => console.error("[v0] Email send failed:", err))
 
       // Revalidate dashboard to update balance and transactions
       revalidatePath("/dashboard")
