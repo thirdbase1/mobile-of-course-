@@ -119,7 +119,7 @@ export function ResponsiveTable({
                 </tr>
                 {expandableRow && expandedRow === row[rowKey] && (
                   <tr>
-                    <td colSpan={visibleColumns.length + (expandableRow ? 1 : 0)} style={{ padding: '0' }}>
+                    <td colSpan={visibleColumns.length + 1} style={{ padding: '0' }}>
                       <div style={{ background: 'rgba(14, 165, 233, 0.05)', padding: '20px', borderTop: '1px solid var(--admin-border)' }}>
                         {expandableRow(row)}
                       </div>

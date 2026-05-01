@@ -22,7 +22,7 @@ interface PricingBulkTabProps {
   rules: PricingRule[]
   gsubzPlans: GsubzPlan[]
   serviceId: string
-  calculateFinalPrice: (rule: PricingRule) => number
+  calculateFinalPrice: (rule: any) => number
   onSuccess: () => void
 }
 
@@ -115,13 +115,10 @@ export function PricingBulkTab({
         Array.from(selectedRules).map((ruleId) => {
           const rule = rules.find((r) => r.id === ruleId)
           if (!rule) return Promise.resolve({ success: false })
-          return updatePricingRule(
-            ruleId,
-            rule.plan_name,
-            rule.base_price,
-            bulkEditMarkupType,
-            parseFloat(bulkEditMarkupValue)
-          )
+          return updatePricingRule(ruleId, {
+            markupType: bulkEditMarkupType,
+            markupValue: parseFloat(bulkEditMarkupValue),
+          })
         })
       )
       const successful = results.filter((r) => r.success).length

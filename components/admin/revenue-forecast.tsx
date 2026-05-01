@@ -39,7 +39,8 @@ export function RevenueForecast({ transactions = [] }: { transactions: Transacti
       }
     })
 
-    const chartData = last14Days.map((date) => ({
+    type ChartPoint = { date: string; actual: number | null; forecast?: number }
+    const chartData: ChartPoint[] = last14Days.map((date) => ({
       date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
       actual: dailyRevenue[date],
     }))

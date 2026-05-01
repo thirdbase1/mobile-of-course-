@@ -7,135 +7,66 @@ interface UserTransactionsCardProps {
 }
 
 const getStatusIcon = (status: string) => {
-  switch (status) {
-    case 'SUCCESS':
-      return <CheckCircle className="text-green-500" size={16} />
-    case 'PENDING':
-      return <Clock className="text-yellow-500" size={16} />
-    case 'FAILED':
-      return <XCircle className="text-red-500" size={16} />
-    default:
-      return <Clock size={16} />
-  }
+  const s = status?.toUpperCase()
+  if (s === 'SUCCESS') return <CheckCircle size={14} style={{ color: 'var(--admin-success)' }} />
+  if (s === 'PENDING') return <Clock size={14} style={{ color: 'var(--admin-warning)' }} />
+  if (s === 'FAILED') return <XCircle size={14} style={{ color: 'var(--admin-danger)' }} />
+  return <Clock size={14} />
 }
 
 export function UserTransactionsCard({ transactions }: UserTransactionsCardProps) {
   return (
-    <div className="card">
-      <div className="card-header">
-        <History size={24} />
-        <h2>Recent Transactions</h2>
+    <div className="admin-card">
+      <div className="admin-card-header">
+        <div className="admin-card-icon">
+          <History size={18} />
+        </div>
+        <h2 className="admin-card-title">Recent Transactions</h2>
       </div>
 
-      <div className="card-content">
+      <div className="admin-card-body">
         {transactions && transactions.length > 0 ? (
-          <div className="transactions-list">
+          <div className="data-list">
             {transactions.map((tx) => (
-              <div key={tx.id} className="transaction-item">
-                <div className="transaction-info">
-                  <div className="transaction-service">
-                    <span className="service-name">{tx.service_name || tx.category}</span>
-                    <span className="service-phone text-sm">{tx.phone}</span>
-                  </div>
-                  <div className="transaction-date">{new Date(tx.created_at).toLocaleDateString()}</div>
+              <div key={tx.id} className="data-card">
+                <div className="data-card-row">
+                  <div className="data-card-label">Service</div>
+                  <div className="data-card-value">{tx.service_name || tx.category}</div>
                 </div>
-
-                <div className="transaction-amount">
-                  <span className="amount-value">-₦{tx.amount.toLocaleString()}</span>
-                  <div className="status-badge">
-                    {getStatusIcon(tx.status)}
-                    <span className="status-text">{tx.status}</span>
+                {tx.phone && (
+                  <div className="data-card-row">
+                    <div className="data-card-label">Phone</div>
+                    <div className="data-card-value text-mono">{tx.phone}</div>
                   </div>
+                )}
+                <div className="data-card-row">
+                  <div className="data-card-label">Amount</div>
+                  <div className="data-card-value" style={{ color: 'var(--admin-danger)', fontWeight: 700 }}>
+                    -₦{Number(tx.amount).toLocaleString()}
+                  </div>
+                </div>
+                <div className="data-card-row">
+                  <div className="data-card-label">Status</div>
+                  <div className="data-card-value">
+                    <span className="badge-with-icon">
+                      {getStatusIcon(tx.status)}
+                      <span>{tx.status}</span>
+                    </span>
+                  </div>
+                </div>
+                <div className="data-card-row">
+                  <div className="data-card-label">Date</div>
+                  <div className="data-card-value">{new Date(tx.created_at).toLocaleDateString()}</div>
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <div className="text-center py-8 text-gray-500">No transactions found</div>
+          <div className="empty-state">
+            <p>No transactions found</p>
+          </div>
         )}
       </div>
     </div>
   )
-}
-
-const styles = `
-.transactions-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.transaction-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px;
-  background: rgba(14, 165, 233, 0.05);
-  border-radius: 6px;
-  border: 1px solid rgba(14, 165, 233, 0.1);
-  transition: all 0.2s;
-}
-
-.transaction-item:hover {
-  background: rgba(14, 165, 233, 0.1);
-  border-color: rgba(14, 165, 233, 0.2);
-}
-
-.transaction-info {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  flex: 1;
-}
-
-.transaction-service {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.service-name {
-  font-weight: 600;
-  color: var(--admin-text);
-  font-size: 14px;
-}
-
-.service-phone {
-  color: var(--admin-text-secondary);
-}
-
-.transaction-date {
-  color: var(--admin-text-secondary);
-  font-size: 13px;
-  white-space: nowrap;
-}
-
-.transaction-amount {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
-}
-
-.amount-value {
-  font-weight: 700;
-  color: var(--admin-danger);
-  font-size: 14px;
-}
-
-.status-badge {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  color: var(--admin-text-secondary);
-}
-
-.status-text {
-  font-weight: 600;
-}
-`
-
-export function UserTransactionsCardStyles() {
-  return <style>{styles}</style>
 }
