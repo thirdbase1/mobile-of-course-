@@ -9,20 +9,23 @@ const API_PLANS_URL = "https://gsubz.com"
 const API_KEY = process.env.GSUBZ_API_KEY || ""
 
 // Connection pooling agents - reuse connections instead of creating new ones each time
+// These keep connections alive to avoid TCP handshake overhead
 const httpsAgent = new https.Agent({
   keepAlive: true,
-  keepAliveMsecs: 30000, // Keep alive for 30 seconds
-  maxSockets: 50, // Maximum concurrent connections
-  maxFreeSockets: 10, // Maximum idle connections to keep
-  timeout: 2000, // 2 second timeout
+  keepAliveMsecs: 60000, // Extend keep-alive to 60 seconds for sustained connections
+  maxSockets: 100, // Increase max concurrent connections
+  maxFreeSockets: 50, // Keep more idle connections ready
+  timeout: 30000, // Extend timeout to 30 seconds for slow gsubz responses
+  freeSocketTimeout: 60000, // Keep idle sockets for 60 seconds
 })
 
 const httpAgent = new http.Agent({
   keepAlive: true,
-  keepAliveMsecs: 30000,
-  maxSockets: 50,
-  maxFreeSockets: 10,
-  timeout: 2000,
+  keepAliveMsecs: 60000,
+  maxSockets: 100,
+  maxFreeSockets: 50,
+  timeout: 30000,
+  freeSocketTimeout: 60000,
 })
 
 interface ApiResponse {
@@ -60,10 +63,22 @@ async function makeApiRequest(endpoint: string, method: "GET" | "POST" = "POST",
     // Don't set Content-Type when using FormData - let fetch handle it
   }
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, options)
-  const data = await response.json()
+  // Add request-level abort timeout to prevent hanging
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 35000) // 35 second timeout
 
-  return data
+  try {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      ...options,
+      signal: controller.signal,
+    })
+    clearTimeout(timeoutId)
+    const data = await response.json()
+    return data
+  } catch (error) {
+    clearTimeout(timeoutId)
+    throw error
+  }
 }
 
 // Uncached function to fetch data plans from API

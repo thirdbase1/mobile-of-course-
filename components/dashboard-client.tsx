@@ -222,10 +222,11 @@ export function DashboardClient({
     // Run immediate tick on mount
     tick()
 
-    // Poll every 5 seconds as fallback
+    // Poll every 1 second as fallback for faster dashboard updates
+    // This is silent - only updates state if data actually changed
     const pollInterval = setInterval(() => {
       tick()
-    }, 5_000)
+    }, 1_000)
 
     // Re-sync immediately when the tab regains focus (catches anything
     // missed while the tab was backgrounded).

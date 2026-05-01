@@ -51,11 +51,11 @@ export function TransactionConfirmationDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
             Cancel
           </Button>
-          <Button onClick={onConfirm} disabled={loading}>
+          <Button onClick={onConfirm} disabled={loading} className="min-w-[140px]">
             {loading ? (
               <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Processing...
+                <Loader2 className="w-5 h-5 mr-2 animate-spin text-current" />
+                <span>Processing...</span>
               </>
             ) : (
               "Confirm Purchase"
