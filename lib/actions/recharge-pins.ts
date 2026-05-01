@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server"
 import { atomicDeductWallet } from "@/lib/utils/save-transaction"
 import { sendEmail } from "@/lib/email/client"
 import { renderShell, escapeHtml, formatNaira, formatDateTime } from "@/lib/email/templates/shell"
+import { revalidatePath } from "next/cache"
 
 export async function generateRechargePins(data: { network: string; value: string; number: string }) {
   try {
@@ -105,6 +106,9 @@ export async function generateRechargePins(data: { network: string; value: strin
       } catch (emailErr) {
         // Email failure shouldn't block success response
       }
+
+      // Revalidate dashboard to update balance and transactions
+      revalidatePath("/dashboard")
 
       return {
         success: true,

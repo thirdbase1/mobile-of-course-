@@ -4,6 +4,7 @@ import { buyElectricityToken } from "@/lib/api/gsubz"
 import { createClient } from "@/lib/supabase/server"
 import { saveTransaction, atomicDeductWallet } from "@/lib/utils/save-transaction"
 import { sendTransactionEmail } from "@/lib/email/send-transaction-email"
+import { revalidatePath } from "next/cache"
 
 export async function payElectricity(formData: FormData) {
   const disco = formData.get("disco") as string
@@ -119,6 +120,9 @@ export async function payElectricity(formData: FormData) {
       } catch (emailErr) {
         console.error("[v0] Email sending failed - continuing anyway")
       }
+
+      // Revalidate dashboard to update balance and transactions
+      revalidatePath("/dashboard")
 
       return {
         success: true,

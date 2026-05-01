@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server"
 import { saveTransaction, atomicDeductWallet, atomicRefundWallet } from "@/lib/utils/save-transaction"
 import { sendTransactionEmail } from "@/lib/email/send-transaction-email"
 import { isValidAmount, isValidPhone } from "@/lib/utils/input-validation"
+import { revalidatePath } from "next/cache"
 
 export async function purchaseData(formData: FormData) {
   const serviceID = formData.get("serviceID") as string
@@ -130,6 +131,9 @@ export async function purchaseData(formData: FormData) {
       } catch (emailErr) {
         console.error("[v0] Email sending failed - continuing anyway")
       }
+
+      // Revalidate dashboard to update balance and transactions
+      revalidatePath("/dashboard")
 
       return {
         success: true,
