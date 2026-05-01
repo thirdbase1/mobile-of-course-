@@ -50,171 +50,172 @@ export default async function AdminDashboard() {
     }
 
     return (
-      <div className="min-h-screen w-full bg-slate-50">
-        {/* Header */}
-        <header className="sticky top-0 z-40 bg-white border-b border-slate-200">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center">
-                <Zap className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-slate-900">Mozosubz Admin</h1>
-                <p className="text-xs text-slate-600">Dashboard & Controls</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <Link href="/admin/users" className="p-2 hover:bg-slate-100 rounded-lg transition">
-                <Users className="w-5 h-5 text-slate-600" />
-              </Link>
-              <Link href="/admin/settings" className="p-2 hover:bg-slate-100 rounded-lg transition">
-                <Settings className="w-5 h-5 text-slate-600" />
-              </Link>
-            </div>
+      <div className="admin-page">
+        {/* Page Header */}
+        <div className="admin-header">
+          <div className="admin-header-content">
+            <h1>Revenue Dashboard</h1>
+            <p>Real-time overview of system performance and earnings</p>
           </div>
-        </header>
-
-        {/* Main Content */}
-        <main className="px-4 sm:px-6 lg:px-8 py-8 w-full">
-          {/* Page Title */}
-          <div className="mb-8">
-            <h2 className="text-3xl font-bold text-slate-900 flex items-center gap-2">
-              <BarChart3 className="w-8 h-8 text-blue-600" />
-              Revenue Dashboard
-            </h2>
-            <p className="text-slate-600 mt-2">Real-time overview of system performance and earnings</p>
-          </div>
-
-          {/* Key Metrics Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <div className="bg-white rounded-xl border border-slate-200 p-6 hover:shadow-lg transition">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-slate-600">All-Time Revenue</h3>
-                <DollarSign className="w-5 h-5 text-green-600" />
-              </div>
-              <div className="text-3xl font-bold text-slate-900">₦{revenueData.allTime.toLocaleString()}</div>
-              <p className="text-xs text-green-600 mt-2">Total system earnings</p>
-            </div>
-
-            <div className="bg-white rounded-xl border border-slate-200 p-6 hover:shadow-lg transition">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-slate-600">Deposit Fees</h3>
-                <Zap className="w-5 h-5 text-blue-600" />
-              </div>
-              <div className="text-3xl font-bold text-slate-900">₦{revenueData.depositFeeRevenue.toLocaleString()}</div>
-              <p className="text-xs text-slate-600 mt-2">{((revenueData.depositFeeRevenue / revenueData.allTime) * 100 || 0).toFixed(1)}% of total</p>
-            </div>
-
-            <div className="bg-white rounded-xl border border-slate-200 p-6 hover:shadow-lg transition">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-slate-600">Markup Revenue</h3>
-                <TrendingUp className="w-5 h-5 text-purple-600" />
-              </div>
-              <div className="text-3xl font-bold text-slate-900">₦{revenueData.markupRevenue.toLocaleString()}</div>
-              <p className="text-xs text-slate-600 mt-2">{((revenueData.markupRevenue / revenueData.allTime) * 100 || 0).toFixed(1)}% of total</p>
-            </div>
-
-            <div className="bg-white rounded-xl border border-slate-200 p-6 hover:shadow-lg transition">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-slate-600">Active Users</h3>
-                <Users className="w-5 h-5 text-orange-600" />
-              </div>
-              <div className="text-3xl font-bold text-slate-900">{userCount.toLocaleString()}</div>
-              <p className="text-xs text-slate-600 mt-2">{successTransactions.length} successful transactions</p>
-            </div>
-          </div>
-
-          {/* Charts Section */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8 w-full">
-            <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-6">
-              <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
-                <Activity className="w-5 h-5 text-blue-600" />
-                Revenue Trend
-              </h3>
-              <RevenueOverview transactions={allTransactions || []} />
-            </div>
-            <div className="bg-white rounded-xl border border-slate-200 p-6">
-              <h3 className="text-lg font-bold text-slate-900 mb-6">Revenue Breakdown</h3>
-              <RevenueBreakdown depositFee={revenueData.depositFeeRevenue} markup={revenueData.markupRevenue} />
-            </div>
-          </div>
-
-          {/* Quick Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 w-full">
-            <Link href="/admin/transactions" className="bg-white rounded-xl border border-slate-200 p-6 hover:border-blue-300 hover:shadow-lg transition group">
-              <p className="text-sm text-slate-600 mb-2">Total Deposits</p>
-              <p className="text-3xl font-bold text-slate-900 group-hover:text-blue-600 transition">₦{totalDepositAmount.toLocaleString()}</p>
-              <p className="text-xs text-slate-500 mt-3">{successTransactions.filter((tx) => tx.category === 'WALLET_FUND').length} successful deposits</p>
+          <div className="admin-header-actions">
+            <Link href="/admin/transactions" className="btn">
+              <Activity size={18} />
+              View Transactions
             </Link>
+          </div>
+        </div>
 
-            <Link href="/admin/transactions" className="bg-white rounded-xl border border-slate-200 p-6 hover:border-blue-300 hover:shadow-lg transition group">
-              <p className="text-sm text-slate-600 mb-2">Total Purchases</p>
-              <p className="text-3xl font-bold text-slate-900 group-hover:text-blue-600 transition">{successTransactions.filter((tx) => tx.category !== 'WALLET_FUND').length}</p>
-              <p className="text-xs text-slate-500 mt-3">Data, airtime, cable transactions</p>
-            </Link>
-
-            <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl p-6 text-white">
-              <p className="text-sm text-blue-100 mb-2">System Earnings</p>
-              <p className="text-3xl font-bold">₦{(revenueData.depositFeeRevenue + revenueData.markupRevenue).toLocaleString()}</p>
-              <p className="text-xs text-blue-100 mt-3">Fees + Markups combined</p>
+        {/* Key Metrics Stats Grid */}
+        <div className="stats-grid">
+          <div className="stat-card">
+            <div className="stat-header">
+              <h3 className="stat-title">All-Time Revenue</h3>
+              <div className="stat-icon">
+                <DollarSign />
+              </div>
             </div>
+            <div className="stat-value">₦{revenueData.allTime.toLocaleString()}</div>
+            <p className="stat-trend positive">Total system earnings</p>
           </div>
 
-          {/* Activity Table */}
-          <div className="bg-white rounded-xl border border-slate-200 p-6">
-            <h3 className="text-lg font-bold text-slate-900 mb-6">Recent Activity</h3>
+          <div className="stat-card">
+            <div className="stat-header">
+              <h3 className="stat-title">Deposit Fees</h3>
+              <div className="stat-icon">
+                <Zap />
+              </div>
+            </div>
+            <div className="stat-value">₦{revenueData.depositFeeRevenue.toLocaleString()}</div>
+            <p className="stat-trend positive">{((revenueData.depositFeeRevenue / revenueData.allTime) * 100 || 0).toFixed(1)}% of total</p>
+          </div>
+
+          <div className="stat-card">
+            <div className="stat-header">
+              <h3 className="stat-title">Markup Revenue</h3>
+              <div className="stat-icon">
+                <TrendingUp />
+              </div>
+            </div>
+            <div className="stat-value">₦{revenueData.markupRevenue.toLocaleString()}</div>
+            <p className="stat-trend positive">{((revenueData.markupRevenue / revenueData.allTime) * 100 || 0).toFixed(1)}% of total</p>
+          </div>
+
+          <div className="stat-card">
+            <div className="stat-header">
+              <h3 className="stat-title">Active Users</h3>
+              <div className="stat-icon">
+                <Users />
+              </div>
+            </div>
+            <div className="stat-value">{userCount.toLocaleString()}</div>
+            <p className="stat-trend positive">{successTransactions.length} successful transactions</p>
+          </div>
+        </div>
+
+        {/* Charts Section */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px', marginBottom: '32px' }}>
+          <div style={{ gridColumn: 'span 1' }} className="table-container" style={{ padding: '24px' }}>
+            <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '24px', color: 'var(--admin-text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Activity size={20} />
+              Revenue Trend
+            </h3>
+            <RevenueOverview transactions={allTransactions || []} />
+          </div>
+        </div>
+
+        {/* Quick Stats */}
+        <div className="stats-grid" style={{ marginBottom: '32px' }}>
+          <Link href="/admin/transactions" className="stat-card" style={{ cursor: 'pointer', textDecoration: 'none', color: 'inherit' }}>
+            <div className="stat-header">
+              <h3 className="stat-title">Total Deposits</h3>
+              <div className="stat-icon">
+                <DollarSign />
+              </div>
+            </div>
+            <div className="stat-value">₦{totalDepositAmount.toLocaleString()}</div>
+            <p className="stat-trend positive">{successTransactions.filter((tx) => tx.category === 'WALLET_FUND').length} successful deposits</p>
+          </Link>
+
+          <Link href="/admin/transactions" className="stat-card" style={{ cursor: 'pointer', textDecoration: 'none', color: 'inherit' }}>
+            <div className="stat-header">
+              <h3 className="stat-title">Total Purchases</h3>
+              <div className="stat-icon">
+                <TrendingUp />
+              </div>
+            </div>
+            <div className="stat-value">{successTransactions.filter((tx) => tx.category !== 'WALLET_FUND').length}</div>
+            <p className="stat-trend positive">Data, airtime, cable transactions</p>
+          </Link>
+
+          <div className="stat-card" style={{ background: 'linear-gradient(135deg, var(--admin-primary) 0%, var(--admin-secondary) 100%)', color: 'white' }}>
+            <div className="stat-header">
+              <h3 className="stat-title" style={{ color: 'rgba(255, 255, 255, 0.7)' }}>System Earnings</h3>
+              <div className="stat-icon" style={{ background: 'rgba(255, 255, 255, 0.2)', color: 'white' }}>
+                <Zap />
+              </div>
+            </div>
+            <div className="stat-value" style={{ color: 'white' }}>₦{(revenueData.depositFeeRevenue + revenueData.markupRevenue).toLocaleString()}</div>
+            <p style={{ fontSize: '12px', fontWeight: '600', color: 'rgba(255, 255, 255, 0.8)', marginTop: '8px' }}>Fees + Markups combined</p>
+          </div>
+
+          <div className="stat-card">
+            <div className="stat-header">
+              <h3 className="stat-title">Revenue Breakdown</h3>
+              <div className="stat-icon">
+                <BarChart3 />
+              </div>
+            </div>
+            <RevenueBreakdown depositFee={revenueData.depositFeeRevenue} markup={revenueData.markupRevenue} />
+          </div>
+        </div>
+
+        {/* Activity Table */}
+        <div className="table-container">
+          <div style={{ padding: '24px' }}>
+            <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '24px', color: 'var(--admin-text)' }}>Recent Activity</h3>
             <RevenueActivityTable activity={activityRes || []} />
           </div>
+        </div>
 
-          {/* Admin Navigation */}
-          <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
-            <Link href="/admin/users" className="bg-white rounded-xl border border-slate-200 p-4 hover:border-blue-300 hover:shadow-lg transition text-center group">
-              <Users className="w-6 h-6 text-slate-600 mx-auto mb-2 group-hover:text-blue-600 transition" />
-              <p className="font-semibold text-slate-900 group-hover:text-blue-600 transition">Manage Users</p>
-              <p className="text-xs text-slate-600">View & manage user accounts</p>
-            </Link>
+        {/* Admin Quick Links */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px', marginTop: '32px' }}>
+          <Link href="/admin/users" className="stat-card" style={{ cursor: 'pointer', textDecoration: 'none', color: 'inherit', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 16px' }}>
+            <Users size={32} style={{ marginBottom: '12px', color: 'var(--admin-secondary)' }} />
+            <h4 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '4px' }}>Manage Users</h4>
+            <p style={{ fontSize: '13px', color: 'var(--admin-text-secondary)' }}>View & manage user accounts</p>
+          </Link>
 
-            <Link href="/admin/transactions" className="bg-white rounded-xl border border-slate-200 p-4 hover:border-blue-300 hover:shadow-lg transition text-center group">
-              <Activity className="w-6 h-6 text-slate-600 mx-auto mb-2 group-hover:text-blue-600 transition" />
-              <p className="font-semibold text-slate-900 group-hover:text-blue-600 transition">Transactions</p>
-              <p className="text-xs text-slate-600">View all transactions</p>
-            </Link>
+          <Link href="/admin/transactions" className="stat-card" style={{ cursor: 'pointer', textDecoration: 'none', color: 'inherit', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 16px' }}>
+            <Activity size={32} style={{ marginBottom: '12px', color: 'var(--admin-secondary)' }} />
+            <h4 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '4px' }}>Transactions</h4>
+            <p style={{ fontSize: '13px', color: 'var(--admin-text-secondary)' }}>View all transactions</p>
+          </Link>
 
-            <Link href="/admin/deposit-rules" className="bg-white rounded-xl border border-slate-200 p-4 hover:border-blue-300 hover:shadow-lg transition text-center group">
-              <DollarSign className="w-6 h-6 text-slate-600 mx-auto mb-2 group-hover:text-blue-600 transition" />
-              <p className="font-semibold text-slate-900 group-hover:text-blue-600 transition">Deposit Rules</p>
-              <p className="text-xs text-slate-600">Configure fee & markup rules</p>
-            </Link>
+          <Link href="/admin/deposit-rules" className="stat-card" style={{ cursor: 'pointer', textDecoration: 'none', color: 'inherit', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 16px' }}>
+            <DollarSign size={32} style={{ marginBottom: '12px', color: 'var(--admin-secondary)' }} />
+            <h4 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '4px' }}>Deposit Rules</h4>
+            <p style={{ fontSize: '13px', color: 'var(--admin-text-secondary)' }}>Configure fee & markup rules</p>
+          </Link>
 
-            <Link href="/admin/monitoring" className="bg-white rounded-xl border border-slate-200 p-4 hover:border-blue-300 hover:shadow-lg transition text-center group">
-              <BarChart3 className="w-6 h-6 text-slate-600 mx-auto mb-2 group-hover:text-blue-600 transition" />
-              <p className="font-semibold text-slate-900 group-hover:text-blue-600 transition">Monitoring</p>
-              <p className="text-xs text-slate-600">System health & status</p>
-            </Link>
-          </div>
-        </main>
+          <Link href="/admin/monitoring" className="stat-card" style={{ cursor: 'pointer', textDecoration: 'none', color: 'inherit', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 16px' }}>
+            <BarChart3 size={32} style={{ marginBottom: '12px', color: 'var(--admin-secondary)' }} />
+            <h4 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '4px' }}>Monitoring</h4>
+            <p style={{ fontSize: '13px', color: 'var(--admin-text-secondary)' }}>System health & status</p>
+          </Link>
+        </div>
       </div>
     )
   } catch (error) {
     console.error('[v0] Admin Dashboard Error:', error)
     return (
-      <div className="min-h-screen bg-slate-50">
-        <header className="sticky top-0 z-40 bg-white border-b border-slate-200">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center">
-                <Zap className="w-6 h-6 text-white" />
-              </div>
-              <h1 className="text-xl font-bold text-slate-900">Mozosubz Admin</h1>
-            </div>
-          </div>
-        </header>
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
-            <p className="text-red-700 font-semibold">Error loading dashboard</p>
-            <p className="text-red-600 text-sm mt-2">Failed to fetch dashboard data. Please refresh or try again later.</p>
-          </div>
-        </main>
+      <div className="admin-page">
+        <div className="empty-state" style={{ padding: '80px 20px' }}>
+          <h3>Error loading dashboard</h3>
+          <p>Failed to fetch dashboard data. Please refresh or try again later.</p>
+          <button onClick={() => window.location.reload()} className="btn" style={{ marginTop: '20px' }}>
+            Refresh Page
+          </button>
+        </div>
       </div>
     )
   }
