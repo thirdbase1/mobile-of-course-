@@ -106,6 +106,10 @@ export function ResetPasswordClient() {
       const { error } = await supabase.auth.updateUser({ password })
       if (error) throw error
 
+      // After password is updated, sign out the user
+      // They must manually login with their new password
+      await supabase.auth.signOut()
+
       setSuccess(true)
       setTimeout(() => router.push("/login"), 2500)
     } catch (error: unknown) {
