@@ -3,8 +3,7 @@
 import type React from "react"
 import { useEffect } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useSearchParams } from "next/navigation"
 import {
   ArrowLeft,
   Lock,
@@ -38,26 +37,48 @@ export default function ResetPasswordPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [sessionReady, setSessionReady] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   // Check if user has a valid recovery session when page loads
   useEffect(() => {
     const checkSession = async () => {
       const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      
-      // If user is not authenticated, redirect to login
-      if (!user) {
-        console.error("[v0] No recovery session found - redirecting to login")
-        router.push("/login?error=recovery_expired")
+      const code = searchParams.get("code")
+      const type = searchParams.get("type")
+
+      // If recovery link has code, exchange it for session
+      if (code && type === "recovery") {
+        try {
+          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+          if (exchangeError) {
+            setError("Invalid or expired recovery link. Please request a new one.")
+            setSessionReady(false)
+            return
+          }
+          // Code exchanged successfully, session is now active
+          setSessionReady(true)
+        } catch (err) {
+          setError("Failed to verify recovery link. Please try again.")
+          setSessionReady(false)
+        }
         return
       }
 
-      // Session is valid, allow password reset
+      // Check if there's an existing session (shouldn't happen normally)
+      const { data: { session } } = await supabase.auth.getSession()
+
+      if (!session) {
+        // No code and no session - redirect to forgot password
+        router.push("/forgot-password")
+        return
+      }
+
+      // Session exists, allow password reset
       setSessionReady(true)
     }
 
     checkSession()
-  }, [router])
+  }, [router, searchParams])
 
   const strength = checkPasswordStrength(password)
   const strengthScore = Object.values(strength).filter(Boolean).length

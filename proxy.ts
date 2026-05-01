@@ -40,15 +40,23 @@ export async function proxy(request: NextRequest) {
     const type = request.nextUrl.searchParams.get("type")
     
     if (code) {
+      // For password recovery, exchange the code but don't auto-login
+      // Instead, redirect to a verification page that requires confirmation
+      if (type === "recovery") {
+        // Just redirect to reset-password and let the client handle session check
+        // Don't exchange the code yet - let the reset-password page do it
+        const redirectUrl = request.nextUrl.clone()
+        redirectUrl.pathname = "/reset-password"
+        redirectUrl.search = `?code=${code}&type=recovery`
+        return NextResponse.redirect(redirectUrl)
+      }
+
+      // For email confirmations, exchange the code and create session
       const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
       if (!exchangeError) {
-        // If this is a password reset (recovery type), redirect to reset-password page
-        // Otherwise redirect to dashboard for email confirmation
-        const targetPath = type === "recovery" ? "/reset-password" : "/dashboard"
-        
         const redirectUrl = request.nextUrl.clone()
-        redirectUrl.pathname = targetPath
-        redirectUrl.search = type === "recovery" ? "?sessionReady=1" : "?confirmed=1"
+        redirectUrl.pathname = "/dashboard"
+        redirectUrl.search = "?confirmed=1"
 
         const redirectResponse = NextResponse.redirect(redirectUrl)
         // Preserve the auth cookies set by exchangeCodeForSession.
