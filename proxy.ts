@@ -135,6 +135,13 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(url)
     }
 
+    // Allow authenticated users to access reset-password page
+    // (they may have a recovery session from clicking password reset link)
+    // Don't redirect them away from this page
+    if (request.nextUrl.pathname === "/reset-password") {
+      return supabaseResponse
+    }
+
     // Allow signup process even for partially authenticated users (unconfirmed emails)
     // Only redirect from /register if they're FULLY authenticated (email confirmed)
     if (user && request.nextUrl.pathname === "/register") {

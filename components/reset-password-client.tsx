@@ -53,7 +53,7 @@ export function ResetPasswordClient() {
             setSessionReady(false)
             return
           }
-          // Code exchanged successfully - now they have a recovery session
+          // Code exchanged successfully
           console.log("[v0] Recovery code exchanged successfully")
           setSessionReady(true)
           return
@@ -65,15 +65,19 @@ export function ResetPasswordClient() {
         }
       }
 
-      // If no code, check if there's already a valid session
+      // If no code, check if there's already an active session
+      // (from Supabase redirecting after token verification)
       const { data: { session } } = await supabase.auth.getSession()
       
       if (!session) {
         // No code and no session - redirect to forgot password
+        console.log("[v0] No recovery session found - redirecting to forgot-password")
         router.push("/forgot-password")
         return
       }
 
+      // Session exists, they can reset password
+      console.log("[v0] Recovery session found - allowing password reset")
       setSessionReady(true)
     }
 
