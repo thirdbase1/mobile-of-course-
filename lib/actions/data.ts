@@ -2,23 +2,19 @@
 
 import { buyData, getDataPlans } from "@/lib/api/gsubz"
 import { createClient } from "@/lib/supabase/server"
-import { saveTransaction, atomicDeductWallet, atomicRefundWallet } from "@/lib/utils/save-transaction"
+import { saveTransaction, atomicDeductWallet } from "@/lib/utils/save-transaction"
 import { sendTransactionEmail } from "@/lib/email/send-transaction-email"
 import { isValidAmount, isValidPhone } from "@/lib/utils/input-validation"
 import { revalidatePath } from "next/cache"
 
 export async function purchaseData(formData: FormData) {
-  const serviceID = formData.get("serviceID") as string
   const plan = formData.get("plan") as string
   const phone = formData.get("phone") as string
-  const clientAmount = formData.get("amount") as string
-  const planDisplayName = formData.get("planDisplayName") as string
+  const amount = formData.get("amount") as string
 
   try {
-    // SECURITY: Validate all inputs before processing
-    const amount = parseFloat(clientAmount)
-    
-    if (!isValidAmount(amount) || amount <= 0) {
+    const numAmount = parseFloat(amount)
+    if (!isValidAmount(numAmount) || numAmount <= 0) {
       return { success: false, message: "Invalid amount" }
     }
 
@@ -41,98 +37,98 @@ export async function purchaseData(formData: FormData) {
       return { success: false, message: "Profile not found. Please contact support." }
     }
 
+    const userAmount = Number(amount)
     const balanceBefore = Number(profile.wallet_balance)
 
-    // Check sufficient balance BEFORE calling Gsubz API
-    if (balanceBefore < amount) {
+    if (balanceBefore < userAmount) {
       return { success: false, message: "Insufficient wallet balance" }
     }
 
-    const requestID = "TXN" + Date.now()
+    const requestID = `TXN${Date.now()}${Math.floor(Math.random() * 1000)}`
+    const transactionId = `DATA-${requestID}`
 
-    // Call GSUBZ API
-    const response = await buyData({
-      serviceID,
-      plan,
-      phone,
-      requestID,
-    })
+    // STEP 1: Call gsubz API with 5-second timeout
+    let gsubzResponse: any = null
+    let isTimeout = false
 
-    // Use the client-provided amount (which includes markup) instead of API response amount
-    const userAmount = clientAmount ? Number(clientAmount) : (response.amount ? Number(response.amount) : 0)
+    try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => {
+        controller.abort()
+        isTimeout = true
+      }, 5000) // 5 second timeout
 
-    // Map network name - extract network from serviceID (e.g., "glo_sme" -> "glo")
-    const networkNameMap: Record<string, string> = {
-      mtn: "MTN",
-      glo: "Glo",
-      airtel: "Airtel",
-      etisalat: "9mobile",
+      gsubzResponse = await Promise.race([
+        buyData({
+          plan,
+          phone,
+          amount: String(userAmount),
+          requestID,
+        }),
+        new Promise((_, reject) =>
+          controller.signal.addEventListener("abort", () => {
+            clearTimeout(timeoutId)
+            reject(new Error("API Timeout"))
+          })
+        ),
+      ]).catch((err) => {
+        clearTimeout(timeoutId)
+        return { error: err.message }
+      })
+    } catch (apiErr) {
+      isTimeout = true
+      gsubzResponse = null
     }
-    const networkKey = serviceID.split('_')[0].toLowerCase() // Extract first part before underscore
-    const networkName = networkNameMap[networkKey] || "Data"
-    const serviceType = serviceID.split('_').slice(1).join('_') || "data" // Extract service type (e.g., "sme", "gifting")
 
-    // Determine success
+    // Check if API call succeeded
     const isSuccess =
-      (response.code === 200 || response.code === "200" || response.code === "000") &&
-      (response.status === "TRANSACTION_SUCCESSFUL" ||
-        response.status === "success" ||
-        response.status === "successful" ||
-        response.description === "TRANSACTION_SUCCESSFUL")
+      gsubzResponse &&
+      !gsubzResponse.error &&
+      (gsubzResponse.code === 200 || gsubzResponse.code === "200" || gsubzResponse.code === "000") &&
+      (gsubzResponse.status === "TRANSACTION_SUCCESSFUL" ||
+        gsubzResponse.status === "success" ||
+        gsubzResponse.status === "successful" ||
+        gsubzResponse.description === "TRANSACTION_SUCCESSFUL")
 
     if (isSuccess) {
-      const transactionId = String(response.transactionID || requestID)
-
-      // ATOMIC: Deduct wallet balance in a single database transaction
-      // This prevents race conditions when multiple requests hit simultaneously
-      const deductResult = await atomicDeductWallet(user.id, userAmount)
-
-      if (!deductResult.success) {
-        console.error("[v0] Deduction failed - contact support")
-        return {
-          success: false,
-          message: deductResult.error || "Failed to update wallet balance. Please contact support.",
-        }
+      // ✓ IMMEDIATE SUCCESS: API confirmed transaction within 5 seconds
+      const { error: deductError } = await atomicDeductWallet(supabase, user.id, userAmount)
+      if (deductError) {
+        console.error("[v0] Balance deduction failed after confirmed purchase:", deductError)
       }
 
-      const balanceAfter = deductResult.newBalance!
+      const balanceAfter = balanceBefore - userAmount
 
-      // Save transaction
-      await saveTransaction({
-        userId: user.id,
-        transactionId,
-        category: "DATA",
-        serviceId: serviceID,
-        serviceName: `${networkName} Data`,
-        serviceType: "Data",
-        serviceVariant: `${networkName.toUpperCase()} ${serviceType.toUpperCase().replace('_', ' ')}`,
+      // Save transaction as SUCCESS
+      await saveTransaction(supabase, {
+        user_id: user.id,
+        type: "data",
+        status: "success",
         amount: userAmount,
-        phone,
-        status: "SUCCESS",
-        description: planDisplayName ? `${networkName} Data · ${planDisplayName}` : `${networkName} Data · ${phone}`,
-        balanceBefore,
-        balanceAfter,
-        apiResponse: response,
-        planDetails: planDisplayName,
+        description: `Data Purchase · ${plan}`,
+        metadata: {
+          plan,
+          phone,
+          requestID,
+        },
       })
 
-      // Send transaction email
+      // Send confirmation email
       try {
         await sendTransactionEmail({
-          email: user.email || '',
-          userName: 'User',
-          transactionType: `${networkName} Data Purchase`,
+          email: user.email || "",
+          userName: profile.name || user.email || "User",
+          transactionType: "Data Purchase",
           amount: userAmount,
           phone,
           transactionId,
-          status: 'SUCCESS',
+          status: "SUCCESS",
           balanceAfter,
         })
       } catch (emailErr) {
-        console.error("[v0] Email sending failed - continuing anyway")
+        console.error("[v0] Email sending failed:", emailErr)
       }
 
-      // Revalidate dashboard to update balance and transactions
       revalidatePath("/dashboard")
 
       return {
@@ -141,7 +137,6 @@ export async function purchaseData(formData: FormData) {
         transaction: {
           id: transactionId,
           type: "data",
-          serviceID,
           plan,
           phone,
           amount: userAmount,
@@ -149,131 +144,84 @@ export async function purchaseData(formData: FormData) {
           balance: balanceAfter,
         },
       }
-    }
+    } else if (isTimeout) {
+      // ⏱️ TIMEOUT: API didn't respond in 5 seconds
+      // Create PENDING transaction and tell user to wait for email
+      const { error: deductError } = await atomicDeductWallet(supabase, user.id, userAmount)
+      if (deductError) {
+        return { success: false, message: "Failed to deduct balance. Please try again." }
+      }
 
-    // Transaction failed - still save it
-    const failedTransactionId = String(response.transactionID || requestID)
+      const balanceAfter = balanceBefore - userAmount
 
-    await saveTransaction({
-      userId: user.id,
-      transactionId: failedTransactionId,
-      category: "DATA",
-      serviceId: serviceID,
-      serviceName: `${networkName} Data`,
-      serviceType: "Data",
-      serviceVariant: `${networkName.toUpperCase()} ${serviceType.toUpperCase().replace('_', ' ')}`,
-      amount: userAmount,
-      phone,
-      status: "FAILED",
-      description: planDisplayName ? `${networkName} Data · ${planDisplayName}` : `${networkName} Data · ${phone}`,
-      balanceBefore,
-      balanceAfter: balanceBefore,
-      apiResponse: response,
-      planDetails: planDisplayName,
-    })
-
-    // Send failure email
-    await sendTransactionEmail({
-      userId: user.id,
-      category: "DATA",
-      serviceName: `${networkName} Data`,
-      amount: userAmount,
-      status: "FAILED",
-      transactionId: failedTransactionId,
-      extras: [
-        { label: "Phone", value: phone },
-        { label: "Plan", value: plan },
-        { label: "Status", value: "Failed" },
-        { label: "Reason", value: response.description || "Transaction could not be processed" },
-      ],
-    })
-
-    return {
-      success: false,
-      message: response.description || "Transaction failed",
-      transaction: {
-        id: failedTransactionId,
+      // Save as PENDING - will be verified in background
+      await saveTransaction(supabase, {
+        user_id: user.id,
         type: "data",
-        serviceID,
-        plan,
-        phone,
+        status: "pending",
         amount: userAmount,
-        status: "failed",
-        balance: balanceBefore,
-      },
+        description: `Data Purchase · ${plan}`,
+        metadata: {
+          plan,
+          phone,
+          requestID,
+          isPending: true,
+        },
+      })
+
+      // Send "pending" email
+      try {
+        await sendTransactionEmail({
+          email: user.email || "",
+          userName: profile.name || user.email || "User",
+          transactionType: "Data Purchase",
+          amount: userAmount,
+          phone,
+          transactionId,
+          status: "PENDING",
+          balanceAfter,
+        })
+      } catch (emailErr) {
+        console.error("[v0] Email sending failed:", emailErr)
+      }
+
+      revalidatePath("/dashboard")
+
+      return {
+        success: true,
+        message: "Purchase is being processed. Check your email for confirmation.",
+        transaction: {
+          id: transactionId,
+          type: "data",
+          plan,
+          phone,
+          amount: userAmount,
+          status: "pending",
+          balance: balanceAfter,
+        },
+      }
+    } else {
+      // ✗ FAILED: API returned error
+      return {
+        success: false,
+        message: gsubzResponse?.description || "Transaction failed. Please try again.",
+      }
     }
   } catch (error) {
-    console.error("[v0] Request processing error")
-    return { success: false, message: "An error occurred while processing your request" }
+    console.error("[v0] Purchase error:", error)
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Purchase failed. Please try again.",
+    }
   }
 }
 
-export async function fetchDataPlans(serviceID: string) {
+export async function fetchDataPlans() {
   try {
-    const plans = await getDataPlans(serviceID)
-    
-    // Fetch pricing rules for this service to apply markup
-    const { createClient } = await import("@supabase/supabase-js")
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
-    
-    const serviceMap: Record<string, string> = {
-      mtn_sme: "mtn",
-      mtn_datashare: "mtn",
-      mtn_gifting: "mtn",
-      mtn_awoof: "mtn",
-      glo_data: "glo",
-      glo_sme: "glo",
-      airtel_sme: "airtel",
-      airtel_gifting: "airtel",
-      etisalat_data: "etisalat",
-    }
-    
-    const serviceId = serviceMap[serviceID.toLowerCase()] || serviceID
-    
-    const { data: pricingRules } = await supabase
-      .from("pricing_rules")
-      .select("plan_name, base_price, markup_type, markup_value")
-      .eq("service_id", serviceId)
-      .eq("is_active", true)
-    
-    console.log(`[v0] Fetched pricing rules for ${serviceId}:`, pricingRules)
-    console.log(`[v0] Original plans:`, plans.plans)
-    
-    // Apply markup to plans if pricing rules exist
-    const enhancedPlans = (plans.plans || []).map((plan: any) => {
-      const rule = pricingRules?.find((r) => r.plan_name.toLowerCase() === plan.displayName.toLowerCase())
-      
-      if (rule) {
-        const basePrice = parseFloat(plan.price)
-        const markup = rule.markup_type === "fixed" ? rule.markup_value : (basePrice * rule.markup_value) / 100
-        const finalPrice = basePrice + markup
-        
-        console.log(`[v0] Applying markup to ${plan.displayName}: ${basePrice} + ${markup} = ${finalPrice}`)
-        
-        return {
-          ...plan,
-          price: finalPrice.toString(),
-          originalPrice: plan.price,
-          hasMarkup: true,
-          markup: markup,
-        }
-      }
-      
-      return plan
-    })
-    
-    console.log(`[v0] Enhanced plans with markup:`, enhancedPlans)
-    
-    return {
-      success: true,
-      plans: enhancedPlans,
-      service: plans.service,
-    }
+    const plans = await getDataPlans()
+    return { success: true, data: plans }
   } catch (error) {
-    console.error("[v0] Error fetching plans:", error)
-    return { success: false, plans: [], error: String(error) }
+    console.error("[v0] Failed to fetch data plans:", error)
+    return { success: false, error: "Failed to fetch data plans" }
   }
 }
