@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Settings, ChevronRight, CheckCircle2, X } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
@@ -12,6 +12,7 @@ import { NotificationBell } from "@/components/notification-bell"
 import { Logo } from "@/components/logo"
 import { WalletCard } from "@/components/wallet-card"
 import { setupSessionManager } from "@/lib/utils/session-check"
+import { useDashboardAutoRefresh } from "@/hooks/use-dashboard-auto-refresh"
 
 interface DashboardClientProps {
   userId: string
@@ -249,6 +250,17 @@ export function DashboardClient({
       supabase.removeChannel(channel)
     }
   }, [userId, userEmail])
+
+  // Silent auto-refresh every 1 second to catch any updates
+  // This updates the balance silently without interrupting the user
+  const handleDataUpdate = useCallback((data: any) => {
+    setProfile((prev: any) => ({
+      ...prev,
+      wallet_balance: data.balance,
+    }))
+  }, [])
+
+  useDashboardAutoRefresh(userId, handleDataUpdate)
 
   const walletBalance = profile?.wallet_balance ?? 0
   const bvn = profile?.bvn

@@ -14,7 +14,7 @@ const httpsAgent = new https.Agent({
   keepAliveMsecs: 30000, // Keep alive for 30 seconds
   maxSockets: 50, // Maximum concurrent connections
   maxFreeSockets: 10, // Maximum idle connections to keep
-  timeout: 2000, // 2 second timeout
+  timeout: 10000, // 10 second timeout for better reliability
 })
 
 const httpAgent = new http.Agent({
@@ -22,7 +22,7 @@ const httpAgent = new http.Agent({
   keepAliveMsecs: 30000,
   maxSockets: 50,
   maxFreeSockets: 10,
-  timeout: 2000,
+  timeout: 10000, // 10 second timeout
 })
 
 interface ApiResponse {
@@ -60,10 +60,22 @@ async function makeApiRequest(endpoint: string, method: "GET" | "POST" = "POST",
     // Don't set Content-Type when using FormData - let fetch handle it
   }
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, options)
-  const data = await response.json()
+  // Add request timeout
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 15000) // 15 second overall timeout
 
-  return data
+  try {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      ...options,
+      signal: controller.signal,
+    })
+    clearTimeout(timeoutId)
+    const data = await response.json()
+    return data
+  } catch (error) {
+    clearTimeout(timeoutId)
+    throw error
+  }
 }
 
 // Uncached function to fetch data plans from API
