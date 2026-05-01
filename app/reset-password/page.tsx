@@ -1,9 +1,9 @@
 "use client"
 
 import type React from "react"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
-import { useSearchParams } from "next/navigation"
+import { useRouter } from "next/navigation"
 import {
   ArrowLeft,
   Lock,
@@ -37,48 +37,23 @@ export default function ResetPasswordPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [sessionReady, setSessionReady] = useState(false)
   const router = useRouter()
-  const searchParams = useSearchParams()
 
-  // Check if user has a valid recovery session when page loads
+  // Check if user has a valid recovery session
   useEffect(() => {
     const checkSession = async () => {
       const supabase = createClient()
-      const code = searchParams.get("code")
-      const type = searchParams.get("type")
-
-      // If recovery link has code, exchange it for session
-      if (code && type === "recovery") {
-        try {
-          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
-          if (exchangeError) {
-            setError("Invalid or expired recovery link. Please request a new one.")
-            setSessionReady(false)
-            return
-          }
-          // Code exchanged successfully, session is now active
-          setSessionReady(true)
-        } catch (err) {
-          setError("Failed to verify recovery link. Please try again.")
-          setSessionReady(false)
-        }
-        return
-      }
-
-      // Check if there's an existing session (shouldn't happen normally)
       const { data: { session } } = await supabase.auth.getSession()
-
+      
       if (!session) {
-        // No code and no session - redirect to forgot password
         router.push("/forgot-password")
         return
       }
 
-      // Session exists, allow password reset
       setSessionReady(true)
     }
 
     checkSession()
-  }, [router, searchParams])
+  }, [router])
 
   const strength = checkPasswordStrength(password)
   const strengthScore = Object.values(strength).filter(Boolean).length

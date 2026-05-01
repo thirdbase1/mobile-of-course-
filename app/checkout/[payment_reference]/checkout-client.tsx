@@ -140,9 +140,7 @@ export function CheckoutClient({ paymentReference, transaction: initialTransacti
         setIsVerifying(false)
         return
       }
-      setTimeout(() => {
-        window.location.href = "/dashboard?confirmed=1"
-      }, 800)
+      setTimeout(() => window.location.reload(), 800)
     } catch {
       setStatusMessage({ kind: "error", text: "Couldn't reach the server. Check your connection and try again." })
       setIsVerifying(false)
