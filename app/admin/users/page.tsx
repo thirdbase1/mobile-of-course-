@@ -3,9 +3,7 @@
 import { useState, useEffect } from 'react'
 import { getUsers } from '@/lib/actions/admin'
 import { UserTable } from '@/components/admin/user-table'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
-import { Search } from 'lucide-react'
+import { Search, Users as UsersIcon, ChevronLeft, ChevronRight } from 'lucide-react'
 
 export default function UsersPage() {
   const [users, setUsers] = useState<any[]>([])
@@ -19,7 +17,6 @@ export default function UsersPage() {
       setLoading(true)
       const result = await getUsers(page, 10)
       if (!result.error) {
-        // Filter by search term
         let filtered = result.users
         if (searchTerm) {
           filtered = result.users.filter(
@@ -40,45 +37,71 @@ export default function UsersPage() {
   return (
     <div className="admin-page">
       <div className="admin-header">
-        <h1>User Management</h1>
-        <p>Manage users, credit/debit wallets, and assign roles</p>
+        <div className="admin-header-row">
+          <div>
+            <h1>User Management</h1>
+            <p>Manage users, credit/debit wallets, and assign roles</p>
+          </div>
+        </div>
       </div>
 
-      <div className="search-bar">
-        <Search size={20} />
-        <Input
-          placeholder="Search by name, email, or phone..."
-          value={searchTerm}
-          onChange={(e) => {
-            setSearchTerm(e.target.value)
-            setPage(1)
-          }}
-        />
+      <div className="admin-toolbar">
+        <div className="admin-search">
+          <Search size={18} />
+          <input
+            type="text"
+            placeholder="Search by name, email, or phone..."
+            value={searchTerm}
+            onChange={(e) => {
+              setSearchTerm(e.target.value)
+              setPage(1)
+            }}
+          />
+        </div>
       </div>
 
       {loading ? (
-        <div className="text-center py-12">Loading users...</div>
+        <div className="loading-container">
+          <div className="loading-spinner" />
+          <span>Loading users...</span>
+        </div>
       ) : users.length === 0 ? (
-        <div className="text-center py-12">No users found</div>
+        <div className="empty-state">
+          <div className="empty-state-icon">
+            <UsersIcon size={32} />
+          </div>
+          <h3>No users found</h3>
+          <p>
+            {searchTerm
+              ? 'Try a different search term'
+              : 'No users have signed up yet'}
+          </p>
+        </div>
       ) : (
         <>
           <UserTable users={users} />
           <div className="pagination">
-            <Button
+            <button
+              className="btn btn-secondary btn-sm"
               onClick={() => setPage(Math.max(1, page - 1))}
               disabled={page === 1}
+              type="button"
             >
-              Previous
-            </Button>
+              <ChevronLeft size={16} />
+              <span>Previous</span>
+            </button>
             <span className="page-info">
               Page {page} of {totalPages}
             </span>
-            <Button
+            <button
+              className="btn btn-secondary btn-sm"
               onClick={() => setPage(Math.min(totalPages, page + 1))}
               disabled={page === totalPages}
+              type="button"
             >
-              Next
-            </Button>
+              <span>Next</span>
+              <ChevronRight size={16} />
+            </button>
           </div>
         </>
       )}

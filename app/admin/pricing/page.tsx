@@ -2,11 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { createPricingRule, deletePricingRule, updatePricingRule } from '@/lib/actions/pricing'
-import { Plus, Trash2, Edit2, Save, X, Loader2 } from 'lucide-react'
+import { Plus, Trash2, Edit2, Save, X } from 'lucide-react'
 import { PricingBulkTab } from '@/components/admin/pricing-bulk-tab'
 import { PricingTemplatesTab } from '@/components/admin/pricing-templates-tab'
 
@@ -34,18 +31,40 @@ interface EditingRule {
   markupValue: number
 }
 
-// Match the exact structure from user dashboard
 const NETWORKS = [
-  { name: "MTN", types: [{ value: "mtn_sme", label: "SME Data" }, { value: "mtn_datashare", label: "Data Share" }, { value: "mtn_gifting", label: "Gifting" }, { value: "mtn_awoof", label: "AWOOF" }] },
-  { name: "Glo", types: [{ value: "glo_data", label: "Glo Data" }, { value: "glo_sme", label: "SME Data" }] },
-  { name: "Airtel", types: [{ value: "airtel_sme", label: "SME Data" }, { value: "airtel_gifting", label: "Gifting" }] },
-  { name: "9mobile", types: [{ value: "etisalat_data", label: "9mobile Data" }] },
+  {
+    name: 'MTN',
+    types: [
+      { value: 'mtn_sme', label: 'SME' },
+      { value: 'mtn_datashare', label: 'Share' },
+      { value: 'mtn_gifting', label: 'Gifting' },
+      { value: 'mtn_awoof', label: 'AWOOF' },
+    ],
+  },
+  {
+    name: 'Glo',
+    types: [
+      { value: 'glo_data', label: 'Data' },
+      { value: 'glo_sme', label: 'SME' },
+    ],
+  },
+  {
+    name: 'Airtel',
+    types: [
+      { value: 'airtel_sme', label: 'SME' },
+      { value: 'airtel_gifting', label: 'Gifting' },
+    ],
+  },
+  {
+    name: '9mobile',
+    types: [{ value: 'etisalat_data', label: '9mobile Data' }],
+  },
 ]
 
 const CABLE_SERVICES = [
-  { id: "dstv", name: "DSTV", gsubzId: "dstv" },
-  { id: "gotv", name: "GOTV", gsubzId: "gotv" },
-  { id: "startimes", name: "Startimes", gsubzId: "startimes" },
+  { id: 'dstv', name: 'DSTV' },
+  { id: 'gotv', name: 'GOTV' },
+  { id: 'startimes', name: 'Startimes' },
 ]
 
 export default function PricingPage() {
@@ -53,7 +72,7 @@ export default function PricingPage() {
   const [activeNetwork, setActiveNetwork] = useState('MTN')
   const [activePlanType, setActivePlanType] = useState('mtn_sme')
   const [activeCableService, setActiveCableService] = useState('dstv')
-  
+
   const [gsubzPlans, setGsubzPlans] = useState<GsubzPlan[]>([])
   const [rules, setRules] = useState<PricingRule[]>([])
   const [loading, setLoading] = useState(true)
@@ -63,11 +82,10 @@ export default function PricingPage() {
   const [formData, setFormData] = useState({
     planName: '',
     basePrice: '',
-    markupType: 'fixed' as const,
+    markupType: 'fixed' as 'fixed' | 'percentage',
     markupValue: '',
   })
-  const [bulkMarkupType, setBulkMarkupType] = useState<'fixed' | 'percentage'>('fixed')
-  const [bulkMarkupValue, setBulkMarkupValue] = useState('')
+  const [activeTab, setActiveTab] = useState<'individual' | 'bulk' | 'templates'>('individual')
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -77,62 +95,53 @@ export default function PricingPage() {
   const currentNetwork = NETWORKS.find((n) => n.name === activeNetwork)
   const currentCableService = CABLE_SERVICES.find((s) => s.id === activeCableService)
 
-  // Get the service ID for pricing lookup
   const getPricingServiceId = useCallback((planTypeOrService: string) => {
     const serviceMap: Record<string, string> = {
-      mtn_sme: "mtn",
-      mtn_datashare: "mtn",
-      mtn_gifting: "mtn",
-      mtn_awoof: "mtn",
-      glo_data: "glo",
-      glo_sme: "glo",
-      airtel_sme: "airtel",
-      airtel_gifting: "airtel",
-      etisalat_data: "etisalat",
-      dstv: "dstv",
-      gotv: "gotv",
-      startimes: "startimes",
+      mtn_sme: 'mtn',
+      mtn_datashare: 'mtn',
+      mtn_gifting: 'mtn',
+      mtn_awoof: 'mtn',
+      glo_data: 'glo',
+      glo_sme: 'glo',
+      airtel_sme: 'airtel',
+      airtel_gifting: 'airtel',
+      etisalat_data: 'etisalat',
+      dstv: 'dstv',
+      gotv: 'gotv',
+      startimes: 'startimes',
     }
     return serviceMap[planTypeOrService] || planTypeOrService
   }, [])
 
-  // Fetch gsubz plans
-  const fetchGsubzPlans = useCallback(async (planTypeOrService: string) => {
-    setLoadingGsubz(true)
-    try {
-      console.log('[v0] Fetching gsubz plans for:', planTypeOrService)
-      
-      const type = activeService === 'data' ? 'DATA' : 'CABLE'
-      const response = await fetch(`/api/gsubz/plans?service=${planTypeOrService}&type=${type}`)
-      const data = await response.json()
+  const fetchGsubzPlans = useCallback(
+    async (planTypeOrService: string) => {
+      setLoadingGsubz(true)
+      try {
+        const type = activeService === 'data' ? 'DATA' : 'CABLE'
+        const response = await fetch(`/api/gsubz/plans?service=${planTypeOrService}&type=${type}`)
+        const data = await response.json()
+        setGsubzPlans(data.plans || [])
+      } catch (error) {
+        console.error('[v0] Error fetching gsubz plans:', error)
+        setGsubzPlans([])
+      } finally {
+        setLoadingGsubz(false)
+      }
+    },
+    [activeService]
+  )
 
-      console.log('[v0] Gsubz response:', data)
-      setGsubzPlans(data.plans || [])
-    } catch (error) {
-      console.error('[v0] Error fetching gsubz plans:', error)
-      setGsubzPlans([])
-    } finally {
-      setLoadingGsubz(false)
-    }
-  }, [activeService])
-
-  // Fetch pricing rules
   const fetchRules = useCallback(async () => {
     setLoading(true)
     try {
-      const serviceId = activeService === 'data' 
-        ? getPricingServiceId(activePlanType)
-        : getPricingServiceId(activeCableService)
-
-      console.log('[v0] Fetching rules for serviceId:', serviceId)
-
+      const serviceId =
+        activeService === 'data' ? getPricingServiceId(activePlanType) : getPricingServiceId(activeCableService)
       const { data } = await supabase
         .from('pricing_rules')
         .select('*')
         .eq('service_id', serviceId)
         .eq('is_active', true)
         .order('created_at', { ascending: false })
-
       setRules(data || [])
     } catch (error) {
       console.error('Error fetching rules:', error)
@@ -148,7 +157,6 @@ export default function PricingPage() {
   }, [activeService, activePlanType, activeCableService, fetchGsubzPlans, fetchRules])
 
   useEffect(() => {
-    // Auto-set first plan type when network changes
     if (currentNetwork && currentNetwork.types.length > 0) {
       setActivePlanType(currentNetwork.types[0].value)
     }
@@ -162,9 +170,8 @@ export default function PricingPage() {
     }
 
     setSubmitting(true)
-    const serviceId = activeService === 'data' 
-      ? getPricingServiceId(activePlanType)
-      : getPricingServiceId(activeCableService)
+    const serviceId =
+      activeService === 'data' ? getPricingServiceId(activePlanType) : getPricingServiceId(activeCableService)
 
     const result = await createPricingRule(
       serviceId,
@@ -185,14 +192,12 @@ export default function PricingPage() {
 
   const handleUpdateRule = async () => {
     if (!editingRule) return
-
     setSubmitting(true)
     const result = await updatePricingRule(editingRule.id, {
       basePrice: editingRule.basePrice,
       markupType: editingRule.markupType,
       markupValue: editingRule.markupValue,
     })
-
     if (result.success) {
       setEditingRule(null)
       fetchRules()
@@ -204,7 +209,6 @@ export default function PricingPage() {
 
   const handleDeleteRule = async (ruleId: string) => {
     if (!confirm('Delete this pricing rule?')) return
-
     const result = await deletePricingRule(ruleId)
     if (result.success) {
       fetchRules()
@@ -214,11 +218,9 @@ export default function PricingPage() {
   }
 
   const calculateFinalPrice = (rule: PricingRule) => {
-    if (rule.markup_type === 'fixed') {
-      return rule.base_price + rule.markup_value
-    } else {
-      return rule.base_price * (1 + rule.markup_value / 100)
-    }
+    return rule.markup_type === 'fixed'
+      ? rule.base_price + rule.markup_value
+      : rule.base_price * (1 + rule.markup_value / 100)
   }
 
   const handleSelectGsubzPlan = (plan: GsubzPlan) => {
@@ -232,459 +234,539 @@ export default function PricingPage() {
 
   const getServiceLabel = () => {
     if (activeService === 'data') {
-      const planTypeLabel = currentNetwork?.types.find(t => t.value === activePlanType)?.label || ''
-      return `${activeNetwork} - ${planTypeLabel}`
+      const planTypeLabel = currentNetwork?.types.find((t) => t.value === activePlanType)?.label || ''
+      return `${activeNetwork} ${planTypeLabel}`
     }
     return currentCableService?.name || ''
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">Dynamic Pricing Management</h1>
-          <p className="text-slate-600">Manage markup rules for all data and cable services. Plans are fetched live from Gsubz.</p>
-        </div>
-
-        {/* Main Service Type Tabs (Data vs Cable) */}
-        <Tabs value={activeService} onValueChange={(value) => setActiveService(value as 'data' | 'cable')} className="w-full">
-          <TabsList className="mb-8 bg-white border border-slate-200 rounded-lg p-1 inline-flex">
-            <TabsTrigger value="data" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
-              Data Plans
-            </TabsTrigger>
-            <TabsTrigger value="cable" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
-              Cable Plans
-            </TabsTrigger>
-          </TabsList>
-
-          {/* DATA PLANS SECTION */}
-          <TabsContent value="data" className="space-y-6">
-            {/* Network Tabs */}
-            <Tabs value={activeNetwork} onValueChange={setActiveNetwork} className="w-full">
-              <TabsList className="grid w-full grid-cols-4 mb-8 bg-white border border-slate-200 rounded-lg p-1">
-                {NETWORKS.map((network) => (
-                  <TabsTrigger
-                    key={network.name}
-                    value={network.name}
-                    className="text-sm data-[state=active]:bg-emerald-600 data-[state=active]:text-white"
-                  >
-                    {network.name}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-
-              {NETWORKS.map((network) => (
-                <TabsContent key={network.name} value={network.name} className="space-y-6">
-                  {/* Plan Type Tabs - Only show if more than 1 type */}
-                  {network.types.length > 1 && (
-                    <Tabs value={activePlanType} onValueChange={setActivePlanType} className="w-full mb-6">
-                      <TabsList className="grid gap-2 bg-white border border-slate-200 rounded-lg p-1" style={{ gridTemplateColumns: `repeat(${Math.min(network.types.length, 4)}, 1fr)` }}>
-                        {network.types.map((type) => (
-                          <TabsTrigger
-                            key={type.value}
-                            value={type.value}
-                            className="text-xs sm:text-sm data-[state=active]:bg-purple-600 data-[state=active]:text-white"
-                          >
-                            {type.label}
-                          </TabsTrigger>
-                        ))}
-                      </TabsList>
-                    </Tabs>
-                  )}
-
-                  {/* Show PricingManagerContent only for active network */}
-                  {activeNetwork === network.name && (
-                    <PricingManagerContent
-                      serviceLabel={getServiceLabel()}
-                      gsubzPlans={gsubzPlans}
-                      rules={rules}
-                      loading={loading}
-                      loadingGsubz={loadingGsubz}
-                      submitting={submitting}
-                      editingRule={editingRule}
-                      formData={formData}
-                      onAddRule={handleAddRule}
-                      onUpdateRule={handleUpdateRule}
-                      onDeleteRule={handleDeleteRule}
-                      onSelectPlan={handleSelectGsubzPlan}
-                      onFormChange={setFormData}
-                      onEditingChange={setEditingRule}
-                      calculateFinalPrice={calculateFinalPrice}
-                      serviceId={getPricingServiceId(activePlanType)}
-                    />
-                  )}
-                </TabsContent>
-              ))}
-            </Tabs>
-          </TabsContent>
-
-          {/* CABLE PLANS SECTION */}
-          <TabsContent value="cable" className="space-y-6">
-            {/* Cable Service Tabs */}
-            <Tabs value={activeCableService} onValueChange={setActiveCableService} className="w-full">
-              <TabsList className="grid w-full grid-cols-3 mb-8 bg-white border border-slate-200 rounded-lg p-1">
-                {CABLE_SERVICES.map((service) => (
-                  <TabsTrigger
-                    key={service.id}
-                    value={service.id}
-                    className="text-sm data-[state=active]:bg-orange-600 data-[state=active]:text-white"
-                  >
-                    {service.name}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-
-              {CABLE_SERVICES.map((service) => (
-                <TabsContent key={service.id} value={service.id} className="space-y-6">
-                  {/* Show PricingManagerContent only for active cable service */}
-                  {activeCableService === service.id && (
-                    <PricingManagerContent
-                      serviceLabel={service.name}
-                      gsubzPlans={gsubzPlans}
-                      rules={rules}
-                      loading={loading}
-                      loadingGsubz={loadingGsubz}
-                      submitting={submitting}
-                      editingRule={editingRule}
-                      formData={formData}
-                      onAddRule={handleAddRule}
-                      onUpdateRule={handleUpdateRule}
-                      onDeleteRule={handleDeleteRule}
-                      onSelectPlan={handleSelectGsubzPlan}
-                      onFormChange={setFormData}
-                      onEditingChange={setEditingRule}
-                      calculateFinalPrice={calculateFinalPrice}
-                      serviceId={getPricingServiceId(activeCableService)}
-                    />
-                  )}
-                </TabsContent>
-              ))}
-            </Tabs>
-          </TabsContent>
-        </Tabs>
-      </div>
-    </div>
-  )
-}
-
-interface PricingManagerContentProps {
-  serviceLabel: string
-  gsubzPlans: GsubzPlan[]
-  rules: PricingRule[]
-  loading: boolean
-  loadingGsubz: boolean
-  submitting: boolean
-  editingRule: EditingRule | null
-  formData: any
-  onAddRule: (e: React.FormEvent) => Promise<void>
-  onUpdateRule: () => Promise<void>
-  onDeleteRule: (id: string) => Promise<void>
-  onSelectPlan: (plan: GsubzPlan) => void
-  onFormChange: (data: any) => void
-  onEditingChange: (rule: EditingRule | null) => void
-  calculateFinalPrice: (rule: PricingRule) => number
-}
-
-function PricingManagerContent({
-  serviceLabel,
-  gsubzPlans,
-  rules,
-  loading,
-  loadingGsubz,
-  submitting,
-  editingRule,
-  formData,
-  onAddRule,
-  onUpdateRule,
-  onDeleteRule,
-  onSelectPlan,
-  onFormChange,
-  onEditingChange,
-  calculateFinalPrice,
-  serviceId,
-}: PricingManagerContentProps & { serviceId: string }) {
-  const [activeTab, setActiveTab] = useState('individual')
-  const [bulkMarkupType, setBulkMarkupType] = useState<'fixed' | 'percentage'>('fixed')
-  const [bulkMarkupValue, setBulkMarkupValue] = useState('')
-
   const handleApplyTemplate = (markupType: 'fixed' | 'percentage', markupValue: number) => {
-    setBulkMarkupType(markupType)
-    setBulkMarkupValue(String(markupValue))
-    setActiveTab('bulk')
+    setFormData((prev) => ({ ...prev, markupType, markupValue: String(markupValue) }))
+    setActiveTab('individual')
   }
 
+  const serviceId =
+    activeService === 'data' ? getPricingServiceId(activePlanType) : getPricingServiceId(activeCableService)
+
   return (
-    <div className="space-y-6">
-      {/* Tabs for Bulk, Templates, and Individual */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3 bg-white border border-slate-200 rounded-lg p-1">
-          <TabsTrigger 
-            value="bulk" 
-            className="data-[state=active]:bg-blue-600 data-[state=active]:text-white"
-          >
-            Bulk Apply
-          </TabsTrigger>
-          <TabsTrigger 
-            value="templates"
-            className="data-[state=active]:bg-purple-600 data-[state=active]:text-white"
-          >
-            Templates
-          </TabsTrigger>
-          <TabsTrigger 
-            value="individual"
-            className="data-[state=active]:bg-emerald-600 data-[state=active]:text-white"
-          >
-            Individual
-          </TabsTrigger>
-        </TabsList>
+    <div className="admin-page">
+      <div className="admin-header">
+        <div className="admin-header-row">
+          <div>
+            <h1>Pricing Management</h1>
+            <p>Manage markup rules for data and cable services. Plans are fetched live from Gsubz.</p>
+          </div>
+        </div>
+      </div>
 
-        {/* BULK APPLY TAB */}
-        <TabsContent value="bulk" className="space-y-4">
-          <PricingBulkTab 
-            rules={rules}
-            gsubzPlans={gsubzPlans}
-            serviceId={serviceId}
-            calculateFinalPrice={calculateFinalPrice}
-            onSuccess={onUpdateRule}
-          />
-        </TabsContent>
+      {/* Service type selector */}
+      <div className="admin-tabs">
+        <button
+          type="button"
+          className={`admin-tab ${activeService === 'data' ? 'active' : ''}`}
+          onClick={() => setActiveService('data')}
+        >
+          Data Plans
+        </button>
+        <button
+          type="button"
+          className={`admin-tab ${activeService === 'cable' ? 'active' : ''}`}
+          onClick={() => setActiveService('cable')}
+        >
+          Cable Plans
+        </button>
+      </div>
 
-        {/* TEMPLATES TAB */}
-        <TabsContent value="templates" className="space-y-4">
-          <PricingTemplatesTab 
-            onApplyTemplate={handleApplyTemplate}
-          />
-        </TabsContent>
+      {/* Network or cable service selector */}
+      {activeService === 'data' ? (
+        <>
+          <div className="filter-chips">
+            {NETWORKS.map((network) => (
+              <button
+                type="button"
+                key={network.name}
+                className={`filter-chip ${activeNetwork === network.name ? 'active' : ''}`}
+                onClick={() => setActiveNetwork(network.name)}
+              >
+                {network.name}
+              </button>
+            ))}
+          </div>
 
-        {/* INDIVIDUAL TAB */}
-        <TabsContent value="individual">
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            {/* Available Plans from Gsubz API - Wider */}
-            <div className="lg:col-span-1">
-              <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden sticky top-6 h-fit">
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 border-b border-slate-200">
-                  <h3 className="text-sm font-semibold text-slate-900">Available Plans</h3>
-                  <p className="text-xs text-slate-600 mt-1">Click "Use" to auto-fill</p>
-                </div>
+          {currentNetwork && currentNetwork.types.length > 1 && (
+            <div className="filter-chips">
+              {currentNetwork.types.map((type) => (
+                <button
+                  type="button"
+                  key={type.value}
+                  className={`filter-chip ${activePlanType === type.value ? 'active' : ''}`}
+                  onClick={() => setActivePlanType(type.value)}
+                >
+                  {type.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="filter-chips">
+          {CABLE_SERVICES.map((service) => (
+            <button
+              type="button"
+              key={service.id}
+              className={`filter-chip ${activeCableService === service.id ? 'active' : ''}`}
+              onClick={() => setActiveCableService(service.id)}
+            >
+              {service.name}
+            </button>
+          ))}
+        </div>
+      )}
 
-                {loadingGsubz ? (
-                  <div className="p-6 text-center">
-                    <Loader2 size={20} className="animate-spin mx-auto text-slate-400 mb-2" />
-                    <p className="text-xs text-slate-600">Loading plans...</p>
-                  </div>
-                ) : gsubzPlans.length === 0 ? (
-                  <div className="p-6 text-center">
-                    <p className="text-xs text-slate-600">No plans available for {serviceLabel}</p>
-                    <p className="text-xs text-slate-500 mt-2">{`Total plans: ${gsubzPlans.length}`}</p>
-                  </div>
-                ) : (
-                  <div className="overflow-y-auto max-h-[600px]">
-                    <div className="divide-y divide-slate-200">
-                      {gsubzPlans.map((plan) => (
-                        <div key={plan.value} className="p-3 hover:bg-slate-50 flex items-center justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium text-slate-900 truncate">{plan.displayName}</p>
-                            <p className="text-xs text-slate-500">₦{Number(plan.price).toLocaleString()}</p>
-                          </div>
-                          <button
-                            onClick={() => onSelectPlan(plan)}
-                            className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-2 py-1 rounded whitespace-nowrap flex-shrink-0"
-                          >
-                            Use
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+      {/* Service label */}
+      <div
+        style={{
+          background: 'var(--admin-bg-secondary)',
+          border: '1px solid var(--admin-border)',
+          borderRadius: 'var(--radius-md)',
+          padding: '10px 14px',
+          marginBottom: 16,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: 8,
+          flexWrap: 'wrap',
+        }}
+      >
+        <span style={{ fontSize: 13, color: 'var(--admin-text-secondary)' }}>
+          Editing: <strong style={{ color: 'var(--admin-text)' }}>{getServiceLabel()}</strong>
+        </span>
+        <span style={{ fontSize: 12, color: 'var(--admin-text-tertiary)' }}>
+          {rules.length} rule{rules.length !== 1 ? 's' : ''}
+        </span>
+      </div>
+
+      {/* Action tabs */}
+      <div className="admin-tabs">
+        <button
+          type="button"
+          className={`admin-tab ${activeTab === 'individual' ? 'active' : ''}`}
+          onClick={() => setActiveTab('individual')}
+        >
+          Individual
+        </button>
+        <button
+          type="button"
+          className={`admin-tab ${activeTab === 'bulk' ? 'active' : ''}`}
+          onClick={() => setActiveTab('bulk')}
+        >
+          Bulk
+        </button>
+        <button
+          type="button"
+          className={`admin-tab ${activeTab === 'templates' ? 'active' : ''}`}
+          onClick={() => setActiveTab('templates')}
+        >
+          Templates
+        </button>
+      </div>
+
+      {/* Tab content */}
+      {activeTab === 'individual' && (
+        <>
+          {/* Available Plans (collapsed/drawer style on mobile) */}
+          <div className="admin-card">
+            <div className="admin-card-header">
+              <div>
+                <h3>Available Plans</h3>
+                <p className="admin-card-subtitle">Tap to auto-fill the form</p>
               </div>
             </div>
 
-            {/* Add New Rule Form + Rules List */}
-            <div className="lg:col-span-3 space-y-6">
-              {/* Form */}
-              <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
-                <h3 className="text-lg font-semibold text-slate-900 mb-4">Add Markup Rule</h3>
-
-                <form onSubmit={onAddRule} className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">Plan Name</label>
-                      <Input
-                        type="text"
-                        placeholder="e.g., 1GB Daily"
-                        value={formData.planName}
-                        onChange={(e) => onFormChange({ ...formData, planName: e.target.value })}
-                        disabled={submitting}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">Base Price (₦)</label>
-                      <Input
-                        type="number"
-                        placeholder="0.00"
-                        step="0.01"
-                        value={formData.basePrice}
-                        onChange={(e) => onFormChange({ ...formData, basePrice: e.target.value })}
-                        disabled={submitting}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">Markup Type</label>
-                      <select
-                        value={formData.markupType}
-                        onChange={(e) => onFormChange({ ...formData, markupType: e.target.value })}
-                        disabled={submitting}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="fixed">Fixed Amount (₦)</option>
-                        <option value="percentage">Percentage (%)</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">Markup Value</label>
-                      <Input
-                        type="number"
-                        placeholder="0.00"
-                        step="0.01"
-                        value={formData.markupValue}
-                        onChange={(e) => onFormChange({ ...formData, markupValue: e.target.value })}
-                        disabled={submitting}
-                      />
-                    </div>
-                  </div>
-
-                  <Button 
-                    type="submit" 
-                    disabled={submitting} 
-                    className="w-full bg-blue-600 hover:bg-blue-700"
+            {loadingGsubz ? (
+              <div className="loading-container" style={{ padding: 30 }}>
+                <div className="loading-spinner" />
+                <span>Loading plans...</span>
+              </div>
+            ) : gsubzPlans.length === 0 ? (
+              <p style={{ textAlign: 'center', color: 'var(--admin-text-tertiary)', fontSize: 13, padding: 16 }}>
+                No plans available for {getServiceLabel()}
+              </p>
+            ) : (
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+                  gap: 8,
+                  maxHeight: 280,
+                  overflowY: 'auto',
+                }}
+              >
+                {gsubzPlans.map((plan) => (
+                  <button
+                    type="button"
+                    key={plan.value}
+                    onClick={() => handleSelectGsubzPlan(plan)}
+                    style={{
+                      padding: 10,
+                      background: 'var(--admin-bg-tertiary)',
+                      border: '1px solid var(--admin-border)',
+                      borderRadius: 'var(--radius-md)',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      color: 'var(--admin-text)',
+                      transition: 'all 150ms',
+                      fontFamily: 'inherit',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--admin-secondary)'
+                      e.currentTarget.style.background = 'var(--admin-bg-elevated)'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--admin-border)'
+                      e.currentTarget.style.background = 'var(--admin-bg-tertiary)'
+                    }}
                   >
-                    {submitting ? (
-                      <>
-                        <Loader2 size={16} className="animate-spin mr-2" />
-                        Adding...
-                      </>
-                    ) : (
-                      <>
-                        <Plus size={16} className="mr-2" />
-                        Add Rule
-                      </>
-                    )}
-                  </Button>
-                </form>
+                    <p style={{ margin: 0, fontSize: 12, fontWeight: 600 }}>{plan.displayName}</p>
+                    <p style={{ margin: '2px 0 0 0', fontSize: 11, color: 'var(--admin-success)', fontWeight: 600 }}>
+                      ₦{Number(plan.price).toLocaleString()}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Add new rule form */}
+          <div className="admin-card">
+            <div className="admin-card-header">
+              <h3>Add Markup Rule</h3>
+            </div>
+            <form onSubmit={handleAddRule}>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Plan Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g., 1GB Daily"
+                    value={formData.planName}
+                    onChange={(e) => setFormData({ ...formData, planName: e.target.value })}
+                    disabled={submitting}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Base Price (₦)</label>
+                  <input
+                    type="number"
+                    placeholder="0.00"
+                    step="0.01"
+                    value={formData.basePrice}
+                    onChange={(e) => setFormData({ ...formData, basePrice: e.target.value })}
+                    disabled={submitting}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Markup Type</label>
+                  <select
+                    value={formData.markupType}
+                    onChange={(e) => setFormData({ ...formData, markupType: e.target.value as 'fixed' | 'percentage' })}
+                    disabled={submitting}
+                  >
+                    <option value="fixed">Fixed (₦)</option>
+                    <option value="percentage">Percentage (%)</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Markup Value</label>
+                  <input
+                    type="number"
+                    placeholder="0.00"
+                    step="0.01"
+                    value={formData.markupValue}
+                    onChange={(e) => setFormData({ ...formData, markupValue: e.target.value })}
+                    disabled={submitting}
+                  />
+                </div>
               </div>
 
-              {/* Existing Rules List */}
-              <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
-                <div className="bg-slate-50 border-b border-slate-200 p-4">
-                  <h3 className="font-semibold text-slate-900">{serviceLabel} - Pricing Rules</h3>
-                  <p className="text-sm text-slate-600">Total: {rules.length} rules</p>
-                </div>
-
-                {loading ? (
-                  <div className="p-12 text-center">
-                    <Loader2 size={24} className="animate-spin mx-auto text-slate-400 mb-2" />
-                    <p className="text-slate-600">Loading rules...</p>
-                  </div>
-                ) : rules.length === 0 ? (
-                  <div className="p-12 text-center">
-                    <p className="text-slate-600">No pricing rules yet. Create one to get started!</p>
-                  </div>
+              <button type="submit" disabled={submitting} className="btn btn-block">
+                {submitting ? (
+                  <>
+                    <div className="loading-spinner" />
+                    <span>Adding...</span>
+                  </>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b border-slate-200 bg-slate-50">
-                          <th className="px-4 py-3 text-left text-sm font-medium text-slate-900">Plan</th>
-                          <th className="px-4 py-3 text-left text-sm font-medium text-slate-900">Base Price</th>
-                          <th className="px-4 py-3 text-left text-sm font-medium text-slate-900">Markup</th>
-                          <th className="px-4 py-3 text-left text-sm font-medium text-slate-900">Final Price</th>
-                          <th className="px-4 py-3 text-left text-sm font-medium text-slate-900">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {rules.map((rule) => (
-                          <tr key={rule.id} className="border-b border-slate-100 hover:bg-slate-50">
-                            <td className="px-4 py-3 text-sm font-medium text-slate-900">{rule.plan_name}</td>
-                            <td className="px-4 py-3 text-sm text-slate-600 font-mono">₦{rule.base_price.toLocaleString()}</td>
-                            <td className="px-4 py-3 text-sm text-slate-600">
-                              {rule.markup_type === 'fixed' ? '+₦' : '+'}
-                              {rule.markup_value}
-                              {rule.markup_type === 'percentage' ? '%' : ''}
-                            </td>
-                            <td className="px-4 py-3 text-sm font-semibold text-slate-900 font-mono">
-                              ₦{calculateFinalPrice(rule).toLocaleString()}
-                            </td>
-                            <td className="px-4 py-3 text-sm space-x-2">
+                  <>
+                    <Plus size={16} />
+                    <span>Add Rule</span>
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
+
+          {/* Existing rules */}
+          <div className="admin-card">
+            <div className="admin-card-header">
+              <div>
+                <h3>{getServiceLabel()} Rules</h3>
+                <p className="admin-card-subtitle">{rules.length} active rules</p>
+              </div>
+            </div>
+
+            {loading ? (
+              <div className="loading-container" style={{ padding: 30 }}>
+                <div className="loading-spinner" />
+                <span>Loading rules...</span>
+              </div>
+            ) : rules.length === 0 ? (
+              <div className="empty-state">
+                <h3>No rules yet</h3>
+                <p>Create one above to get started</p>
+              </div>
+            ) : (
+              <div className="table-container">
+                <div className="admin-table-wrapper">
+                  <table className="admin-table">
+                    <thead>
+                      <tr>
+                        <th>Plan</th>
+                        <th>Base Price</th>
+                        <th>Markup</th>
+                        <th>Final Price</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rules.map((rule) => (
+                        <tr key={rule.id}>
+                          <td style={{ fontWeight: 600 }}>{rule.plan_name}</td>
+                          <td className="text-mono">₦{rule.base_price.toLocaleString()}</td>
+                          <td>
+                            {!editingRule || editingRule.id !== rule.id ? (
+                              <span style={{ color: 'var(--admin-text-secondary)' }}>
+                                {rule.markup_type === 'fixed' ? '+₦' : '+'}
+                                {rule.markup_value}
+                                {rule.markup_type === 'percentage' ? '%' : ''}
+                              </span>
+                            ) : (
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={editingRule.markupValue}
+                                onChange={(e) =>
+                                  setEditingRule({
+                                    ...editingRule,
+                                    markupValue: parseFloat(e.target.value) || 0,
+                                  })
+                                }
+                                style={{
+                                  width: 100,
+                                  height: 32,
+                                  padding: '0 8px',
+                                  background: 'var(--admin-bg)',
+                                  border: '1px solid var(--admin-secondary)',
+                                  borderRadius: 'var(--radius-sm)',
+                                  color: 'var(--admin-text)',
+                                  fontSize: 13,
+                                }}
+                              />
+                            )}
+                          </td>
+                          <td className="text-mono" style={{ fontWeight: 700, color: 'var(--admin-success)' }}>
+                            ₦{calculateFinalPrice(rule).toLocaleString()}
+                          </td>
+                          <td>
+                            <div className="action-buttons">
                               {!editingRule || editingRule.id !== rule.id ? (
                                 <>
                                   <button
-                                    onClick={() => onEditingChange({
-                                      id: rule.id,
-                                      planName: rule.plan_name,
-                                      basePrice: rule.base_price,
-                                      markupType: rule.markup_type,
-                                      markupValue: rule.markup_value,
-                                    })}
-                                    className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded"
+                                    type="button"
+                                    onClick={() =>
+                                      setEditingRule({
+                                        id: rule.id,
+                                        planName: rule.plan_name,
+                                        basePrice: rule.base_price,
+                                        markupType: rule.markup_type,
+                                        markupValue: rule.markup_value,
+                                      })
+                                    }
+                                    className="btn btn-ghost btn-icon"
+                                    title="Edit"
                                   >
                                     <Edit2 size={14} />
-                                    Edit
                                   </button>
                                   <button
-                                    onClick={() => onDeleteRule(rule.id)}
-                                    className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 rounded"
+                                    type="button"
+                                    onClick={() => handleDeleteRule(rule.id)}
+                                    className="btn btn-ghost btn-icon"
+                                    style={{ color: 'var(--admin-danger)' }}
+                                    title="Delete"
                                   >
                                     <Trash2 size={14} />
-                                    Delete
                                   </button>
                                 </>
                               ) : (
                                 <>
-                                  <Input
-                                    type="number"
-                                    step="0.01"
-                                    value={editingRule.markupValue}
-                                    onChange={(e) => onEditingChange({
-                                      ...editingRule,
-                                      markupValue: parseFloat(e.target.value) || 0,
-                                    })}
-                                    className="w-24 h-8 text-xs"
-                                    placeholder="Value"
-                                  />
                                   <button
-                                    onClick={onUpdateRule}
+                                    type="button"
+                                    onClick={handleUpdateRule}
                                     disabled={submitting}
-                                    className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-emerald-600 hover:bg-emerald-50 rounded"
+                                    className="btn btn-success btn-sm btn-icon"
+                                    title="Save"
                                   >
                                     <Save size={14} />
-                                    {submitting ? 'Saving...' : 'Save'}
                                   </button>
                                   <button
-                                    onClick={() => onEditingChange(null)}
+                                    type="button"
+                                    onClick={() => setEditingRule(null)}
                                     disabled={submitting}
-                                    className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded"
+                                    className="btn btn-ghost btn-icon"
+                                    title="Cancel"
                                   >
                                     <X size={14} />
-                                    Cancel
                                   </button>
                                 </>
                               )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile cards */}
+                <div className="data-list" style={{ padding: 12 }}>
+                  {rules.map((rule) => {
+                    const isEditing = editingRule && editingRule.id === rule.id
+                    return (
+                      <div key={rule.id} className="data-card">
+                        <div className="data-card-header">
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <h3 className="data-card-title">{rule.plan_name}</h3>
+                            <p className="data-card-subtitle">Base: ₦{rule.base_price.toLocaleString()}</p>
+                          </div>
+                          <span
+                            className="data-card-amount"
+                            style={{ color: 'var(--admin-success)', fontSize: 16 }}
+                          >
+                            ₦{calculateFinalPrice(rule).toLocaleString()}
+                          </span>
+                        </div>
+
+                        <div className="data-card-grid">
+                          <div className="data-card-field">
+                            <span className="data-card-label">Markup</span>
+                            {!isEditing ? (
+                              <span className="data-card-value">
+                                {rule.markup_type === 'fixed' ? '+₦' : '+'}
+                                {rule.markup_value}
+                                {rule.markup_type === 'percentage' ? '%' : ''}
+                              </span>
+                            ) : (
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={editingRule.markupValue}
+                                onChange={(e) =>
+                                  setEditingRule({
+                                    ...editingRule,
+                                    markupValue: parseFloat(e.target.value) || 0,
+                                  })
+                                }
+                                style={{
+                                  height: 32,
+                                  padding: '0 8px',
+                                  background: 'var(--admin-bg)',
+                                  border: '1px solid var(--admin-secondary)',
+                                  borderRadius: 'var(--radius-sm)',
+                                  color: 'var(--admin-text)',
+                                  fontSize: 13,
+                                  width: '100%',
+                                }}
+                              />
+                            )}
+                          </div>
+                          <div className="data-card-field">
+                            <span className="data-card-label">Type</span>
+                            <span className="data-card-value">{rule.markup_type}</span>
+                          </div>
+                        </div>
+
+                        <div className="data-card-actions">
+                          {!isEditing ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setEditingRule({
+                                    id: rule.id,
+                                    planName: rule.plan_name,
+                                    basePrice: rule.base_price,
+                                    markupType: rule.markup_type,
+                                    markupValue: rule.markup_value,
+                                  })
+                                }
+                                className="btn btn-secondary btn-sm"
+                                style={{ flex: 1 }}
+                              >
+                                <Edit2 size={14} />
+                                <span>Edit</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteRule(rule.id)}
+                                className="btn btn-danger btn-sm btn-icon"
+                                title="Delete"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                onClick={handleUpdateRule}
+                                disabled={submitting}
+                                className="btn btn-success btn-sm"
+                                style={{ flex: 1 }}
+                              >
+                                <Save size={14} />
+                                <span>Save</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setEditingRule(null)}
+                                disabled={submitting}
+                                className="btn btn-secondary btn-sm btn-icon"
+                              >
+                                <X size={14} />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
-            </div>
+            )}
           </div>
-        </TabsContent>
-      </Tabs>
+        </>
+      )}
+
+      {activeTab === 'bulk' && (
+        <PricingBulkTab
+          rules={rules}
+          gsubzPlans={gsubzPlans}
+          serviceId={serviceId}
+          calculateFinalPrice={calculateFinalPrice}
+          onSuccess={fetchRules}
+        />
+      )}
+
+      {activeTab === 'templates' && <PricingTemplatesTab onApplyTemplate={handleApplyTemplate} />}
     </div>
   )
 }

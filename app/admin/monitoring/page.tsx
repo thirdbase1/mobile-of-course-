@@ -2,8 +2,17 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { getAllEndpointHealth, getEndpointStats } from '@/lib/actions/monitoring'
-import { RefreshCw, AlertCircle, CheckCircle, Clock } from 'lucide-react'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { RefreshCw, AlertCircle, CheckCircle, Clock, X, Activity, Zap } from 'lucide-react'
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from 'recharts'
 
 interface EndpointCheck {
   name: string
@@ -37,15 +46,13 @@ interface Stats {
 
 interface PerformanceData {
   time: string
-  'Airtime': number
-  'Data': number
-  'Cable': number
-  'Monnify': number
+  Airtime: number
+  Data: number
+  Cable: number
+  Monnify: number
 }
 
-// All Gsubz service endpoints to monitor
 const GSUBZ_SERVICES: Array<{ service: string; type: 'DATA' | 'CABLE' }> = [
-  // DATA Plans
   { service: 'mtn_sme', type: 'DATA' },
   { service: 'mtn_datashare', type: 'DATA' },
   { service: 'mtn_gifting', type: 'DATA' },
@@ -55,7 +62,6 @@ const GSUBZ_SERVICES: Array<{ service: string; type: 'DATA' | 'CABLE' }> = [
   { service: 'airtel_sme', type: 'DATA' },
   { service: 'airtel_gifting', type: 'DATA' },
   { service: 'etisalat_data', type: 'DATA' },
-  // CABLE Plans
   { service: 'dstv', type: 'CABLE' },
   { service: 'gotv', type: 'CABLE' },
   { service: 'startimes', type: 'CABLE' },
@@ -85,12 +91,9 @@ export default function MonitoringPage() {
             const responseTime = performance.now() - start
             const data = await response.json()
 
-            // Determine status based on response validity and plans count
-            // If we got plans and they have actual data, it's ONLINE
             let status: 'ONLINE' | 'SLOW' | 'DOWN' = 'ONLINE'
             const hasPlans = data.plans && Array.isArray(data.plans) && data.plans.length > 0
-            
-            // Check for errors in response
+
             if (data.error || !hasPlans) {
               status = 'DOWN'
             } else if (responseTime > 2000) {
@@ -145,10 +148,10 @@ export default function MonitoringPage() {
         ...prev.slice(-19),
         {
           time,
-          'Airtime': endpointData.find((e) => e.name === 'Airtime Purchase')?.responseTime || 0,
-          'Data': endpointData.find((e) => e.name === 'Data Purchase')?.responseTime || 0,
-          'Cable': endpointData.find((e) => e.name === 'Cable Subscription')?.responseTime || 0,
-          'Monnify': endpointData.find((e) => e.name === 'Monnify Webhook')?.responseTime || 0,
+          Airtime: endpointData.find((e) => e.name === 'Airtime Purchase')?.responseTime || 0,
+          Data: endpointData.find((e) => e.name === 'Data Purchase')?.responseTime || 0,
+          Cable: endpointData.find((e) => e.name === 'Cable Subscription')?.responseTime || 0,
+          Monnify: endpointData.find((e) => e.name === 'Monnify Webhook')?.responseTime || 0,
         },
       ])
     } catch (error) {
@@ -164,7 +167,6 @@ export default function MonitoringPage() {
     } else {
       loadGsubzData()
     }
-
     if (!autoRefresh) return
 
     const interval = setInterval(() => {
@@ -186,388 +188,486 @@ export default function MonitoringPage() {
     online: gsubzEndpoints.filter((e) => e.status === 'ONLINE').length,
     slow: gsubzEndpoints.filter((e) => e.status === 'SLOW').length,
     down: gsubzEndpoints.filter((e) => e.status === 'DOWN').length,
-    avgResponse: Math.round(gsubzEndpoints.reduce((sum, e) => sum + e.responseTime, 0) / gsubzEndpoints.length),
+    avgResponse: gsubzEndpoints.length
+      ? Math.round(gsubzEndpoints.reduce((sum, e) => sum + e.responseTime, 0) / gsubzEndpoints.length)
+      : 0,
   }
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'ONLINE':
-        return <CheckCircle className="text-emerald-500" size={20} />
-      case 'SLOW':
-        return <Clock className="text-amber-500" size={20} />
-      case 'DOWN':
-        return <AlertCircle className="text-red-500" size={20} />
-      default:
-        return null
-    }
+  const getStatusBadge = (status: string) => {
+    const cls =
+      status === 'ONLINE' ? 'badge badge-success' : status === 'SLOW' ? 'badge badge-warning' : 'badge badge-danger'
+    const Icon = status === 'ONLINE' ? CheckCircle : status === 'SLOW' ? Clock : AlertCircle
+    return (
+      <span className={cls}>
+        <Icon size={11} />
+        {status}
+      </span>
+    )
   }
+
+  const responseTimeColor = (rt: number) =>
+    rt > 2000 ? 'var(--admin-danger)' : rt > 800 ? 'var(--admin-warning)' : 'var(--admin-success)'
+
+  const currentStats =
+    activeTab === 'internal'
+      ? {
+          total: stats?.totalEndpoints || 0,
+          online: stats?.onlineCount || 0,
+          slow: stats?.slowCount || 0,
+          down: stats?.downCount || 0,
+          avgResponse: stats?.avgResponseTime || 0,
+        }
+      : gsubzStats
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-50 mb-2">API Health Monitor</h1>
-          <p className="text-slate-400">Real-time monitoring of system endpoints</p>
-        </div>
-
-        {/* Tab Navigation */}
-        <div className="flex gap-4 mb-8 bg-slate-800 p-2 rounded-lg border border-slate-700 w-fit">
-          <button
-            onClick={() => setActiveTab('internal')}
-            className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
-              activeTab === 'internal'
-                ? 'bg-blue-600 text-white'
-                : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-            }`}
-          >
-            Internal Endpoints
-          </button>
-          <button
-            onClick={() => setActiveTab('gsubz')}
-            className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
-              activeTab === 'gsubz'
-                ? 'bg-blue-600 text-white'
-                : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-            }`}
-          >
-            Gsubz Services
-          </button>
-        </div>
-
-        {/* Stats Cards */}
-        {activeTab === 'internal' && stats && (
-          <div className="grid grid-cols-5 gap-4 mb-8">
-            <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
-              <div className="text-slate-400 text-sm font-semibold uppercase tracking-wider mb-2">Total Endpoints</div>
-              <div className="text-4xl font-bold text-slate-50">{stats.totalEndpoints}</div>
-            </div>
-            <div className="bg-emerald-900/20 rounded-lg p-6 border border-emerald-500/30">
-              <div className="text-emerald-400 text-sm font-semibold uppercase tracking-wider mb-2">Online</div>
-              <div className="text-4xl font-bold text-emerald-400">{stats.onlineCount}</div>
-            </div>
-            <div className="bg-amber-900/20 rounded-lg p-6 border border-amber-500/30">
-              <div className="text-amber-400 text-sm font-semibold uppercase tracking-wider mb-2">Slow</div>
-              <div className="text-4xl font-bold text-amber-400">{stats.slowCount}</div>
-            </div>
-            <div className="bg-red-900/20 rounded-lg p-6 border border-red-500/30">
-              <div className="text-red-400 text-sm font-semibold uppercase tracking-wider mb-2">Down</div>
-              <div className="text-4xl font-bold text-red-400">{stats.downCount}</div>
-            </div>
-            <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
-              <div className="text-slate-400 text-sm font-semibold uppercase tracking-wider mb-2">Avg Response</div>
-              <div className="text-4xl font-bold text-slate-50">{stats.avgResponseTime}ms</div>
-            </div>
+    <div className="admin-page">
+      <div className="admin-header">
+        <div className="admin-header-row">
+          <div>
+            <h1>API Health Monitor</h1>
+            <p>Real-time monitoring of system endpoints</p>
           </div>
-        )}
-
-        {/* Gsubz Stats Cards */}
-        {activeTab === 'gsubz' && (
-          <div className="grid grid-cols-5 gap-4 mb-8">
-            <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
-              <div className="text-slate-400 text-sm font-semibold uppercase tracking-wider mb-2">Total Services</div>
-              <div className="text-4xl font-bold text-slate-50">{gsubzStats.total}</div>
-            </div>
-            <div className="bg-emerald-900/20 rounded-lg p-6 border border-emerald-500/30">
-              <div className="text-emerald-400 text-sm font-semibold uppercase tracking-wider mb-2">Online</div>
-              <div className="text-4xl font-bold text-emerald-400">{gsubzStats.online}</div>
-            </div>
-            <div className="bg-amber-900/20 rounded-lg p-6 border border-amber-500/30">
-              <div className="text-amber-400 text-sm font-semibold uppercase tracking-wider mb-2">Slow</div>
-              <div className="text-4xl font-bold text-amber-400">{gsubzStats.slow}</div>
-            </div>
-            <div className="bg-red-900/20 rounded-lg p-6 border border-red-500/30">
-              <div className="text-red-400 text-sm font-semibold uppercase tracking-wider mb-2">Down</div>
-              <div className="text-4xl font-bold text-red-400">{gsubzStats.down}</div>
-            </div>
-            <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
-              <div className="text-slate-400 text-sm font-semibold uppercase tracking-wider mb-2">Avg Response</div>
-              <div className="text-4xl font-bold text-slate-50">{gsubzStats.avgResponse}ms</div>
-            </div>
-          </div>
-        )}
-
-        {performanceData.length > 1 && (
-          <div className="bg-slate-800 p-6 rounded-lg border border-slate-700 mb-8">
-            <h3 className="text-lg font-semibold text-slate-50 mb-4">Response Time Trend (Last 20 Checks)</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={performanceData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                <XAxis dataKey="time" stroke="#94a3b8" style={{ fontSize: 12 }} />
-                <YAxis stroke="#94a3b8" style={{ fontSize: 12 }} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #475569', borderRadius: 8 }}
-                  formatter={(value) => `${value}ms`}
-                />
-                <Legend />
-                <Line type="monotone" dataKey="Airtime" stroke="#3b82f6" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="Data" stroke="#8b5cf6" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="Cable" stroke="#10b981" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="Monnify" stroke="#f59e0b" strokeWidth={2} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-
-        <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
-          <div className="p-6 border-b border-slate-700">
-            <h3 className="text-lg font-semibold text-slate-50">
-              {activeTab === 'internal' ? 'Endpoint Status' : 'Gsubz Service Plans'}
-            </h3>
-          </div>
-          {loading ? (
-            <div className="text-center py-12 text-slate-400">Loading endpoint data...</div>
-          ) : activeTab === 'internal' ? (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-slate-700/50 border-b border-slate-700">
-                    <th className="p-4 text-left text-sm font-semibold text-slate-300">Endpoint Name</th>
-                    <th className="p-4 text-left text-sm font-semibold text-slate-300">Path</th>
-                    <th className="p-4 text-left text-sm font-semibold text-slate-300">Method</th>
-                    <th className="p-4 text-left text-sm font-semibold text-slate-300">Status</th>
-                    <th className="p-4 text-left text-sm font-semibold text-slate-300">Response (ms)</th>
-                    <th className="p-4 text-left text-sm font-semibold text-slate-300">Last Checked</th>
-                    <th className="p-4 text-left text-sm font-semibold text-slate-300">Uptime</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredEndpoints.map((endpoint, idx) => (
-                    <tr
-                      key={endpoint.path}
-                      onClick={() => setSelectedEndpoint(endpoint)}
-                      className={`border-b border-slate-700 hover:bg-slate-700/50 cursor-pointer transition-colors ${
-                        idx % 2 === 0 ? 'bg-slate-800/50' : 'bg-slate-800'
-                      }`}
-                    >
-                      <td className="p-4 font-semibold text-slate-200">{endpoint.name}</td>
-                      <td className="p-4 font-mono text-sm text-slate-400">{endpoint.path}</td>
-                      <td className="p-4">
-                        <span className="bg-slate-700 px-2 py-1 rounded text-xs font-semibold text-slate-300">
-                          {endpoint.method}
-                        </span>
-                      </td>
-                      <td className="p-4">
-                        <div className="flex items-center gap-2">
-                          {getStatusIcon(endpoint.status)}
-                          <span
-                            className={`px-2 py-1 rounded text-xs font-semibold ${
-                              endpoint.status === 'ONLINE'
-                                ? 'bg-emerald-900/40 text-emerald-300'
-                                : endpoint.status === 'SLOW'
-                                ? 'bg-amber-900/40 text-amber-300'
-                                : 'bg-red-900/40 text-red-300'
-                            }`}
-                          >
-                            {endpoint.status}
-                          </span>
-                        </div>
-                      </td>
-                      <td
-                        className={`p-4 font-semibold font-mono ${
-                          endpoint.responseTime > 2000
-                            ? 'text-red-400'
-                            : endpoint.responseTime > 800
-                            ? 'text-amber-400'
-                            : 'text-emerald-400'
-                        }`}
-                      >
-                        {endpoint.responseTime}ms
-                      </td>
-                      <td className="p-4 text-sm text-slate-400">
-                        {new Date(endpoint.lastChecked).toLocaleTimeString()}
-                      </td>
-                      <td className="p-4 font-semibold text-slate-200">{endpoint.uptime.toFixed(1)}%</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-slate-700/50 border-b border-slate-700">
-                    <th className="p-4 text-left text-sm font-semibold text-slate-300">Service</th>
-                    <th className="p-4 text-left text-sm font-semibold text-slate-300">Type</th>
-                    <th className="p-4 text-left text-sm font-semibold text-slate-300">Plans Available</th>
-                    <th className="p-4 text-left text-sm font-semibold text-slate-300">Status</th>
-                    <th className="p-4 text-left text-sm font-semibold text-slate-300">Response (ms)</th>
-                    <th className="p-4 text-left text-sm font-semibold text-slate-300">Last Checked</th>
-                    <th className="p-4 text-left text-sm font-semibold text-slate-300">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredGsubz.map((gsubz, idx) => (
-                    <tr
-                      key={gsubz.service}
-                      className={`border-b border-slate-700 hover:bg-slate-700/50 transition-colors ${
-                        idx % 2 === 0 ? 'bg-slate-800/50' : 'bg-slate-800'
-                      }`}
-                    >
-                      <td className="p-4 font-semibold text-slate-200">{gsubz.service}</td>
-                      <td className="p-4">
-                        <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                          gsubz.type === 'DATA'
-                            ? 'bg-blue-900/40 text-blue-300'
-                            : 'bg-purple-900/40 text-purple-300'
-                        }`}>
-                          {gsubz.type}
-                        </span>
-                      </td>
-                      <td className="p-4 font-semibold text-slate-200">{gsubz.plansCount}</td>
-                      <td className="p-4">
-                        <div className="flex items-center gap-2">
-                          {getStatusIcon(gsubz.status)}
-                          <span
-                            className={`px-2 py-1 rounded text-xs font-semibold ${
-                              gsubz.status === 'ONLINE'
-                                ? 'bg-emerald-900/40 text-emerald-300'
-                                : gsubz.status === 'SLOW'
-                                ? 'bg-amber-900/40 text-amber-300'
-                                : 'bg-red-900/40 text-red-300'
-                            }`}
-                          >
-                            {gsubz.status}
-                          </span>
-                        </div>
-                      </td>
-                      <td
-                        className={`p-4 font-semibold font-mono ${
-                          gsubz.responseTime > 2000
-                            ? 'text-red-400'
-                            : gsubz.responseTime > 800
-                            ? 'text-amber-400'
-                            : 'text-emerald-400'
-                        }`}
-                      >
-                        {gsubz.responseTime}ms
-                      </td>
-                      <td className="p-4 text-sm text-slate-400">
-                        {new Date(gsubz.lastChecked).toLocaleTimeString()}
-                      </td>
-                      <td className="p-4">
-                        <button
-                          onClick={() => setSelectedGsubz(gsubz)}
-                          className="text-blue-400 hover:text-blue-300 font-semibold text-sm transition-colors"
-                        >
-                          View Plans
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
-        {selectedEndpoint && (
-          <div
-            className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
-            onClick={() => setSelectedEndpoint(null)}
-          >
-            <div
-              className="bg-slate-800 rounded-lg p-6 max-w-md w-full shadow-xl border border-slate-700"
-              onClick={(e) => e.stopPropagation()}
+          <div className="admin-header-actions">
+            <button
+              className={`btn ${autoRefresh ? 'btn-success' : 'btn-secondary'} btn-sm`}
+              onClick={() => setAutoRefresh(!autoRefresh)}
+              type="button"
             >
-              <h2 className="text-xl font-bold text-slate-50 mb-4">{selectedEndpoint.name}</h2>
+              <RefreshCw size={14} className={autoRefresh ? 'animate-spin' : ''} />
+              <span>{autoRefresh ? 'Auto-refresh on' : 'Paused'}</span>
+            </button>
+          </div>
+        </div>
+      </div>
 
-              <div className="space-y-3 mb-6">
-                <div className="flex justify-between border-b border-slate-700 pb-2">
-                  <span className="font-semibold text-slate-400">Path:</span>
-                  <code className="text-sm font-mono text-slate-300">{selectedEndpoint.path}</code>
-                </div>
-                <div className="flex justify-between border-b border-slate-700 pb-2">
-                  <span className="font-semibold text-slate-400">Method:</span>
-                  <span className="font-semibold text-slate-200">{selectedEndpoint.method}</span>
-                </div>
-                <div className="flex justify-between border-b border-slate-700 pb-2">
-                  <span className="font-semibold text-slate-400">Status:</span>
-                  <span
-                    className={`px-2 py-1 rounded text-xs font-semibold ${
-                      selectedEndpoint.status === 'ONLINE'
-                        ? 'bg-emerald-900/40 text-emerald-300'
-                        : selectedEndpoint.status === 'SLOW'
-                        ? 'bg-amber-900/40 text-amber-300'
-                        : 'bg-red-900/40 text-red-300'
-                    }`}
+      {/* Tabs */}
+      <div className="admin-tabs">
+        <button
+          className={`admin-tab ${activeTab === 'internal' ? 'active' : ''}`}
+          onClick={() => setActiveTab('internal')}
+          type="button"
+        >
+          <Activity size={14} />
+          <span>Internal</span>
+        </button>
+        <button
+          className={`admin-tab ${activeTab === 'gsubz' ? 'active' : ''}`}
+          onClick={() => setActiveTab('gsubz')}
+          type="button"
+        >
+          <Zap size={14} />
+          <span>Gsubz Services</span>
+        </button>
+      </div>
+
+      {/* Stats */}
+      <div className="stats-grid">
+        <div className="stat-card">
+          <div className="stat-header">
+            <h3 className="stat-title">Total</h3>
+            <div className="stat-icon">
+              <Activity size={18} />
+            </div>
+          </div>
+          <div className="stat-value">{currentStats.total}</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-header">
+            <h3 className="stat-title">Online</h3>
+            <div className="stat-icon stat-icon-success">
+              <CheckCircle size={18} />
+            </div>
+          </div>
+          <div className="stat-value text-success">{currentStats.online}</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-header">
+            <h3 className="stat-title">Slow</h3>
+            <div className="stat-icon stat-icon-warning">
+              <Clock size={18} />
+            </div>
+          </div>
+          <div className="stat-value text-warning">{currentStats.slow}</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-header">
+            <h3 className="stat-title">Down</h3>
+            <div className="stat-icon stat-icon-danger">
+              <AlertCircle size={18} />
+            </div>
+          </div>
+          <div className="stat-value text-danger">{currentStats.down}</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-header">
+            <h3 className="stat-title">Avg Response</h3>
+            <div className="stat-icon">
+              <Zap size={18} />
+            </div>
+          </div>
+          <div className="stat-value">{currentStats.avgResponse}ms</div>
+        </div>
+      </div>
+
+      {/* Filter chips */}
+      <div className="filter-chips">
+        {(['all', 'ONLINE', 'SLOW', 'DOWN'] as const).map((s) => (
+          <button
+            key={s}
+            className={`filter-chip ${statusFilter === s ? 'active' : ''}`}
+            onClick={() => setStatusFilter(s)}
+            type="button"
+          >
+            {s === 'all' ? 'All' : s}
+          </button>
+        ))}
+      </div>
+
+      {/* Performance chart */}
+      {activeTab === 'internal' && performanceData.length > 1 && (
+        <div className="chart-card">
+          <div className="chart-card-header">
+            <div>
+              <h3 className="chart-title">Response Time Trend</h3>
+              <p className="chart-subtitle">Last 20 checks</p>
+            </div>
+          </div>
+          <ResponsiveContainer width="100%" height={260}>
+            <LineChart data={performanceData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#1f2a3d" />
+              <XAxis dataKey="time" stroke="#94a3b8" style={{ fontSize: 11 }} />
+              <YAxis stroke="#94a3b8" style={{ fontSize: 11 }} />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#131c2e',
+                  border: '1px solid #1f2a3d',
+                  borderRadius: 8,
+                  color: '#f1f5f9',
+                }}
+                formatter={(value) => `${value}ms`}
+              />
+              <Legend wrapperStyle={{ fontSize: 12 }} />
+              <Line type="monotone" dataKey="Airtime" stroke="#3b82f6" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="Data" stroke="#8b5cf6" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="Cable" stroke="#10b981" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="Monnify" stroke="#f59e0b" strokeWidth={2} dot={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* Endpoint list */}
+      {loading ? (
+        <div className="loading-container">
+          <div className="loading-spinner" />
+          <span>Loading endpoint data...</span>
+        </div>
+      ) : activeTab === 'internal' ? (
+        <div className="table-container">
+          <div className="admin-table-wrapper">
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Endpoint</th>
+                  <th>Path</th>
+                  <th>Method</th>
+                  <th>Status</th>
+                  <th>Response</th>
+                  <th>Last Checked</th>
+                  <th>Uptime</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredEndpoints.map((endpoint) => (
+                  <tr
+                    key={endpoint.path}
+                    onClick={() => setSelectedEndpoint(endpoint)}
+                    style={{ cursor: 'pointer' }}
                   >
-                    {selectedEndpoint.status}
-                  </span>
+                    <td style={{ fontWeight: 600 }}>{endpoint.name}</td>
+                    <td className="text-mono" style={{ fontSize: 12, color: 'var(--admin-text-tertiary)' }}>
+                      {endpoint.path}
+                    </td>
+                    <td>
+                      <span className="badge badge-info">{endpoint.method}</span>
+                    </td>
+                    <td>{getStatusBadge(endpoint.status)}</td>
+                    <td
+                      className="text-mono"
+                      style={{ fontWeight: 600, color: responseTimeColor(endpoint.responseTime) }}
+                    >
+                      {endpoint.responseTime}ms
+                    </td>
+                    <td style={{ color: 'var(--admin-text-tertiary)', fontSize: 12 }}>
+                      {new Date(endpoint.lastChecked).toLocaleTimeString()}
+                    </td>
+                    <td style={{ fontWeight: 600 }}>{endpoint.uptime.toFixed(1)}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile cards */}
+          <div className="data-list" style={{ padding: 12 }}>
+            {filteredEndpoints.map((endpoint) => (
+              <div
+                key={endpoint.path}
+                className="data-card"
+                onClick={() => setSelectedEndpoint(endpoint)}
+                style={{ cursor: 'pointer' }}
+              >
+                <div className="data-card-header">
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <h3 className="data-card-title">{endpoint.name}</h3>
+                    <p className="data-card-subtitle text-mono" style={{ fontSize: 11 }}>
+                      {endpoint.method} {endpoint.path}
+                    </p>
+                  </div>
+                  {getStatusBadge(endpoint.status)}
                 </div>
-                <div className="flex justify-between border-b border-slate-700 pb-2">
-                  <span className="font-semibold text-slate-400">Response Time:</span>
-                  <span className="font-mono font-semibold text-slate-200">{selectedEndpoint.responseTime}ms</span>
+                <div className="data-card-grid">
+                  <div className="data-card-field">
+                    <span className="data-card-label">Response</span>
+                    <span
+                      className="data-card-value mono"
+                      style={{ color: responseTimeColor(endpoint.responseTime), fontWeight: 700 }}
+                    >
+                      {endpoint.responseTime}ms
+                    </span>
+                  </div>
+                  <div className="data-card-field">
+                    <span className="data-card-label">Uptime</span>
+                    <span className="data-card-value">{endpoint.uptime.toFixed(1)}%</span>
+                  </div>
+                  <div className="data-card-field" style={{ gridColumn: '1 / -1' }}>
+                    <span className="data-card-label">Last checked</span>
+                    <span className="data-card-value">
+                      {new Date(endpoint.lastChecked).toLocaleString()}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex justify-between border-b border-slate-700 pb-2">
-                  <span className="font-semibold text-slate-400">Last Checked:</span>
-                  <span className="text-sm text-slate-300">{new Date(selectedEndpoint.lastChecked).toLocaleString()}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="table-container">
+          <div className="admin-table-wrapper">
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Service</th>
+                  <th>Type</th>
+                  <th>Plans</th>
+                  <th>Status</th>
+                  <th>Response</th>
+                  <th>Last Checked</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredGsubz.map((gsubz) => (
+                  <tr key={gsubz.service}>
+                    <td style={{ fontWeight: 600 }}>{gsubz.service}</td>
+                    <td>
+                      <span className={`badge ${gsubz.type === 'DATA' ? 'badge-info' : 'badge-category'}`}>
+                        {gsubz.type}
+                      </span>
+                    </td>
+                    <td style={{ fontWeight: 600 }}>{gsubz.plansCount}</td>
+                    <td>{getStatusBadge(gsubz.status)}</td>
+                    <td
+                      className="text-mono"
+                      style={{ fontWeight: 600, color: responseTimeColor(gsubz.responseTime) }}
+                    >
+                      {gsubz.responseTime}ms
+                    </td>
+                    <td style={{ color: 'var(--admin-text-tertiary)', fontSize: 12 }}>
+                      {new Date(gsubz.lastChecked).toLocaleTimeString()}
+                    </td>
+                    <td>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => setSelectedGsubz(gsubz)}
+                        type="button"
+                      >
+                        View
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile cards */}
+          <div className="data-list" style={{ padding: 12 }}>
+            {filteredGsubz.map((gsubz) => (
+              <div
+                key={gsubz.service}
+                className="data-card"
+                onClick={() => setSelectedGsubz(gsubz)}
+                style={{ cursor: 'pointer' }}
+              >
+                <div className="data-card-header">
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <h3 className="data-card-title">{gsubz.service}</h3>
+                    <p className="data-card-subtitle">
+                      <span className={`badge ${gsubz.type === 'DATA' ? 'badge-info' : 'badge-category'}`}>
+                        {gsubz.type}
+                      </span>
+                    </p>
+                  </div>
+                  {getStatusBadge(gsubz.status)}
                 </div>
-                <div className="flex justify-between border-b border-slate-700 pb-2">
-                  <span className="font-semibold text-slate-400">Uptime:</span>
-                  <span className="font-semibold text-slate-200">{selectedEndpoint.uptime.toFixed(1)}%</span>
+                <div className="data-card-grid">
+                  <div className="data-card-field">
+                    <span className="data-card-label">Plans</span>
+                    <span className="data-card-value" style={{ fontWeight: 700 }}>
+                      {gsubz.plansCount}
+                    </span>
+                  </div>
+                  <div className="data-card-field">
+                    <span className="data-card-label">Response</span>
+                    <span
+                      className="data-card-value mono"
+                      style={{ color: responseTimeColor(gsubz.responseTime), fontWeight: 700 }}
+                    >
+                      {gsubz.responseTime}ms
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Endpoint Modal */}
+      {selectedEndpoint && (
+        <div className="modal-overlay" onClick={() => setSelectedEndpoint(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>{selectedEndpoint.name}</h2>
+              <button className="modal-close" onClick={() => setSelectedEndpoint(null)} type="button">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="detail-grid">
+                <div className="detail-item full-width">
+                  <label>Path</label>
+                  <p className="text-mono" style={{ fontSize: 13 }}>{selectedEndpoint.path}</p>
+                </div>
+                <div className="detail-item">
+                  <label>Method</label>
+                  <p>{selectedEndpoint.method}</p>
+                </div>
+                <div className="detail-item">
+                  <label>Status</label>
+                  <p>{getStatusBadge(selectedEndpoint.status)}</p>
+                </div>
+                <div className="detail-item">
+                  <label>Response Time</label>
+                  <p
+                    className="text-mono"
+                    style={{ color: responseTimeColor(selectedEndpoint.responseTime), fontWeight: 700 }}
+                  >
+                    {selectedEndpoint.responseTime}ms
+                  </p>
+                </div>
+                <div className="detail-item">
+                  <label>Uptime</label>
+                  <p style={{ fontWeight: 700 }}>{selectedEndpoint.uptime.toFixed(1)}%</p>
+                </div>
+                <div className="detail-item full-width">
+                  <label>Last Checked</label>
+                  <p>{new Date(selectedEndpoint.lastChecked).toLocaleString()}</p>
                 </div>
                 {selectedEndpoint.errorMessage && (
-                  <div className="border-t border-slate-700 pt-2 mt-2">
-                    <span className="font-semibold text-slate-400 block mb-1">Error:</span>
-                    <span className="text-red-400 text-sm">{selectedEndpoint.errorMessage}</span>
+                  <div className="detail-item full-width">
+                    <label>Error</label>
+                    <p style={{ color: 'var(--admin-danger)' }}>{selectedEndpoint.errorMessage}</p>
                   </div>
                 )}
               </div>
-
-              <button
-                onClick={() => setSelectedEndpoint(null)}
-                className="w-full px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-50 rounded-lg font-semibold transition-colors"
-              >
+            </div>
+            <div className="modal-actions">
+              <button className="btn" onClick={() => setSelectedEndpoint(null)} type="button">
                 Close
               </button>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {selectedGsubz && (
-          <div
-            className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
-            onClick={() => setSelectedGsubz(null)}
-          >
-            <div
-              className="bg-slate-800 rounded-lg p-6 max-w-2xl w-full shadow-xl border border-slate-700 max-h-96 overflow-y-auto"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <h2 className="text-xl font-bold text-slate-50 mb-4">{selectedGsubz.service} - {selectedGsubz.type}</h2>
-
-              <div className="mb-4 p-4 bg-slate-700 rounded-lg">
-                <p className="text-slate-300"><strong>Status:</strong> <span className={selectedGsubz.status === 'ONLINE' ? 'text-emerald-400' : selectedGsubz.status === 'SLOW' ? 'text-amber-400' : 'text-red-400'}>{selectedGsubz.status}</span></p>
-                <p className="text-slate-300"><strong>Response Time:</strong> {selectedGsubz.responseTime}ms</p>
-                <p className="text-slate-300"><strong>Total Plans:</strong> {selectedGsubz.plansCount}</p>
+      {/* Gsubz Modal */}
+      {selectedGsubz && (
+        <div className="modal-overlay" onClick={() => setSelectedGsubz(null)}>
+          <div className="modal-content modal-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>
+                {selectedGsubz.service} — {selectedGsubz.type}
+              </h2>
+              <button className="modal-close" onClick={() => setSelectedGsubz(null)} type="button">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="detail-grid" style={{ marginBottom: 16 }}>
+                <div className="detail-item">
+                  <label>Status</label>
+                  <p>{getStatusBadge(selectedGsubz.status)}</p>
+                </div>
+                <div className="detail-item">
+                  <label>Response Time</label>
+                  <p className="text-mono" style={{ color: responseTimeColor(selectedGsubz.responseTime), fontWeight: 700 }}>
+                    {selectedGsubz.responseTime}ms
+                  </p>
+                </div>
+                <div className="detail-item">
+                  <label>Total Plans</label>
+                  <p style={{ fontWeight: 700 }}>{selectedGsubz.plansCount}</p>
+                </div>
               </div>
 
               {selectedGsubz.plans && selectedGsubz.plans.length > 0 ? (
-                <div>
-                  <h3 className="font-semibold text-slate-200 mb-3">Available Plans:</h3>
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                <>
+                  <h3 className="section-title">Available Plans</h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 320, overflowY: 'auto' }}>
                     {selectedGsubz.plans.map((plan, idx) => (
-                      <div key={idx} className="p-3 bg-slate-700/50 rounded border border-slate-600 flex justify-between">
-                        <span className="text-slate-300">{plan.displayName}</span>
-                        <span className="font-semibold text-emerald-400">₦{plan.price}</span>
+                      <div
+                        key={idx}
+                        style={{
+                          padding: 10,
+                          background: 'var(--admin-bg-tertiary)',
+                          border: '1px solid var(--admin-border)',
+                          borderRadius: 'var(--radius-md)',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          gap: 8,
+                        }}
+                      >
+                        <span style={{ fontSize: 13, color: 'var(--admin-text-secondary)' }}>{plan.displayName}</span>
+                        <span style={{ fontWeight: 700, color: 'var(--admin-success)' }}>₦{plan.price}</span>
                       </div>
                     ))}
                   </div>
-                </div>
+                </>
               ) : (
-                <p className="text-slate-400 italic">No plans available</p>
+                <p style={{ color: 'var(--admin-text-tertiary)', fontStyle: 'italic' }}>No plans available</p>
               )}
-
-              <button
-                onClick={() => setSelectedGsubz(null)}
-                className="w-full px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-50 rounded-lg font-semibold transition-colors mt-4"
-              >
+            </div>
+            <div className="modal-actions">
+              <button className="btn" onClick={() => setSelectedGsubz(null)} type="button">
                 Close
               </button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }

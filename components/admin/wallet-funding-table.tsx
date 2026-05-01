@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { Button } from '@/components/ui/button'
 import { Eye, CheckCircle, Clock, XCircle } from 'lucide-react'
 import { WalletDetailModal } from './wallet-detail-modal'
 
@@ -24,13 +23,13 @@ interface WalletFundingTableProps {
 const getStatusIcon = (status: string) => {
   switch (status) {
     case 'SUCCESS':
-      return <CheckCircle className="text-green-500" size={18} />
+      return <CheckCircle size={14} style={{ color: 'var(--admin-success)' }} />
     case 'PENDING':
-      return <Clock className="text-yellow-500" size={18} />
+      return <Clock size={14} style={{ color: 'var(--admin-warning)' }} />
     case 'EXPIRED':
-      return <XCircle className="text-red-500" size={18} />
+      return <XCircle size={14} style={{ color: 'var(--admin-danger)' }} />
     default:
-      return <Clock size={18} />
+      return <Clock size={14} />
   }
 }
 
@@ -40,49 +39,113 @@ export function WalletFundingTable({ transactions }: WalletFundingTableProps) {
   return (
     <>
       <div className="table-container">
-        <table className="admin-table">
-          <thead>
-            <tr>
-              <th>Payment Reference</th>
-              <th>Amount</th>
-              <th>Status</th>
-              <th>Account</th>
-              <th>Bank</th>
-              <th>Expires At</th>
-              <th>Created</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {transactions.map((tx) => (
-              <tr key={tx.id}>
-                <td className="font-mono text-sm">{tx.payment_reference}</td>
-                <td className="font-mono font-semibold">₦{tx.amount.toLocaleString()}</td>
-                <td>
-                  <div className="flex items-center gap-2">
-                    {getStatusIcon(tx.status)}
+        {/* Desktop table */}
+        <div className="admin-table-wrapper">
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Reference</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Account</th>
+                <th>Bank</th>
+                <th>Expires</th>
+                <th>Created</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {transactions.map((tx) => (
+                <tr key={tx.id}>
+                  <td className="text-mono" style={{ fontSize: 12 }}>
+                    {tx.payment_reference}
+                  </td>
+                  <td className="text-mono" style={{ fontWeight: 700 }}>
+                    ₦{tx.amount.toLocaleString()}
+                  </td>
+                  <td>
                     <span className={`badge badge-${tx.status.toLowerCase()}`}>
+                      {getStatusIcon(tx.status)}
                       {tx.status}
                     </span>
-                  </div>
-                </td>
-                <td className="font-mono text-sm">{tx.account_number}</td>
-                <td>{tx.bank_name}</td>
-                <td>{new Date(tx.expires_at).toLocaleString()}</td>
-                <td>{new Date(tx.created_at).toLocaleDateString()}</td>
-                <td>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setSelectedTx(tx)}
-                  >
-                    <Eye size={16} />
-                  </Button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                  </td>
+                  <td className="text-mono" style={{ fontSize: 13 }}>
+                    {tx.account_number}
+                  </td>
+                  <td style={{ color: 'var(--admin-text-secondary)', fontSize: 13 }}>
+                    {tx.bank_name}
+                  </td>
+                  <td style={{ color: 'var(--admin-text-secondary)', fontSize: 12 }}>
+                    {new Date(tx.expires_at).toLocaleString()}
+                  </td>
+                  <td style={{ color: 'var(--admin-text-secondary)', fontSize: 13 }}>
+                    {new Date(tx.created_at).toLocaleDateString()}
+                  </td>
+                  <td>
+                    <button
+                      className="btn btn-ghost btn-icon"
+                      onClick={() => setSelectedTx(tx)}
+                      type="button"
+                      title="View details"
+                    >
+                      <Eye size={15} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Mobile cards */}
+        <div className="data-list" style={{ padding: 12 }}>
+          {transactions.map((tx) => (
+            <div
+              key={tx.id}
+              className="data-card"
+              onClick={() => setSelectedTx(tx)}
+              style={{ cursor: 'pointer' }}
+            >
+              <div className="data-card-header">
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <h3 className="data-card-title">{tx.bank_name}</h3>
+                  <p className="data-card-subtitle text-mono" style={{ fontSize: 11 }}>
+                    {tx.payment_reference}
+                  </p>
+                </div>
+                <span className="data-card-amount">
+                  ₦{tx.amount.toLocaleString()}
+                </span>
+              </div>
+
+              <div className="data-card-grid">
+                <div className="data-card-field">
+                  <span className="data-card-label">Status</span>
+                  <span className={`badge badge-${tx.status.toLowerCase()}`} style={{ width: 'fit-content' }}>
+                    {getStatusIcon(tx.status)}
+                    {tx.status}
+                  </span>
+                </div>
+                <div className="data-card-field">
+                  <span className="data-card-label">Account</span>
+                  <span className="data-card-value mono">{tx.account_number}</span>
+                </div>
+                <div className="data-card-field">
+                  <span className="data-card-label">Created</span>
+                  <span className="data-card-value">
+                    {new Date(tx.created_at).toLocaleDateString()}
+                  </span>
+                </div>
+                <div className="data-card-field">
+                  <span className="data-card-label">Expires</span>
+                  <span className="data-card-value">
+                    {new Date(tx.expires_at).toLocaleDateString()}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {selectedTx && (

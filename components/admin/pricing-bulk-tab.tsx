@@ -1,10 +1,8 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { useState } from 'react'
 import { createPricingRule, updatePricingRule, deletePricingRule } from '@/lib/actions/pricing'
-import { Plus, Loader2, Edit2, Trash2, Save, X } from 'lucide-react'
+import { Plus, Trash2 } from 'lucide-react'
 
 interface PricingRule {
   id: string
@@ -35,151 +33,99 @@ export function PricingBulkTab({
   calculateFinalPrice,
   onSuccess,
 }: PricingBulkTabProps) {
-  // State for creating new rules
   const [selectedPlans, setSelectedPlans] = useState<Set<string>>(new Set())
   const [bulkFormData, setBulkFormData] = useState({
-    markupType: 'fixed' as const,
+    markupType: 'fixed' as 'fixed' | 'percentage',
     markupValue: '',
   })
   const [submitting, setSubmitting] = useState(false)
 
-  // State for editing rules
   const [selectedRules, setSelectedRules] = useState<Set<string>>(new Set())
   const [bulkEditMarkupType, setBulkEditMarkupType] = useState<'fixed' | 'percentage'>('fixed')
   const [bulkEditMarkupValue, setBulkEditMarkupValue] = useState('')
 
-  // Toggle individual plan selection
   const togglePlanSelect = (planValue: string) => {
-    const newSelected = new Set(selectedPlans)
-    if (newSelected.has(planValue)) {
-      newSelected.delete(planValue)
-    } else {
-      newSelected.add(planValue)
-    }
-    setSelectedPlans(newSelected)
+    const next = new Set(selectedPlans)
+    next.has(planValue) ? next.delete(planValue) : next.add(planValue)
+    setSelectedPlans(next)
   }
 
-  // Toggle all plans
   const toggleSelectAllPlans = () => {
-    if (selectedPlans.size === gsubzPlans.length) {
-      setSelectedPlans(new Set())
-    } else {
-      setSelectedPlans(new Set(gsubzPlans.map(p => p.value)))
-    }
+    setSelectedPlans(
+      selectedPlans.size === gsubzPlans.length ? new Set() : new Set(gsubzPlans.map((p) => p.value))
+    )
   }
 
-  // Toggle individual rule selection
   const toggleRuleSelect = (ruleId: string) => {
-    const newSelected = new Set(selectedRules)
-    if (newSelected.has(ruleId)) {
-      newSelected.delete(ruleId)
-    } else {
-      newSelected.add(ruleId)
-    }
-    setSelectedRules(newSelected)
+    const next = new Set(selectedRules)
+    next.has(ruleId) ? next.delete(ruleId) : next.add(ruleId)
+    setSelectedRules(next)
   }
 
-  // Toggle all rules
   const toggleSelectAllRules = () => {
-    if (selectedRules.size === rules.length) {
-      setSelectedRules(new Set())
-    } else {
-      setSelectedRules(new Set(rules.map(r => r.id)))
-    }
+    setSelectedRules(
+      selectedRules.size === rules.length ? new Set() : new Set(rules.map((r) => r.id))
+    )
   }
 
-  // Create multiple rules in parallel
   const handleBulkCreate = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    if (selectedPlans.size === 0) {
-      alert('Please select at least one plan')
-      return
-    }
-
-    if (!bulkFormData.markupValue) {
-      alert('Please enter a markup value')
-      return
-    }
-
-    if (!confirm(`Create ${selectedPlans.size} pricing rule(s)?`)) {
-      return
-    }
+    if (selectedPlans.size === 0) return alert('Please select at least one plan')
+    if (!bulkFormData.markupValue) return alert('Please enter a markup value')
+    if (!confirm(`Create ${selectedPlans.size} pricing rule(s)?`)) return
 
     setSubmitting(true)
-
     const plansToCreate = Array.from(selectedPlans)
-      .map(value => gsubzPlans.find(p => p.value === value))
+      .map((value) => gsubzPlans.find((p) => p.value === value))
       .filter(Boolean) as GsubzPlan[]
 
-    // Create all rules in parallel
-    const promises = plansToCreate.map(plan =>
-      createPricingRule(
-        serviceId,
-        plan.displayName,
-        parseFloat(plan.price),
-        bulkFormData.markupType,
-        parseFloat(bulkFormData.markupValue)
-      )
-    )
-
     try {
-      const results = await Promise.all(promises)
-      const successful = results.filter(r => r.success).length
+      const results = await Promise.all(
+        plansToCreate.map((plan) =>
+          createPricingRule(
+            serviceId,
+            plan.displayName,
+            parseFloat(plan.price),
+            bulkFormData.markupType,
+            parseFloat(bulkFormData.markupValue)
+          )
+        )
+      )
+      const successful = results.filter((r) => r.success).length
       alert(`Created ${successful}/${plansToCreate.length} rules`)
-      
       if (successful === plansToCreate.length) {
         setSelectedPlans(new Set())
-        setBulkFormData({
-          markupType: 'fixed',
-          markupValue: '',
-        })
+        setBulkFormData({ markupType: 'fixed', markupValue: '' })
         onSuccess()
       }
     } catch (error) {
       alert('Error creating rules: ' + String(error))
     }
-
     setSubmitting(false)
   }
 
-  // Bulk update rules
   const handleBulkUpdate = async () => {
-    if (selectedRules.size === 0) {
-      alert('Please select at least one rule')
-      return
-    }
-
-    if (!bulkEditMarkupValue) {
-      alert('Please enter a markup value')
-      return
-    }
-
-    if (!confirm(`Update markup for ${selectedRules.size} rule(s)?`)) {
-      return
-    }
+    if (selectedRules.size === 0) return alert('Please select at least one rule')
+    if (!bulkEditMarkupValue) return alert('Please enter a markup value')
+    if (!confirm(`Update markup for ${selectedRules.size} rule(s)?`)) return
 
     setSubmitting(true)
-
-    // Update all selected rules in parallel
-    const promises = Array.from(selectedRules).map(ruleId => {
-      const rule = rules.find(r => r.id === ruleId)
-      if (!rule) return Promise.resolve({ success: false })
-
-      return updatePricingRule(
-        ruleId,
-        rule.plan_name,
-        rule.base_price,
-        bulkEditMarkupType,
-        parseFloat(bulkEditMarkupValue)
-      )
-    })
-
     try {
-      const results = await Promise.all(promises)
-      const successful = results.filter(r => r.success).length
+      const results = await Promise.all(
+        Array.from(selectedRules).map((ruleId) => {
+          const rule = rules.find((r) => r.id === ruleId)
+          if (!rule) return Promise.resolve({ success: false })
+          return updatePricingRule(
+            ruleId,
+            rule.plan_name,
+            rule.base_price,
+            bulkEditMarkupType,
+            parseFloat(bulkEditMarkupValue)
+          )
+        })
+      )
+      const successful = results.filter((r) => r.success).length
       alert(`Updated ${successful}/${selectedRules.size} rules`)
-
       if (successful === selectedRules.size) {
         setSelectedRules(new Set())
         setBulkEditMarkupValue('')
@@ -188,33 +134,20 @@ export function PricingBulkTab({
     } catch (error) {
       alert('Error updating rules: ' + String(error))
     }
-
     setSubmitting(false)
   }
 
-  // Bulk delete rules
   const handleBulkDelete = async () => {
-    if (selectedRules.size === 0) {
-      alert('Please select at least one rule')
-      return
-    }
-
-    if (!confirm(`Delete ${selectedRules.size} rule(s)? This cannot be undone.`)) {
-      return
-    }
+    if (selectedRules.size === 0) return alert('Please select at least one rule')
+    if (!confirm(`Delete ${selectedRules.size} rule(s)? This cannot be undone.`)) return
 
     setSubmitting(true)
-
-    // Delete all selected rules in parallel
-    const promises = Array.from(selectedRules).map(ruleId =>
-      deletePricingRule(ruleId)
-    )
-
     try {
-      const results = await Promise.all(promises)
-      const successful = results.filter(r => r.success).length
+      const results = await Promise.all(
+        Array.from(selectedRules).map((ruleId) => deletePricingRule(ruleId))
+      )
+      const successful = results.filter((r) => r.success).length
       alert(`Deleted ${successful}/${selectedRules.size} rules`)
-
       if (successful === selectedRules.size) {
         setSelectedRules(new Set())
         onSuccess()
@@ -222,205 +155,181 @@ export function PricingBulkTab({
     } catch (error) {
       alert('Error deleting rules: ' + String(error))
     }
-
     setSubmitting(false)
   }
 
   return (
-    <div className="space-y-8">
-      {/* CREATE RULES SECTION - Same as Individual */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Available Plans */}
-        <div className="lg:col-span-1">
-          <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden sticky top-6 h-fit">
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 border-b border-slate-200">
-              <h3 className="text-sm font-semibold text-slate-900">Available Plans</h3>
-              <p className="text-xs text-slate-600 mt-1">Select multiple to bulk create</p>
-            </div>
-
-            <div className="p-2 border-b border-slate-200">
-              <button
-                onClick={toggleSelectAllPlans}
-                className="w-full text-left px-3 py-2 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded"
-              >
-                {selectedPlans.size === gsubzPlans.length ? 'Deselect All' : 'Select All'} ({selectedPlans.size}/{gsubzPlans.length})
-              </button>
-            </div>
-
-            <div className="overflow-y-auto max-h-[600px]">
-              <div className="divide-y divide-slate-200">
-                {gsubzPlans.map(plan => (
-                  <div
-                    key={plan.value}
-                    onClick={() => togglePlanSelect(plan.value)}
-                    className={`p-3 cursor-pointer hover:bg-slate-50 flex items-start gap-2 ${
-                      selectedPlans.has(plan.value) ? 'bg-blue-50' : ''
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedPlans.has(plan.value)}
-                      onChange={() => {}}
-                      className="mt-1"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-slate-900 truncate">{plan.displayName}</p>
-                      <p className="text-xs text-slate-500">₦{Number(plan.price).toLocaleString()}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+    <div>
+      {/* CREATE RULES — Plan selector */}
+      <div className="admin-card">
+        <div className="admin-card-header">
+          <div>
+            <h3>Bulk Create Markup Rules</h3>
+            <p className="admin-card-subtitle">{selectedPlans.size} plan(s) selected</p>
           </div>
+          <button
+            type="button"
+            onClick={toggleSelectAllPlans}
+            className="btn btn-secondary btn-sm"
+            disabled={gsubzPlans.length === 0}
+          >
+            {selectedPlans.size === gsubzPlans.length && gsubzPlans.length > 0
+              ? 'Deselect All'
+              : 'Select All'}
+          </button>
         </div>
 
-        {/* Create Form */}
-        <div className="lg:col-span-3">
-          <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
-            <h3 className="text-lg font-semibold text-slate-900 mb-4">Bulk Create Markup Rules</h3>
-            <p className="text-sm text-slate-600 mb-6">{selectedPlans.size} plan(s) selected</p>
-
-            <form onSubmit={handleBulkCreate} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Markup Type</label>
-                  <select
-                    value={bulkFormData.markupType}
-                    onChange={(e) => setBulkFormData({ ...bulkFormData, markupType: e.target.value as any })}
-                    disabled={submitting}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="fixed">Fixed Amount (₦)</option>
-                    <option value="percentage">Percentage (%)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Markup Value</label>
-                  <Input
-                    type="number"
-                    placeholder="0.00"
-                    step="0.01"
-                    value={bulkFormData.markupValue}
-                    onChange={(e) => setBulkFormData({ ...bulkFormData, markupValue: e.target.value })}
-                    disabled={submitting}
-                  />
-                </div>
-              </div>
-
-              {/* Preview selected plans - SHOW ALL */}
-              {selectedPlans.size > 0 && bulkFormData.markupValue && (
-                <div className="mt-4 p-4 bg-slate-50 rounded border border-slate-200 max-h-72 overflow-y-auto">
-                  <p className="text-xs font-medium text-slate-700 mb-3 sticky top-0 bg-slate-50">Preview (All {selectedPlans.size} selected):</p>
-                  <div className="space-y-2">
-                    {Array.from(selectedPlans)
-                      .map(value => {
-                        const plan = gsubzPlans.find(p => p.value === value)
-                        if (!plan) return null
-                        const basePrice = parseFloat(plan.price)
-                        const markup = parseFloat(bulkFormData.markupValue)
-                        const finalPrice = bulkFormData.markupType === 'fixed' 
-                          ? basePrice + markup 
-                          : basePrice * (1 + markup / 100)
-                        return (
-                          <div key={plan.value} className="flex justify-between text-xs">
-                            <span className="text-slate-600">{plan.displayName}</span>
-                            <span className="font-mono text-slate-900">
-                              ₦{basePrice.toLocaleString()} {`>`} ₦{(Math.round(finalPrice * 100) / 100).toLocaleString()}
-                            </span>
-                          </div>
-                        )
-                      })}
-                  </div>
-                </div>
-              )}
-
-              <Button
-                type="submit"
-                disabled={submitting || selectedPlans.size === 0}
-                className="w-full bg-blue-600 hover:bg-blue-700"
+        {/* Plans list */}
+        <div
+          style={{
+            border: '1px solid var(--admin-border)',
+            borderRadius: 'var(--radius-md)',
+            maxHeight: 280,
+            overflowY: 'auto',
+            marginBottom: 14,
+            background: 'var(--admin-bg)',
+          }}
+        >
+          {gsubzPlans.length === 0 ? (
+            <p style={{ padding: 16, textAlign: 'center', color: 'var(--admin-text-tertiary)', fontSize: 13 }}>
+              No plans available
+            </p>
+          ) : (
+            gsubzPlans.map((plan) => (
+              <label
+                key={plan.value}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  padding: '10px 14px',
+                  borderBottom: '1px solid var(--admin-border)',
+                  cursor: 'pointer',
+                  background: selectedPlans.has(plan.value) ? 'rgba(14, 165, 233, 0.08)' : 'transparent',
+                }}
               >
-                {submitting ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin mr-2" />
-                    Creating {selectedPlans.size} rules...
-                  </>
-                ) : (
-                  <>
-                    <Plus size={16} className="mr-2" />
-                    Create {selectedPlans.size} Rules
-                  </>
-                )}
-              </Button>
-            </form>
-          </div>
+                <input
+                  type="checkbox"
+                  checked={selectedPlans.has(plan.value)}
+                  onChange={() => togglePlanSelect(plan.value)}
+                  style={{ flexShrink: 0 }}
+                />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: 'var(--admin-text)' }}>
+                    {plan.displayName}
+                  </p>
+                  <p style={{ margin: '2px 0 0 0', fontSize: 11, color: 'var(--admin-text-tertiary)' }}>
+                    ₦{Number(plan.price).toLocaleString()}
+                  </p>
+                </div>
+              </label>
+            ))
+          )}
         </div>
+
+        <form onSubmit={handleBulkCreate}>
+          <div className="form-row">
+            <div className="form-group">
+              <label>Markup Type</label>
+              <select
+                value={bulkFormData.markupType}
+                onChange={(e) =>
+                  setBulkFormData({ ...bulkFormData, markupType: e.target.value as 'fixed' | 'percentage' })
+                }
+                disabled={submitting}
+              >
+                <option value="fixed">Fixed Amount (₦)</option>
+                <option value="percentage">Percentage (%)</option>
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label>Markup Value</label>
+              <input
+                type="number"
+                placeholder="0.00"
+                step="0.01"
+                value={bulkFormData.markupValue}
+                onChange={(e) => setBulkFormData({ ...bulkFormData, markupValue: e.target.value })}
+                disabled={submitting}
+              />
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={submitting || selectedPlans.size === 0}
+            className="btn btn-block"
+          >
+            {submitting ? (
+              <>
+                <div className="loading-spinner" />
+                <span>Creating {selectedPlans.size}...</span>
+              </>
+            ) : (
+              <>
+                <Plus size={16} />
+                <span>Create {selectedPlans.size} Rules</span>
+              </>
+            )}
+          </button>
+        </form>
       </div>
 
       {/* EDIT/DELETE RULES SECTION */}
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
-        <div className="bg-slate-50 border-b border-slate-200 p-4 flex items-center justify-between">
+      <div className="admin-card">
+        <div className="admin-card-header">
           <div>
-            <h3 className="font-semibold text-slate-900">Bulk Edit/Delete Rules</h3>
-            <p className="text-sm text-slate-600">Select multiple rules to update or delete</p>
+            <h3>Bulk Edit / Delete</h3>
+            <p className="admin-card-subtitle">Select rules to update or delete in bulk</p>
           </div>
-          <div className="flex gap-2">
-            {selectedRules.size > 0 && (
-              <>
-                <Button
-                  onClick={handleBulkUpdate}
-                  disabled={submitting || !bulkEditMarkupValue}
-                  className="bg-emerald-600 hover:bg-emerald-700"
-                  size="sm"
-                >
-                  {submitting ? (
-                    <>
-                      <Loader2 size={14} className="animate-spin mr-1" />
-                      Updating...
-                    </>
-                  ) : (
-                    `Update ${selectedRules.size}`
-                  )}
-                </Button>
-                <Button
-                  onClick={handleBulkDelete}
-                  disabled={submitting}
-                  variant="destructive"
-                  size="sm"
-                >
-                  {submitting ? (
-                    <>
-                      <Loader2 size={14} className="animate-spin mr-1" />
-                      Deleting...
-                    </>
-                  ) : (
-                    `Delete ${selectedRules.size}`
-                  )}
-                </Button>
-              </>
-            )}
-          </div>
+          {selectedRules.size > 0 && (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={handleBulkUpdate}
+                disabled={submitting || !bulkEditMarkupValue}
+                className="btn btn-success btn-sm"
+              >
+                Update {selectedRules.size}
+              </button>
+              <button
+                type="button"
+                onClick={handleBulkDelete}
+                disabled={submitting}
+                className="btn btn-danger btn-sm"
+              >
+                Delete {selectedRules.size}
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* Bulk Edit Controls */}
         {selectedRules.size > 0 && (
-          <div className="bg-blue-50 border-b border-slate-200 p-4">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">New Markup Type</label>
+          <div
+            style={{
+              padding: 14,
+              background: 'var(--admin-info-bg)',
+              border: '1px solid var(--admin-info-border)',
+              borderRadius: 'var(--radius-md)',
+              marginBottom: 14,
+            }}
+          >
+            <div className="form-row">
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label>New Markup Type</label>
                 <select
                   value={bulkEditMarkupType}
-                  onChange={(e) => setBulkEditMarkupType(e.target.value as any)}
+                  onChange={(e) => setBulkEditMarkupType(e.target.value as 'fixed' | 'percentage')}
                   disabled={submitting}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="fixed">Fixed Amount (₦)</option>
                   <option value="percentage">Percentage (%)</option>
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">New Markup Value</label>
-                <Input
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label>New Markup Value</label>
+                <input
                   type="number"
                   placeholder="0.00"
                   step="0.01"
@@ -429,78 +338,91 @@ export function PricingBulkTab({
                   disabled={submitting}
                 />
               </div>
-              <Button
-                onClick={() => {
-                  setSelectedRules(new Set())
-                  setBulkEditMarkupValue('')
-                }}
-                variant="outline"
-                disabled={submitting}
-              >
-                Clear Selection
-              </Button>
             </div>
           </div>
         )}
 
-        {/* Rules Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-200">
-                <th className="px-4 py-3 text-left">
-                  <input
-                    type="checkbox"
-                    checked={selectedRules.size === rules.length && rules.length > 0}
-                    onChange={toggleSelectAllRules}
-                    title={selectedRules.size === rules.length ? 'Deselect all' : 'Select all'}
-                  />
-                </th>
-                <th className="px-4 py-3 text-left font-semibold text-slate-900">Plan</th>
-                <th className="px-4 py-3 text-left font-semibold text-slate-900">Base Price</th>
-                <th className="px-4 py-3 text-left font-semibold text-slate-900">Markup</th>
-                <th className="px-4 py-3 text-left font-semibold text-slate-900">Final Price</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rules.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-4 py-12 text-center text-slate-600">
-                    No pricing rules yet
-                  </td>
-                </tr>
-              ) : (
-                rules.map(rule => (
-                  <tr
+        {/* Rules list */}
+        {rules.length === 0 ? (
+          <div className="empty-state">
+            <h3>No rules yet</h3>
+            <p>Create some pricing rules to manage them in bulk</p>
+          </div>
+        ) : (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+              <input
+                type="checkbox"
+                checked={selectedRules.size === rules.length}
+                onChange={toggleSelectAllRules}
+              />
+              <span style={{ fontSize: 13, color: 'var(--admin-text-secondary)', fontWeight: 500 }}>
+                Select all ({selectedRules.size}/{rules.length})
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {rules.map((rule) => {
+                const checked = selectedRules.has(rule.id)
+                const finalPrice = calculateFinalPrice(rule)
+                return (
+                  <label
                     key={rule.id}
-                    className={`border-b border-slate-100 hover:bg-slate-50 cursor-pointer ${
-                      selectedRules.has(rule.id) ? 'bg-blue-50' : ''
-                    }`}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 12,
+                      padding: 12,
+                      background: checked ? 'rgba(14, 165, 233, 0.08)' : 'var(--admin-bg-tertiary)',
+                      border: `1px solid ${checked ? 'var(--admin-secondary)' : 'var(--admin-border)'}`,
+                      borderRadius: 'var(--radius-md)',
+                      cursor: 'pointer',
+                    }}
                   >
-                    <td className="px-4 py-3">
-                      <input
-                        type="checkbox"
-                        checked={selectedRules.has(rule.id)}
-                        onChange={() => toggleRuleSelect(rule.id)}
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                    </td>
-                    <td className="px-4 py-3 font-medium text-slate-900">{rule.plan_name}</td>
-                    <td className="px-4 py-3 text-slate-600 font-mono">₦{rule.base_price.toLocaleString()}</td>
-                    <td className="px-4 py-3 text-slate-600">
-                      {rule.markup_type === 'fixed' ? '+₦' : '+'}
-                      {rule.markup_value}
-                      {rule.markup_type === 'percentage' ? '%' : ''}
-                    </td>
-                    <td className="px-4 py-3 font-semibold text-slate-900 font-mono">
-                      ₦{calculateFinalPrice(rule).toLocaleString()}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleRuleSelect(rule.id)}
+                    />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: 'var(--admin-text)' }}>
+                        {rule.plan_name}
+                      </p>
+                      <p
+                        style={{
+                          margin: '4px 0 0 0',
+                          fontSize: 12,
+                          color: 'var(--admin-text-tertiary)',
+                          display: 'flex',
+                          gap: 8,
+                          flexWrap: 'wrap',
+                        }}
+                      >
+                        <span>Base: ₦{rule.base_price.toLocaleString()}</span>
+                        <span>·</span>
+                        <span>
+                          Markup: {rule.markup_type === 'fixed' ? '+₦' : '+'}
+                          {rule.markup_value}
+                          {rule.markup_type === 'percentage' ? '%' : ''}
+                        </span>
+                      </p>
+                    </div>
+                    <div
+                      style={{
+                        fontFamily: 'ui-monospace, monospace',
+                        fontWeight: 700,
+                        color: 'var(--admin-success)',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      ₦{finalPrice.toLocaleString()}
+                    </div>
+                  </label>
+                )
+              })}
+            </div>
+          </>
+        )}
       </div>
     </div>
   )

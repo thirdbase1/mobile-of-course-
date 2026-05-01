@@ -1,9 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Save, Trash2, Loader2 } from 'lucide-react'
+import { Save, Trash2 } from 'lucide-react'
 
 interface Template {
   id: string
@@ -24,12 +22,9 @@ export function PricingTemplatesTab({ onApplyTemplate }: PricingTemplatesTabProp
   const [markupValue, setMarkupValue] = useState('')
   const [saving, setSaving] = useState(false)
 
-  // Load templates from localStorage on mount
   useEffect(() => {
     const saved = localStorage.getItem('pricingTemplates')
-    if (saved) {
-      setTemplates(JSON.parse(saved))
-    }
+    if (saved) setTemplates(JSON.parse(saved))
   }, [])
 
   const saveTemplate = () => {
@@ -47,145 +42,156 @@ export function PricingTemplatesTab({ onApplyTemplate }: PricingTemplatesTabProp
         markupValue: parseFloat(markupValue),
         createdAt: Date.now(),
       }
-
       const updated = [...templates, newTemplate]
       setTemplates(updated)
       localStorage.setItem('pricingTemplates', JSON.stringify(updated))
-
       setTemplateName('')
       setMarkupValue('')
       setSaving(false)
-      alert('Template saved!')
-    }, 300)
+    }, 200)
   }
 
   const deleteTemplate = (id: string) => {
     if (!confirm('Delete this template?')) return
-    const updated = templates.filter(t => t.id !== id)
+    const updated = templates.filter((t) => t.id !== id)
     setTemplates(updated)
     localStorage.setItem('pricingTemplates', JSON.stringify(updated))
   }
 
   return (
-    <div className="space-y-6">
-      {/* Save New Template */}
-      <div className="bg-white border border-slate-200 rounded-lg p-6">
-        <h3 className="font-semibold text-slate-900 mb-4">Create New Template</h3>
-        <div className="space-y-4">
+    <div>
+      {/* Create new template */}
+      <div className="admin-card">
+        <div className="admin-card-header">
           <div>
-            <label className="text-sm font-medium text-slate-700 block mb-2">Template Name</label>
-            <Input
-              placeholder="e.g. Standard +50, Premium +25%"
-              value={templateName}
-              onChange={(e) => setTemplateName(e.target.value)}
+            <h3>Create Template</h3>
+            <p className="admin-card-subtitle">Save reusable markup presets</p>
+          </div>
+        </div>
+
+        <div className="form-group">
+          <label>Template Name</label>
+          <input
+            type="text"
+            placeholder="e.g. Standard +50, Premium +25%"
+            value={templateName}
+            onChange={(e) => setTemplateName(e.target.value)}
+          />
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label>Type</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                type="button"
+                onClick={() => setMarkupType('fixed')}
+                className={`btn ${markupType === 'fixed' ? '' : 'btn-secondary'}`}
+                style={{ flex: 1 }}
+              >
+                Fixed (₦)
+              </button>
+              <button
+                type="button"
+                onClick={() => setMarkupType('percentage')}
+                className={`btn ${markupType === 'percentage' ? '' : 'btn-secondary'}`}
+                style={{ flex: 1 }}
+              >
+                Percent (%)
+              </button>
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label>Value</label>
+            <input
+              type="number"
+              placeholder="e.g. 50 or 25"
+              value={markupValue}
+              onChange={(e) => setMarkupValue(e.target.value)}
             />
           </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm font-medium text-slate-700 block mb-2">Type</label>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setMarkupType('fixed')}
-                  className={`flex-1 py-2 px-3 rounded border font-medium transition ${
-                    markupType === 'fixed'
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : 'bg-white text-slate-900 border-slate-200'
-                  }`}
-                >
-                  Fixed
-                </button>
-                <button
-                  onClick={() => setMarkupType('percentage')}
-                  className={`flex-1 py-2 px-3 rounded border font-medium transition ${
-                    markupType === 'percentage'
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : 'bg-white text-slate-900 border-slate-200'
-                  }`}
-                >
-                  %
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="text-sm font-medium text-slate-700 block mb-2">Value</label>
-              <Input
-                type="number"
-                placeholder="e.g. 50 or 25"
-                value={markupValue}
-                onChange={(e) => setMarkupValue(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <Button
-            onClick={saveTemplate}
-            disabled={saving || !templateName.trim() || !markupValue}
-            className="w-full bg-emerald-600 hover:bg-emerald-700"
-          >
-            {saving ? (
-              <>
-                <Loader2 size={16} className="animate-spin mr-2" />
-                Saving...
-              </>
-            ) : (
-              <>
-                <Save size={16} className="mr-2" />
-                Save Template
-              </>
-            )}
-          </Button>
         </div>
+
+        <button
+          type="button"
+          onClick={saveTemplate}
+          disabled={saving || !templateName.trim() || !markupValue}
+          className="btn btn-success btn-block"
+        >
+          {saving ? (
+            <>
+              <div className="loading-spinner" />
+              <span>Saving...</span>
+            </>
+          ) : (
+            <>
+              <Save size={16} />
+              <span>Save Template</span>
+            </>
+          )}
+        </button>
       </div>
 
-      {/* Templates List */}
-      {templates.length > 0 && (
-        <div className="bg-white border border-slate-200 rounded-lg p-6">
-          <h3 className="font-semibold text-slate-900 mb-4">Saved Templates ({templates.length})</h3>
-          <div className="grid gap-3">
+      {/* Templates list */}
+      {templates.length > 0 ? (
+        <div className="admin-card">
+          <div className="admin-card-header">
+            <h3>Saved Templates ({templates.length})</h3>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {templates.map((template) => (
               <div
                 key={template.id}
-                className="flex items-center justify-between p-4 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                  padding: 12,
+                  background: 'var(--admin-bg-tertiary)',
+                  border: '1px solid var(--admin-border)',
+                  borderRadius: 'var(--radius-md)',
+                  flexWrap: 'wrap',
+                }}
               >
-                <div className="flex-1">
-                  <p className="font-medium text-slate-900">{template.name}</p>
-                  <p className="text-sm text-slate-500">
-                    {template.markupType === 'fixed' ? '₦' : ''}{template.markupValue}
+                <div style={{ flex: 1, minWidth: 140 }}>
+                  <p style={{ margin: 0, fontWeight: 600, color: 'var(--admin-text)' }}>{template.name}</p>
+                  <p style={{ margin: '2px 0 0 0', fontSize: 12, color: 'var(--admin-text-tertiary)' }}>
+                    {template.markupType === 'fixed' ? '+₦' : '+'}
+                    {template.markupValue}
                     {template.markupType === 'percentage' ? '%' : ''}
                   </p>
                 </div>
 
-                <div className="flex gap-2">
-                  <Button
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    type="button"
                     onClick={() => {
                       onApplyTemplate(template.markupType, template.markupValue)
-                      alert('Template settings applied to bulk form')
                     }}
-                    variant="outline"
-                    size="sm"
+                    className="btn btn-secondary btn-sm"
                   >
                     Use
-                  </Button>
-                  <Button
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => deleteTemplate(template.id)}
-                    variant="ghost"
-                    size="sm"
-                    className="text-red-600 hover:bg-red-50"
+                    className="btn btn-ghost btn-sm btn-icon"
+                    style={{ color: 'var(--admin-danger)' }}
                   >
-                    <Trash2 size={16} />
-                  </Button>
+                    <Trash2 size={14} />
+                  </button>
                 </div>
               </div>
             ))}
           </div>
         </div>
-      )}
-
-      {templates.length === 0 && (
-        <div className="text-center py-12 bg-slate-50 border border-slate-200 rounded-lg">
-          <p className="text-slate-600">No templates yet. Create one above to save time on repetitive markups!</p>
+      ) : (
+        <div className="empty-state">
+          <h3>No templates yet</h3>
+          <p>Create one above to save time on repetitive markups</p>
         </div>
       )}
     </div>
