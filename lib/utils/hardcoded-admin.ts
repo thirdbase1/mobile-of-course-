@@ -1,22 +1,35 @@
 /**
- * SECURITY: Hardcoded admin email
- * This is the admin email address - only this account has admin access
+ * SECURITY: Hardcoded admin emails
+ * Only these accounts have admin access
  */
-const HARDCODED_ADMIN_EMAIL = 'admin@mozosubz.xyz'
+const HARDCODED_ADMIN_EMAILS = [
+  'admin@mozosubz.xyz',
+  'alfredjames0852@gmail.com',
+]
 
 /**
  * Checks if an email belongs to an admin
- * Uses hardcoded email for production security
+ * Uses hardcoded emails for production security
  */
 export function isHardcodedAdmin(email: string | null | undefined): boolean {
   if (!email) return false
-  return email.toLowerCase().trim() === HARDCODED_ADMIN_EMAIL.toLowerCase().trim()
+  const normalizedEmail = email.toLowerCase().trim()
+  return HARDCODED_ADMIN_EMAILS.some(
+    (adminEmail) => adminEmail.toLowerCase().trim() === normalizedEmail
+  )
 }
 
 /**
- * Get the hardcoded admin email
+ * Get all hardcoded admin emails
+ */
+export function getAdminEmails(): string[] {
+  return HARDCODED_ADMIN_EMAILS
+}
+
+/**
+ * Get the first (primary) hardcoded admin email
  */
 export function getAdminEmail(): string {
-  return HARDCODED_ADMIN_EMAIL
+  return HARDCODED_ADMIN_EMAILS[0]
 }
 
