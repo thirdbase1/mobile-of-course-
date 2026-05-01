@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { UserDetailsCard } from '@/components/admin/user-details-card'
 import { UserTransactionsCard } from '@/components/admin/user-transactions-card'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, User } from 'lucide-react'
 
 export default async function UserDetailsPage({
   params,
@@ -32,16 +32,32 @@ export default async function UserDetailsPage({
 
   return (
     <div className="admin-page">
-      <div className="mb-6 flex items-center gap-4">
-        <Link href="/admin/users" className="text-gray-400 hover:text-gray-300">
-          <ArrowLeft size={20} />
+      <div className="admin-page-header">
+        <Link
+          href="/admin/users"
+          className="btn btn-ghost btn-icon"
+          style={{ marginBottom: 12, alignSelf: 'flex-start' }}
+        >
+          <ArrowLeft size={16} />
+          <span>Back to users</span>
         </Link>
-        <h1 className="text-2xl font-bold">User Details</h1>
+        <div>
+          <h1 className="admin-page-title">
+            <User
+              size={22}
+              style={{ display: 'inline', marginRight: 10, verticalAlign: '-3px' }}
+            />
+            {user.full_name || 'User profile'}
+          </h1>
+          <p className="admin-page-subtitle" style={{ wordBreak: 'break-all' }}>
+            {user.email}
+          </p>
+        </div>
       </div>
 
-      <div className="grid gap-24 md:grid-cols-2">
+      <div className="grid-2col" style={{ gap: 20 }}>
         <UserDetailsCard user={user} />
-        <UserTransactionsCard transactions={transactions} />
+        <UserTransactionsCard transactions={transactions || []} />
       </div>
     </div>
   )
