@@ -2,7 +2,7 @@
 
 import { buyAirtime } from "@/lib/api/gsubz"
 import { createClient } from "@/lib/supabase/server"
-import { saveTransaction, atomicDeductWallet, atomicRefundWallet } from "@/lib/utils/save-transaction"
+import { saveTransaction, atomicDeductWallet } from "@/lib/utils/save-transaction"
 import { sendTransactionEmail } from "@/lib/email/send-transaction-email"
 import { isValidAmount, isValidPhone } from "@/lib/utils/input-validation"
 import { revalidatePath } from "next/cache"
@@ -11,6 +11,8 @@ export async function purchaseAirtime(formData: FormData) {
   const network = formData.get("network") as string
   const phone = formData.get("phone") as string
   const amount = formData.get("amount") as string
+
+  const startTime = Date.now()
 
   try {
     // SECURITY: Validate inputs
@@ -56,92 +58,79 @@ export async function purchaseAirtime(formData: FormData) {
 
     const serviceID = serviceIdMap[network.toLowerCase()] || "mtn"
     const requestID = `TXN${Date.now()}${Math.floor(Math.random() * 1000)}`
-    const transactionId = `AIRTIME-${requestID}`
 
-    // STEP 1: Call gsubz API with 5-second timeout
-    let gsubzResponse: any = null
-    let isTimeout = false
+    // Call GSUBZ API
+    const gsubzStartTime = Date.now()
+    const response = await buyAirtime({
+      serviceID,
+      phone,
+      amount: String(userAmount),
+      requestID,
+    })
+    const gsubzTime = Date.now() - gsubzStartTime
 
-    try {
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => {
-        controller.abort()
-        isTimeout = true
-      }, 5000) // 5 second timeout
-
-      gsubzResponse = await Promise.race([
-        buyAirtime({
-          serviceID,
-          phone,
-          amount: String(userAmount),
-          requestID,
-        }),
-        new Promise((_, reject) =>
-          controller.signal.addEventListener("abort", () => {
-            clearTimeout(timeoutId)
-            reject(new Error("API Timeout"))
-          })
-        ),
-      ]).catch((err) => {
-        clearTimeout(timeoutId)
-        return { error: err.message }
-      })
-    } catch (apiErr) {
-      isTimeout = true
-      gsubzResponse = null
-    }
-
-    // Check if API call succeeded
+    // Determine success
     const isSuccess =
-      gsubzResponse &&
-      !gsubzResponse.error &&
-      (gsubzResponse.code === 200 || gsubzResponse.code === "200" || gsubzResponse.code === "000") &&
-      (gsubzResponse.status === "TRANSACTION_SUCCESSFUL" ||
-        gsubzResponse.status === "success" ||
-        gsubzResponse.status === "successful" ||
-        gsubzResponse.description === "TRANSACTION_SUCCESSFUL")
+      (response.code === 200 || response.code === "200" || response.code === "000") &&
+      (response.status === "TRANSACTION_SUCCESSFUL" ||
+        response.status === "success" ||
+        response.status === "successful" ||
+        response.description === "TRANSACTION_SUCCESSFUL")
 
     if (isSuccess) {
-      // ✓ IMMEDIATE SUCCESS: API confirmed transaction within 5 seconds
-      const { error: deductError } = await atomicDeductWallet(supabase, user.id, userAmount)
-      if (deductError) {
-        // Rollback not possible here, but log for manual review
-        console.error("[v0] Balance deduction failed after confirmed purchase:", deductError)
+      const transactionId = String(response.transactionID || requestID)
+
+      // ATOMIC: Deduct wallet balance in a single database transaction
+      const deductStartTime = Date.now()
+      const deductResult = await atomicDeductWallet(user.id, userAmount)
+      const deductTime = Date.now() - deductStartTime
+
+      if (!deductResult.success) {
+        console.error("[v0] Atomic deduction failed - contact support")
+        return {
+          success: false,
+          message: deductResult.error || "Failed to update wallet balance. Please contact support.",
+        }
       }
 
-      const balanceAfter = balanceBefore - userAmount
+      const balanceAfter = deductResult.newBalance!
 
-      // Save transaction as SUCCESS
-      await saveTransaction(supabase, {
-        user_id: user.id,
-        type: "airtime",
-        status: "success",
+      // Save transaction
+      const saveStartTime = Date.now()
+      await saveTransaction({
+        userId: user.id,
+        transactionId,
+        category: "AIRTIME",
+        serviceId: `${network.toLowerCase()}-airtime`,
+        serviceName: `${network} Airtime`,
         amount: userAmount,
-        description: `${network.toUpperCase()} Airtime · ${phone}`,
-        metadata: {
-          network,
-          phone,
-          serviceID,
-          requestID,
-        },
+        phone,
+        status: "SUCCESS",
+        description: `${network} Airtime · ${phone}`,
+        balanceBefore,
+        balanceAfter,
+        apiResponse: response,
       })
+      const saveTime = Date.now() - saveStartTime
 
-      // Send confirmation email
+      // Send transaction email
       try {
         await sendTransactionEmail({
-          email: user.email || "",
-          userName: profile.name || user.email || "User",
-          transactionType: `${network.toUpperCase()} Airtime`,
+          email: user.email || '',
+          userName: profile.name || user.email || 'User',
+          transactionType: 'Airtime Purchase',
           amount: userAmount,
           phone,
+          network,
           transactionId,
-          status: "SUCCESS",
+          status: 'SUCCESS',
           balanceAfter,
         })
       } catch (emailErr) {
-        console.error("[v0] Email sending failed:", emailErr)
+        console.error("[v0] Email sending failed - continuing anyway")
       }
 
+      // Revalidate dashboard to update balance and transactions
       revalidatePath("/dashboard")
 
       return {
@@ -157,75 +146,56 @@ export async function purchaseAirtime(formData: FormData) {
           balance: balanceAfter,
         },
       }
-    } else if (isTimeout) {
-      // ⏱️ TIMEOUT: API didn't respond in 5 seconds
-      // Create PENDING transaction and tell user to wait for email
-      const { error: deductError } = await atomicDeductWallet(supabase, user.id, userAmount)
-      if (deductError) {
-        return { success: false, message: "Failed to deduct balance. Please try again." }
-      }
-
-      const balanceAfter = balanceBefore - userAmount
-
-      // Save as PENDING - will be verified in background
-      await saveTransaction(supabase, {
-        user_id: user.id,
-        type: "airtime",
-        status: "pending",
-        amount: userAmount,
-        description: `${network.toUpperCase()} Airtime · ${phone}`,
-        metadata: {
-          network,
-          phone,
-          serviceID,
-          requestID,
-          isPending: true,
-        },
-      })
-
-      // Send "pending" email
-      try {
-        await sendTransactionEmail({
-          email: user.email || "",
-          userName: profile.name || user.email || "User",
-          transactionType: `${network.toUpperCase()} Airtime`,
-          amount: userAmount,
-          phone,
-          transactionId,
-          status: "PENDING",
-          balanceAfter,
-        })
-      } catch (emailErr) {
-        console.error("[v0] Email sending failed:", emailErr)
-      }
-
-      revalidatePath("/dashboard")
-
-      return {
-        success: true,
-        message: "Purchase is being processed. Check your email for confirmation.",
-        transaction: {
-          id: transactionId,
-          type: "airtime",
-          network,
-          phone,
-          amount: userAmount,
-          status: "pending",
-          balance: balanceAfter,
-        },
-      }
-    } else {
-      // ✗ FAILED: API returned error
-      return {
-        success: false,
-        message: gsubzResponse?.description || "Transaction failed. Please try again.",
-      }
     }
-  } catch (error) {
-    console.error("[v0] Purchase error:", error)
+
+    // Transaction failed - still save it as FAILED
+    const failedTransactionId = String(response.transactionID || requestID)
+
+    await saveTransaction({
+      userId: user.id,
+      transactionId: failedTransactionId,
+      category: "AIRTIME",
+      serviceId: `${network.toLowerCase()}-airtime`,
+      serviceName: `${network} Airtime`,
+      amount: userAmount,
+      phone,
+      status: "FAILED",
+      description: `${network} Airtime · ${phone}`,
+      balanceBefore,
+      balanceAfter: balanceBefore,
+      apiResponse: response,
+    })
+
+    // Send failure email
+    await sendTransactionEmail({
+      userId: user.id,
+      category: "AIRTIME",
+      serviceName: `${network} Airtime`,
+      amount: userAmount,
+      status: "FAILED",
+      transactionId: failedTransactionId,
+      extras: [
+        { label: "Phone", value: phone },
+        { label: "Status", value: "Failed" },
+        { label: "Reason", value: response.description || "Transaction could not be processed" },
+      ],
+    })
+
     return {
       success: false,
-      message: error instanceof Error ? error.message : "Purchase failed. Please try again.",
+      message: response.description || "Transaction failed",
+      transaction: {
+        id: failedTransactionId,
+        type: "airtime",
+        network,
+        phone,
+        amount: userAmount,
+        status: "failed",
+        balance: balanceBefore,
+      },
     }
+  } catch (error) {
+    console.error("[v0] Airtime purchase error:", error)
+    return { success: false, message: "An error occurred while processing your request", error: String(error) }
   }
 }
