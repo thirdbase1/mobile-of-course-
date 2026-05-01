@@ -50,22 +50,24 @@ interface PlanResponse {
 async function makeApiRequest(endpoint: string, method: "GET" | "POST" = "POST", body?: FormData) {
   const headers: HeadersInit = {
     Authorization: `Bearer ${API_KEY}`,
+    "Connection": "keep-alive",
   }
 
   const options: RequestInit = {
     method,
     headers,
     agent: API_BASE_URL.startsWith("https") ? httpsAgent : httpAgent,
+    // Use faster compression
+    compress: true,
   }
 
   if (body && method === "POST") {
     options.body = body
-    // Don't set Content-Type when using FormData - let fetch handle it
   }
 
-  // Add request-level abort timeout to prevent hanging
+  // Tighter timeout: 25 seconds max
   const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), 35000) // 35 second timeout
+  const timeoutId = setTimeout(() => controller.abort(), 25000)
 
   try {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
@@ -73,6 +75,11 @@ async function makeApiRequest(endpoint: string, method: "GET" | "POST" = "POST",
       signal: controller.signal,
     })
     clearTimeout(timeoutId)
+    
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`)
+    }
+    
     const data = await response.json()
     return data
   } catch (error) {
@@ -84,11 +91,22 @@ async function makeApiRequest(endpoint: string, method: "GET" | "POST" = "POST",
 // Uncached function to fetch data plans from API
 async function _fetchDataPlansFromAPI(serviceId: string): Promise<PlanResponse> {
   try {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 15000) // 15 sec timeout for plans
+
     const response = await fetch(`${API_PLANS_URL}/api/plans?service=${serviceId}`, {
+      method: "GET",
       redirect: "follow",
       cache: "no-store",
+      headers: {
+        "Connection": "keep-alive",
+        "Accept-Encoding": "gzip",
+      },
       agent: API_PLANS_URL.startsWith("https") ? httpsAgent : httpAgent,
+      signal: controller.signal,
     })
+
+    clearTimeout(timeoutId)
 
     if (!response.ok) {
       throw new Error(`API returned status ${response.status}`)
