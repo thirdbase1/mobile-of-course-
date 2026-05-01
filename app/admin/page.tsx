@@ -6,7 +6,11 @@ import { StatCard } from '@/components/admin/stat-card'
 import { RevenueOverview } from '@/components/admin/revenue-overview'
 import { RevenueBreakdown } from '@/components/admin/revenue-breakdown'
 import { RevenueActivityTable } from '@/components/admin/revenue-activity-table'
-import { Users, DollarSign, TrendingUp, Zap, Settings, BarChart3, Activity } from 'lucide-react'
+import { RevenueMetrics } from '@/components/admin/revenue-metrics'
+import { CategoryPerformance } from '@/components/admin/category-performance'
+import { RevenueForecast } from '@/components/admin/revenue-forecast'
+import { WeekComparison } from '@/components/admin/week-comparison'
+import { Users, DollarSign, TrendingUp, Zap, Settings, BarChart3, Activity, Clock, Target } from 'lucide-react'
 
 export const metadata: Metadata = {
   title: 'Admin Dashboard | Mozosubz',
@@ -123,6 +127,45 @@ export default async function AdminDashboard() {
           </div>
         </div>
 
+        {/* Key Performance Indicators */}
+        <div style={{ marginBottom: '32px' }}>
+          <h2 style={{ fontSize: '16px', fontWeight: '700', color: 'var(--admin-text)', marginBottom: '16px' }}>Key Performance Indicators</h2>
+          <RevenueMetrics transactions={allTransactions || []} />
+        </div>
+
+        {/* Main Analytics Grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '24px', marginBottom: '32px' }}>
+          {/* Revenue Overview */}
+          <div style={{ gridColumn: 'span 1' }}>
+            <RevenueOverview transactions={allTransactions || []} />
+          </div>
+
+          {/* Revenue Breakdown */}
+          <div style={{ gridColumn: 'span 1' }}>
+            <RevenueBreakdown depositFee={revenueData.depositFeeRevenue} markup={revenueData.markupRevenue} />
+          </div>
+        </div>
+
+        {/* Category Performance */}
+        <div style={{ marginBottom: '32px' }}>
+          <CategoryPerformance transactions={allTransactions || []} />
+        </div>
+
+        {/* Revenue Forecast */}
+        <div style={{ marginBottom: '32px' }}>
+          <RevenueForecast transactions={allTransactions || []} />
+        </div>
+
+        {/* Week-over-Week Comparison */}
+        <div style={{ marginBottom: '32px' }}>
+          <WeekComparison transactions={allTransactions || []} />
+        </div>
+
+        {/* Activity Section */}
+        <div style={{ marginBottom: '32px' }}>
+          <RevenueActivityTable activity={activityRes || []} />
+        </div>
+
         {/* Quick Stats */}
         <div className="stats-grid" style={{ marginBottom: '32px' }}>
           <Link href="/admin/transactions" className="stat-card" style={{ cursor: 'pointer', textDecoration: 'none', color: 'inherit' }}>
@@ -160,48 +203,14 @@ export default async function AdminDashboard() {
 
           <div className="stat-card">
             <div className="stat-header">
-              <h3 className="stat-title">Revenue Breakdown</h3>
+              <h3 className="stat-title">Active Users</h3>
               <div className="stat-icon">
-                <BarChart3 />
+                <Users />
               </div>
             </div>
-            <RevenueBreakdown depositFee={revenueData.depositFeeRevenue} markup={revenueData.markupRevenue} />
+            <div className="stat-value">{userCount.toLocaleString()}</div>
+            <p className="stat-trend positive">Growing community</p>
           </div>
-        </div>
-
-        {/* Activity Table */}
-        <div className="table-container">
-          <div style={{ padding: '24px' }}>
-            <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '24px', color: 'var(--admin-text)' }}>Recent Activity</h3>
-            <RevenueActivityTable activity={activityRes || []} />
-          </div>
-        </div>
-
-        {/* Admin Quick Links */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px', marginTop: '32px' }}>
-          <Link href="/admin/users" className="stat-card" style={{ cursor: 'pointer', textDecoration: 'none', color: 'inherit', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 16px' }}>
-            <Users size={32} style={{ marginBottom: '12px', color: 'var(--admin-secondary)' }} />
-            <h4 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '4px' }}>Manage Users</h4>
-            <p style={{ fontSize: '13px', color: 'var(--admin-text-secondary)' }}>View & manage user accounts</p>
-          </Link>
-
-          <Link href="/admin/transactions" className="stat-card" style={{ cursor: 'pointer', textDecoration: 'none', color: 'inherit', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 16px' }}>
-            <Activity size={32} style={{ marginBottom: '12px', color: 'var(--admin-secondary)' }} />
-            <h4 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '4px' }}>Transactions</h4>
-            <p style={{ fontSize: '13px', color: 'var(--admin-text-secondary)' }}>View all transactions</p>
-          </Link>
-
-          <Link href="/admin/deposit-rules" className="stat-card" style={{ cursor: 'pointer', textDecoration: 'none', color: 'inherit', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 16px' }}>
-            <DollarSign size={32} style={{ marginBottom: '12px', color: 'var(--admin-secondary)' }} />
-            <h4 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '4px' }}>Deposit Rules</h4>
-            <p style={{ fontSize: '13px', color: 'var(--admin-text-secondary)' }}>Configure fee & markup rules</p>
-          </Link>
-
-          <Link href="/admin/monitoring" className="stat-card" style={{ cursor: 'pointer', textDecoration: 'none', color: 'inherit', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 16px' }}>
-            <BarChart3 size={32} style={{ marginBottom: '12px', color: 'var(--admin-secondary)' }} />
-            <h4 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '4px' }}>Monitoring</h4>
-            <p style={{ fontSize: '13px', color: 'var(--admin-text-secondary)' }}>System health & status</p>
-          </Link>
         </div>
       </div>
     )
