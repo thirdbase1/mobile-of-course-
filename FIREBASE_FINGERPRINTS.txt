@@ -1,0 +1,13 @@
+Mozosubz Android App — Certificate Fingerprints
+================================================
+
+SHA-1:
+B7:D5:FF:80:37:E5:DE:95:35:BF:B0:FE:77:95:93:E5:D6:98:80:64
+
+SHA-256:
+A8:FE:25:9B:86:17:F6:3D:F4:D1:92:53:10:B4:3D:C7:C6:CF:9A:B2:56:CD:DB:9B:CD:83:07:6F:4A:CD:0C:CA
+
+================================================
+These come from the signing certificate auto-generated for com.mozosubz.app.
+Used in: Firebase Console → Project Settings → Your apps → SHA certificate fingerprints
+Also used in: public/.well-known/assetlinks.json (deep link verification)
