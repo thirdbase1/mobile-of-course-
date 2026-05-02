@@ -1,16 +1,16 @@
 {
-  "appId": "com.thirdbase.app",
-  "appName": "ThirdBase",
-  "webDir": "public",
+  "appId": "com.msubz.app",
+  "appName": "Msubz",
+  "webDir": "out",
   "server": {
-    "url": "https://your-deployed-url.vercel.app",
+    "url": "https://v0-mobile-one-liart.vercel.app",
     "cleartext": false
   },
   "plugins": {
     "SplashScreen": {
-      "launchShowDuration": 2000,
+      "launchShowDuration": 2500,
       "launchAutoHide": true,
-      "backgroundColor": "#000000",
+      "backgroundColor": "#0d1117",
       "androidSplashResourceName": "splash",
       "androidScaleType": "CENTER_CROP",
       "showSpinner": false,
@@ -19,7 +19,7 @@
     },
     "StatusBar": {
       "style": "dark",
-      "backgroundColor": "#000000"
+      "backgroundColor": "#0d1117"
     },
     "Keyboard": {
       "resize": "body",

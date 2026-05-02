@@ -1,7 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">ThirdBase</string>
-    <string name="title_activity_main">ThirdBase</string>
-    <string name="package_name">com.thirdbase.app</string>
-    <string name="custom_url_scheme">com.thirdbase.app</string>
+    <string name="app_name">Msubz</string>
+    <string name="title_activity_main">Msubz</string>
+    <string name="package_name">com.msubz.app</string>
+    <string name="custom_url_scheme">com.msubz.app</string>
+
+    <!-- Onboarding -->
+    <string name="onboard_title_1">Manage All Your Subscriptions</string>
+    <string name="onboard_desc_1">Track every subscription and recurring payment in one place. Never miss a renewal again.</string>
+    <string name="onboard_title_2">Send Money Instantly</string>
+    <string name="onboard_desc_2">Transfer funds to anyone in seconds. Fast, reliable, and always on time.</string>
+    <string name="onboard_title_3">Bank-Level Security</string>
+    <string name="onboard_desc_3">Your money and data are protected with enterprise-grade encryption and real-time monitoring.</string>
+
+    <string name="btn_next">Next</string>
+    <string name="btn_skip">Skip</string>
+    <string name="btn_get_started">Get Started</string>
 </resources>

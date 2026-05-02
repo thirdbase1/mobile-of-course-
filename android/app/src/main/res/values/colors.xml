@@ -1,4 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ic_launcher_background">#000000</color>
+    <!-- Brand Colors -->
+    <color name="msubz_primary">#1a56db</color>
+    <color name="msubz_primary_dark">#1e40af</color>
+    <color name="msubz_accent">#f97316</color>
+    <color name="msubz_bg_dark">#0d1117</color>
+    <color name="msubz_bg_card">#161b22</color>
+    <color name="msubz_text_primary">#f0f6fc</color>
+    <color name="msubz_text_secondary">#8b949e</color>
+    <color name="msubz_border">#30363d</color>
+
+    <!-- System -->
+    <color name="ic_launcher_background">#0d1117</color>
+    <color name="splash_background">#0d1117</color>
 </resources>

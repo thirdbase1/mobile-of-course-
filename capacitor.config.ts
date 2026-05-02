@@ -1,24 +1,24 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.thirdbase.app',
-  appName: 'ThirdBase',
+  appId: 'com.msubz.app',
+  appName: 'Msubz',
   webDir: 'out',
   server: {
-    url: 'https://your-deployed-url.vercel.app',
+    url: 'https://v0-mobile-one-liart.vercel.app',
     cleartext: false,
   },
   android: {
     allowMixedContent: false,
     captureInput: true,
     webContentsDebuggingEnabled: false,
-    backgroundColor: '#000000',
+    backgroundColor: '#0d1117',
   },
   plugins: {
     SplashScreen: {
-      launchShowDuration: 2000,
+      launchShowDuration: 2500,
       launchAutoHide: true,
-      backgroundColor: '#000000',
+      backgroundColor: '#0d1117',
       androidSplashResourceName: 'splash',
       androidScaleType: 'CENTER_CROP',
       showSpinner: false,
@@ -27,7 +27,7 @@ const config: CapacitorConfig = {
     },
     StatusBar: {
       style: 'dark',
-      backgroundColor: '#000000',
+      backgroundColor: '#0d1117',
     },
     Keyboard: {
       resize: 'body',

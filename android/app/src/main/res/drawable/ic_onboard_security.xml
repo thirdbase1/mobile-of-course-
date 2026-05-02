@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:viewportWidth="140"
+    android:viewportHeight="140"
+    android:width="140dp"
+    android:height="140dp">
+
+    <!-- Outer glow -->
+    <path android:pathData="M70,70 m-60,0 a60,60 0 1,0 120,0 a60,60 0 1,0 -120,0"
+        android:fillColor="#1a56db"
+        android:fillAlpha="0.12"/>
+
+    <!-- Inner circle -->
+    <path android:pathData="M70,70 m-44,0 a44,44 0 1,0 88,0 a44,44 0 1,0 -88,0">
+        <aapt:attr name="android:fillColor">
+            <gradient android:startX="26" android:startY="26"
+                android:endX="114" android:endY="114"
+                android:type="linear">
+                <item android:offset="0" android:color="#FF1e40af"/>
+                <item android:offset="1" android:color="#FF1a56db"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Shield -->
+    <path android:pathData="M70,52 L88,60 L88,74 Q88,86 70,92 Q52,86 52,74 L52,60 Z"
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"/>
+
+    <!-- Checkmark inside shield -->
+    <path android:pathData="M62,72 L68,78 L79,65"
+        android:strokeColor="#FFf97316"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"/>
+</vector>
