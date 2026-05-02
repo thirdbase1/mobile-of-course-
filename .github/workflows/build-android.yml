@@ -1,4 +1,4 @@
-name: Build Msubz Android APK
+name: Build Mozosubz Android APK
 
 on:
   push:
@@ -50,7 +50,7 @@ jobs:
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: msubz-debug-${{ github.run_number }}.apk
+          name: mozosubz-debug-${{ github.run_number }}.apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
 
