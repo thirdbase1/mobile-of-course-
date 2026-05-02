@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/mozosubz_bg_dark"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="40dp">
+
+    <ImageView
+        android:layout_width="72dp"
+        android:layout_height="72dp"
+        android:layout_marginBottom="32dp"
+        android:src="@drawable/ic_no_wifi"
+        android:contentDescription="No internet" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="No Internet Connection"
+        android:textColor="@color/mozosubz_text_primary"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="12dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Check your Wi-Fi or mobile data and try again."
+        android:textColor="@color/mozosubz_text_secondary"
+        android:textSize="15sp"
+        android:gravity="center"
+        android:layout_marginBottom="40dp" />
+
+    <Button
+        android:id="@+id/btnRetry"
+        android:layout_width="200dp"
+        android:layout_height="48dp"
+        android:text="Try Again"
+        android:textColor="@android:color/white"
+        android:textSize="15sp"
+        android:backgroundTint="@color/mozosubz_primary"
+        android:stateListAnimator="@null" />
+
+    <ImageView
+        android:layout_width="80dp"
+        android:layout_height="20dp"
+        android:layout_marginTop="60dp"
+        android:src="@drawable/mozosubz_icon"
+        android:alpha="0.25"
+        android:contentDescription="Mozosubz"
+        android:scaleType="fitCenter" />
+
+</LinearLayout>
