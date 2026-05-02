@@ -13,11 +13,14 @@ import android.net.NetworkCapabilities;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.WindowManager;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
+import android.webkit.WebViewClient;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import androidx.core.app.ActivityCompat;
@@ -33,6 +36,9 @@ public class MainActivity extends BridgeActivity {
     private View    offlineOverlay;
     private boolean wasOffline = false;
 
+    private WebView  loadingWebView;
+    private boolean  loadingDismissed = false;
+
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     @Override
@@ -47,6 +53,9 @@ public class MainActivity extends BridgeActivity {
         setupOfflineOverlay();
         startNetworkMonitoring();
 
+        // Show branded loading screen while the remote site loads
+        showLoadingScreen();
+
         if (!checkOnboarding()) {
             handleDeepLink(getIntent());
             new UpdateChecker(this).checkIfNeeded();
@@ -58,6 +67,75 @@ public class MainActivity extends BridgeActivity {
         super.onNewIntent(intent);
         setIntent(intent);
         handleDeepLink(intent);
+    }
+
+    // ── Branded loading screen ─────────────────────────────────────────────────
+
+    private void showLoadingScreen() {
+        FrameLayout root = (FrameLayout) getWindow().getDecorView()
+            .findViewById(android.R.id.content);
+
+        loadingWebView = new WebView(this);
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT);
+        loadingWebView.setLayoutParams(lp);
+        loadingWebView.setBackgroundColor(0xFF0B1120);
+
+        WebSettings ws = loadingWebView.getSettings();
+        ws.setJavaScriptEnabled(true);
+        ws.setDomStorageEnabled(true);
+
+        // Hide loading when the main site finishes loading
+        WebView mainWebView = getBridge() != null ? getBridge().getWebView() : null;
+        if (mainWebView != null) {
+            mainWebView.setWebViewClient(new WebViewClient() {
+                @Override
+                public void onPageFinished(WebView view, String url) {
+                    super.onPageFinished(view, url);
+                    hideLoadingScreen();
+                }
+
+                @Override
+                public boolean shouldOverrideUrlLoading(WebView view, android.webkit.WebResourceRequest request) {
+                    String url = request.getUrl().toString();
+                    if (url.contains("mozosubz.xyz")) {
+                        return false; // stay in WebView
+                    }
+                    // Open truly external links in browser
+                    try {
+                        startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+                    } catch (Exception ignored) {}
+                    return true;
+                }
+            });
+        }
+
+        loadingWebView.loadUrl("file:///android_asset/loading.html");
+        root.addView(loadingWebView);
+
+        // Safety fallback: always hide after 4 seconds max
+        new Handler(Looper.getMainLooper()).postDelayed(
+            this::hideLoadingScreen, 4000);
+    }
+
+    private void hideLoadingScreen() {
+        if (loadingDismissed || loadingWebView == null) return;
+        loadingDismissed = true;
+        final WebView lv = loadingWebView;
+        runOnUiThread(() -> {
+            lv.animate()
+                .alpha(0f)
+                .setDuration(450)
+                .withEndAction(() -> {
+                    try {
+                        FrameLayout root = (FrameLayout) getWindow().getDecorView()
+                            .findViewById(android.R.id.content);
+                        root.removeView(lv);
+                    } catch (Exception ignored) {}
+                    loadingWebView = null;
+                }).start();
+        });
     }
 
     // ── Offline overlay ───────────────────────────────────────────────────────
@@ -143,12 +221,10 @@ public class MainActivity extends BridgeActivity {
                     }
                 }
             };
-            IntentFilter filter = new IntentFilter(
-                ConnectivityManager.CONNECTIVITY_ACTION);
+            IntentFilter filter = new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION);
             registerReceiver(legacyReceiver, filter);
         }
 
-        // Check state right away
         if (!isOnline()) {
             wasOffline = true;
             showOfflineScreen();
@@ -253,7 +329,7 @@ public class MainActivity extends BridgeActivity {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
             WebView.setWebContentsDebuggingEnabled(false);
         }
-        WebView webView = getBridge().getWebView();
+        WebView webView = getBridge() != null ? getBridge().getWebView() : null;
         if (webView == null) return;
         WebSettings s = webView.getSettings();
         s.setJavaScriptEnabled(true);

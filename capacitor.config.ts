@@ -5,20 +5,21 @@ const config: CapacitorConfig = {
   appName: 'Mozosubz',
   webDir: 'out',
   server: {
-    url: 'https://mozosubz.xyz/login',
+    url: 'https://mozosubz.xyz',
     cleartext: false,
+    allowNavigation: ['mozosubz.xyz', '*.mozosubz.xyz'],
   },
   android: {
     allowMixedContent: false,
     captureInput: true,
     webContentsDebuggingEnabled: false,
-    backgroundColor: '#0d1117',
+    backgroundColor: '#0b1120',
   },
   plugins: {
     SplashScreen: {
-      launchShowDuration: 2500,
+      launchShowDuration: 0,
       launchAutoHide: true,
-      backgroundColor: '#0d1117',
+      backgroundColor: '#0b1120',
       androidSplashResourceName: 'splash',
       androidScaleType: 'CENTER_CROP',
       showSpinner: false,
@@ -27,7 +28,7 @@ const config: CapacitorConfig = {
     },
     StatusBar: {
       style: 'dark',
-      backgroundColor: '#0d1117',
+      backgroundColor: '#0b1120',
     },
     Keyboard: {
       resize: 'body',
