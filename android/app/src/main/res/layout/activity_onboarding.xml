@@ -3,7 +3,7 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/msubz_bg_dark">
+    android:background="@color/mozosubz_bg_dark">
 
     <!-- Logo at top -->
     <LinearLayout
@@ -18,14 +18,14 @@
         <ImageView
             android:layout_width="36dp"
             android:layout_height="36dp"
-            android:src="@drawable/msubz_logo"
-            android:contentDescription="Msubz Logo"/>
+            android:src="@drawable/mozosubz_logo"
+            android:contentDescription="Mozosubz Logo"/>
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="msubz"
-            android:textColor="@color/msubz_text_primary"
+            android:text="Mozosubz"
+            android:textColor="@color/mozosubz_text_primary"
             android:textSize="22sp"
             android:textStyle="bold"
             android:fontFamily="sans-serif-medium"
@@ -82,7 +82,7 @@
             android:layout_width="match_parent"
             android:layout_height="48dp"
             android:text="@string/btn_skip"
-            android:textColor="@color/msubz_text_secondary"
+            android:textColor="@color/mozosubz_text_secondary"
             android:textSize="15sp"
             android:background="@android:color/transparent"
             android:elevation="0dp"

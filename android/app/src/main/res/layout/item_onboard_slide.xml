@@ -7,7 +7,7 @@
     android:gravity="center"
     android:paddingStart="32dp"
     android:paddingEnd="32dp"
-    android:background="@color/msubz_bg_dark">
+    android:background="@color/mozosubz_bg_dark">
 
     <!-- Slide Icon -->
     <ImageView
@@ -22,7 +22,7 @@
         android:id="@+id/slideTitle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textColor="@color/msubz_text_primary"
+        android:textColor="@color/mozosubz_text_primary"
         android:textSize="26sp"
         android:textStyle="bold"
         android:gravity="center"
@@ -36,7 +36,7 @@
         android:id="@+id/slideDesc"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textColor="@color/msubz_text_secondary"
+        android:textColor="@color/mozosubz_text_secondary"
         android:textSize="15sp"
         android:gravity="center"
         android:lineSpacingExtra="6dp"/>
