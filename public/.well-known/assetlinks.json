@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.mozosubz.app",
+      "sha256_cert_fingerprints": [
+        "A8:FE:25:9B:86:17:F6:3D:F4:D1:92:53:10:B4:3D:C7:C6:CF:9A:B2:56:CD:DB:9B:CD:83:07:6F:4A:CD:0C:CA"
+      ]
+    }
+  }
+]

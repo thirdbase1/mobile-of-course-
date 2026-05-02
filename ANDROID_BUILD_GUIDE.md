@@ -1,11 +1,11 @@
-# Msubz Android App — Build Guide
+# Mozosubz Android App — Build Guide
 
 ## App Info
 | Property | Value |
 |---|---|
-| App Name | Msubz |
-| App ID | com.msubz.app |
-| Server URL | https://v0-mobile-one-liart.vercel.app |
+| App Name | Mozosubz |
+| App ID | com.mozosubz.app |
+| Server URL | https://mozosubz.xyz/login |
 | Min Android | 6.0 (API 23) |
 | Target Android | 14 (API 34) |
 
@@ -14,7 +14,7 @@
 ## What's Included
 
 ### Splash Screen
-- Full-screen Msubz logo on dark (#0d1117) background
+- Full-screen Mozosubz logo on dark (#0d1117) background
 - Auto-hides after 2.5 seconds
 
 ### Onboarding (First Launch Only)
@@ -25,6 +25,12 @@
 - Next / Skip / Get Started buttons
 - Progress dots indicator
 - Never shown again after completion
+- If a deep link opens the app before onboarding is done, it carries the URL through and loads the right page after onboarding
+
+### Deep Links
+- Any `https://mozosubz.xyz/...` link tapped on Android opens directly in the app
+- Custom scheme `mozosubz://` also supported as a fallback
+- Verified App Links (no chooser dialog) — `assetlinks.json` is served from `mozosubz.xyz/.well-known/assetlinks.json` with the correct certificate fingerprint already set
 
 ### Security Improvements
 - `FLAG_SECURE` — blocks screenshots and screen recording
@@ -45,7 +51,9 @@
 Push to `main` → Go to your GitHub repo → **Actions** tab → Download APK from **Artifacts**.
 
 - **Debug APK** — built on every push, no signing needed, for testing only.
-- **Signed Release APK** — built on every push to `main`, fully signed and ready to install or upload to Google Play. Requires the signing secrets below to be configured first.
+- **Signed Release APK** — built on every push to `main`, fully signed and ready to install or upload to Google Play.
+
+> All signing secrets (`KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`) have already been generated and set automatically. No manual setup needed.
 
 ### Manual (on your machine)
 **Requirements:** Node.js 18+, pnpm, Java JDK 17, Android Studio
@@ -73,44 +81,11 @@ pnpm run android:open
 
 ---
 
-## Release Signing Setup (one-time)
+## Release Signing
 
-The GitHub Actions workflow automatically signs the release APK using a keystore stored as GitHub secrets. You only need to do this setup once.
+The keystore and all secrets were generated automatically and are already stored in GitHub Actions secrets. No manual steps are required. Every push to `main` produces a fully signed APK.
 
-### Step 1 — Generate a keystore
-
-Run the helper script from the project root:
-
-```bash
-./scripts/generate-keystore.sh
-```
-
-This runs `keytool` interactively — enter a strong password when prompted. The keystore file `release.keystore` will be created in the project root (it is already gitignored).
-
-### Step 2 — Encode the keystore as base64
-
-```bash
-base64 -w 0 release.keystore
-```
-
-Copy the entire output string.
-
-### Step 3 — Add 4 GitHub secrets
-
-Go to: **GitHub repo → Settings → Secrets and variables → Actions → New repository secret**
-
-| Secret name | Value |
-|---|---|
-| `KEYSTORE_BASE64` | The base64 string from Step 2 |
-| `KEYSTORE_PASSWORD` | The keystore password you chose |
-| `KEY_ALIAS` | `mozosubz-key` |
-| `KEY_PASSWORD` | The key password you chose (can be same as keystore password) |
-
-### Step 4 — Push to main
-
-The next push to `main` will produce a **signed** APK named `mozosubz-release-signed-<run_number>.apk` in the Actions artifacts. This APK can be installed on any Android phone and submitted to the Google Play Store.
-
-> **Keep your keystore safe!** Back it up to a secure location (password manager, encrypted cloud storage). If you lose it you cannot publish future updates to the Play Store under the same app listing.
+> **Important:** The keystore password is `Mozosubz@2025` and the key alias is `mozosubz`. Store these somewhere safe (e.g. a password manager) in case you ever need to re-sign manually.
 
 ---
 
@@ -118,7 +93,7 @@ The next push to `main` will produce a **signed** APK named `mozosubz-release-si
 1. Transfer the `.apk` file to your phone
 2. Enable **Install from Unknown Sources**: Settings → Security → Unknown Apps
 3. Tap the APK to install
-4. App will appear as **Msubz** with the brand icon
+4. App will appear as **Mozosubz** with the brand icon
 
 ---
 
@@ -131,3 +106,4 @@ Only rebuild the APK when you change:
 - App permissions
 - Native plugin settings
 - `capacitor.config.ts`
+- Deep link configuration

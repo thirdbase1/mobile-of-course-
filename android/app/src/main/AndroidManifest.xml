@@ -38,9 +38,30 @@
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:windowSoftInputMode="adjustResize">
 
+            <!-- App launcher -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Deep links: https://mozosubz.xyz/any-path opens in app -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="mozosubz.xyz" />
+            </intent-filter>
+
+            <!-- Custom scheme fallback: mozosubz://any-path -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="mozosubz"
+                    android:host="app" />
             </intent-filter>
 
         </activity>

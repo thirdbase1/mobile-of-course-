@@ -109,7 +109,14 @@ public class OnboardingActivity extends AppCompatActivity {
     private void finishOnboarding() {
         SharedPreferences prefs = getSharedPreferences("mozosubz_prefs", MODE_PRIVATE);
         prefs.edit().putBoolean("onboarding_done", true).apply();
-        startActivity(new Intent(this, MainActivity.class));
+
+        Intent mainIntent = new Intent(this, MainActivity.class);
+        String deepLinkUrl = getIntent().getStringExtra("deep_link_url");
+        if (deepLinkUrl != null) {
+            mainIntent.setAction(Intent.ACTION_VIEW);
+            mainIntent.setData(android.net.Uri.parse(deepLinkUrl));
+        }
+        startActivity(mainIntent);
         finish();
     }
 
