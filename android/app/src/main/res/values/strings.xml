@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ThirdBase</string>
+    <string name="title_activity_main">ThirdBase</string>
+    <string name="package_name">com.thirdbase.app</string>
+    <string name="custom_url_scheme">com.thirdbase.app</string>
+</resources>

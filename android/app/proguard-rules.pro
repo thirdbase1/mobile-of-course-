@@ -1,0 +1,3 @@
+-keep class com.getcapacitor.** { *; }
+-keep class com.thirdbase.app.** { *; }
+-dontwarn com.getcapacitor.**
