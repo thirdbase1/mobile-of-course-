@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: 'Mozosubz',
   webDir: 'out',
   server: {
-    url: 'https://v0-mobile-one-liart.vercel.app',
+    url: 'https://mozosubz.xyz/login',
     cleartext: false,
   },
   android: {

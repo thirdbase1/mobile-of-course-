@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
     <domain-config cleartextTrafficPermitted="false">
-        <domain includeSubdomains="true">v0-mobile-one-liart.vercel.app</domain>
+        <domain includeSubdomains="true">mozosubz.xyz</domain>
         <domain includeSubdomains="true">supabase.co</domain>
         <domain includeSubdomains="true">vercel.app</domain>
     </domain-config>
