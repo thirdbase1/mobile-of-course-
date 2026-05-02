@@ -1,14 +1,13 @@
 {
-  "_SETUP_REQUIRED": "Replace this file with your real google-services.json from Firebase Console. See ANDROID_BUILD_GUIDE.md for instructions.",
   "project_info": {
-    "project_number": "000000000000",
-    "project_id": "mozosubz-placeholder",
-    "storage_bucket": "mozosubz-placeholder.appspot.com"
+    "project_number": "184502642953",
+    "project_id": "mozosubz",
+    "storage_bucket": "mozosubz.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:000000000000:android:0000000000000000000000",
+        "mobilesdk_app_id": "1:184502642953:android:cb5a7dd76d319ba6aecbd8",
         "android_client_info": {
           "package_name": "com.mozosubz.app"
         }
@@ -16,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "PLACEHOLDER_REPLACE_ME"
+          "current_key": "AIzaSyBcfK3IubAYCccWB1kBnm7jHIvfEGJKzgk"
         }
       ],
       "services": {
