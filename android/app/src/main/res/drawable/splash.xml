@@ -11,5 +11,5 @@
         android:width="160dp"
         android:height="160dp"
         android:gravity="center"
-        android:drawable="@drawable-nodpi/mozosubz_logo"/>
+        android:drawable="@drawable/mozosubz_logo"/>
 </layer-list>
