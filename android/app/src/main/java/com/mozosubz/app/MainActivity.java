@@ -60,12 +60,6 @@ public class MainActivity extends BridgeActivity {
         handleDeepLink(intent);
     }
 
-    @Override
-    protected void onStop() {
-        super.onStop();
-        stopNetworkMonitoring();
-    }
-
     // ── Offline overlay ───────────────────────────────────────────────────────
 
     private void setupOfflineOverlay() {
