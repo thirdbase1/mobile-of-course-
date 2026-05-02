@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.msubz.app',
-  appName: 'Msubz',
+  appId: 'com.mozosubz.app',
+  appName: 'Mozosubz',
   webDir: 'out',
   server: {
     url: 'https://v0-mobile-one-liart.vercel.app',

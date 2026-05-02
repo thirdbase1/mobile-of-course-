@@ -1,4 +1,4 @@
-package com.msubz.app;
+package com.mozosubz.app;
 
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -107,7 +107,7 @@ public class OnboardingActivity extends AppCompatActivity {
     }
 
     private void finishOnboarding() {
-        SharedPreferences prefs = getSharedPreferences("msubz_prefs", MODE_PRIVATE);
+        SharedPreferences prefs = getSharedPreferences("mozosubz_prefs", MODE_PRIVATE);
         prefs.edit().putBoolean("onboarding_done", true).apply();
         startActivity(new Intent(this, MainActivity.class));
         finish();

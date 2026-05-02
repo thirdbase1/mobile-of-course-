@@ -1,4 +1,4 @@
-package com.msubz.app;
+package com.mozosubz.app;
 
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -23,7 +23,7 @@ public class MainActivity extends BridgeActivity {
     }
 
     private void checkOnboarding() {
-        SharedPreferences prefs = getSharedPreferences("msubz_prefs", MODE_PRIVATE);
+        SharedPreferences prefs = getSharedPreferences("mozosubz_prefs", MODE_PRIVATE);
         boolean onboardingDone = prefs.getBoolean("onboarding_done", false);
         if (!onboardingDone) {
             startActivity(new Intent(this, OnboardingActivity.class));
@@ -35,8 +35,8 @@ public class MainActivity extends BridgeActivity {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
         }
-        getWindow().setStatusBarColor(getColor(R.color.msubz_bg_dark));
-        getWindow().setNavigationBarColor(getColor(R.color.msubz_bg_dark));
+        getWindow().setStatusBarColor(getColor(R.color.mozosubz_bg_dark));
+        getWindow().setNavigationBarColor(getColor(R.color.mozosubz_bg_dark));
     }
 
     private void applyWebViewHardening() {

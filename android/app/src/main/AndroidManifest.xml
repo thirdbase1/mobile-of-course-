@@ -21,7 +21,7 @@
         android:hardwareAccelerated="true"
         android:largeHeap="true">
 
-        <!-- Onboarding — shown on first launch -->
+        <!-- Onboarding — shown on first launch only -->
         <activity
             android:name=".OnboardingActivity"
             android:exported="false"
