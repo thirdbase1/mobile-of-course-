@@ -1,5 +1,12 @@
 apply plugin: 'com.android.application'
 
+// Apply Firebase plugin only when a real google-services.json is present
+def gsFile = file('google-services.json')
+def gsContent = gsFile.exists() ? gsFile.text : ''
+if (gsFile.exists() && !gsContent.contains('PLACEHOLDER_REPLACE_ME')) {
+    apply plugin: 'com.google.gms.google-services'
+}
+
 android {
     namespace "com.mozosubz.app"
     compileSdkVersion 34
@@ -73,6 +80,11 @@ dependencies {
     implementation 'androidx.viewpager2:viewpager2:1.0.0'
     implementation 'com.google.android.material:material:1.11.0'
     implementation 'androidx.security:security-crypto:1.1.0-alpha06'
+
+    // Firebase — push notifications
+    implementation platform('com.google.firebase:firebase-bom:32.7.4')
+    implementation 'com.google.firebase:firebase-messaging'
+
     implementation project(':capacitor-android')
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'

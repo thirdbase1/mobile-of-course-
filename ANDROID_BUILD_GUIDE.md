@@ -19,91 +19,111 @@
 
 ### Onboarding (First Launch Only)
 - 3 animated slides shown only on first install
-- Slide 1: "Manage All Your Subscriptions"
-- Slide 2: "Send Money Instantly"
-- Slide 3: "Bank-Level Security"
-- Next / Skip / Get Started buttons
-- Progress dots indicator
 - Never shown again after completion
-- If a deep link opens the app before onboarding is done, it carries the URL through and loads the right page after onboarding
+- Deep links that arrive before onboarding finishes are carried through and loaded after
 
 ### Deep Links
-- Any `https://mozosubz.xyz/...` link tapped on Android opens directly in the app
+- Any `https://mozosubz.xyz/...` link tapped on Android opens directly in the app — no browser chooser prompt
 - Custom scheme `mozosubz://` also supported as a fallback
-- Verified App Links (no chooser dialog) — `assetlinks.json` is served from `mozosubz.xyz/.well-known/assetlinks.json` with the correct certificate fingerprint already set
 
-### Security Improvements
+### Push Notifications (Firebase)
+- Broadcast notifications can be sent to all users from the Firebase Console
+- Tapping a notification opens the app; if a `url` is included in the data payload it loads that page directly
+- Supports both notification and data payloads
+- Android 13+ users are prompted to allow notifications on first launch
+- Requires a real `google-services.json` — see setup below
+
+### In-App Update Prompts
+- On each app launch (max once per 24 hours) the app silently checks GitHub for a new release
+- If a newer version exists the user sees a dialog: "Update Available — vX.X.X" with an "Update Now" button
+- "Update Now" opens the GitHub releases page where they can download the new APK
+- Fully automatic — no backend needed
+
+### Security
 - `FLAG_SECURE` — blocks screenshots and screen recording
 - Safe Browsing enabled (Android 8+)
-- Mixed content blocked
-- File access disabled in WebView
+- Mixed content blocked, file access disabled in WebView
 - Cleartext traffic blocked
 - ProGuard/R8 minification + obfuscation on release builds
-- Log stripping in release
 - `allowBackup="false"` — prevents data backup extraction
-- Network security config restricts domains
 
 ---
 
 ## Building the APK
 
-### Automatic (GitHub Actions — Easiest)
-Push to `main` → Go to your GitHub repo → **Actions** tab → Download APK from **Artifacts**.
+### Automatic (GitHub Actions — Recommended)
+Push to `main` → GitHub repo → **Actions** tab → Download APK from **Artifacts**.
 
-- **Debug APK** — built on every push, no signing needed, for testing only.
-- **Signed Release APK** — built on every push to `main`, fully signed and ready to install or upload to Google Play.
+- **Debug APK** — every push, no signing needed, for testing only
+- **Signed Release APK** — every push to `main`, fully signed, ready to install or submit to Google Play
 
-> All signing secrets (`KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`) have already been generated and set automatically. No manual setup needed.
+All signing secrets are already set in GitHub Actions. No manual setup required.
 
 ### Manual (on your machine)
 **Requirements:** Node.js 18+, pnpm, Java JDK 17, Android Studio
 
 ```bash
-# 1. Install dependencies
 pnpm install
-
-# 2. Sync Capacitor
 pnpm run android:sync
-
-# 3. Build debug APK
-pnpm run android:build
-# Output: android/app/build/outputs/apk/debug/app-debug.apk
-
-# 4. Build release APK (minified + obfuscated)
-pnpm run android:build:release
-# Output: android/app/build/outputs/apk/release/app-release-unsigned.apk
-```
-
-### Open in Android Studio
-```bash
-pnpm run android:open
+pnpm run android:build          # debug
+pnpm run android:build:release  # release
 ```
 
 ---
 
-## Release Signing
+## Firebase Push Notifications Setup (one-time)
 
-The keystore and all secrets were generated automatically and are already stored in GitHub Actions secrets. No manual steps are required. Every push to `main` produces a fully signed APK.
+> This only needs to be done once. It does not require any changes to your website.
 
-> **Important:** The keystore password is `Mozosubz@2025` and the key alias is `mozosubz`. Store these somewhere safe (e.g. a password manager) in case you ever need to re-sign manually.
+### Step 1 — Create a free Firebase project
+1. Go to [console.firebase.google.com](https://console.firebase.google.com)
+2. Click **Add project** → name it `Mozosubz` → continue through the steps
+3. In the project dashboard click the **Android** icon (Add app)
+4. Enter package name: `com.mozosubz.app`
+5. Click **Register app**
+6. Download the `google-services.json` file
+
+### Step 2 — Add the file to the repo
+Replace `android/app/google-services.json` with the file you downloaded.
+The real file contains your actual Firebase project keys — **never share it publicly**.
+
+Commit and push to `main`. The next GitHub Actions build will include Firebase fully enabled.
+
+### Step 3 — Send your first notification
+1. Firebase Console → your project → **Messaging** (in the left sidebar)
+2. Click **New campaign → Firebase Notification messages**
+3. Write your title + message → **Next** → **Target: app** → Send
+
+That's it. Every installed user receives the notification instantly.
+
+---
+
+## Signing Info
+| | Value |
+|---|---|
+| Keystore password | `Mozosubz@2025` |
+| Key alias | `mozosubz` |
+| Key password | `Mozosubz@2025` |
+
+Store these in a password manager. You need them if you ever re-sign the APK manually.
 
 ---
 
 ## Installing on Android
-1. Transfer the `.apk` file to your phone
-2. Enable **Install from Unknown Sources**: Settings → Security → Unknown Apps
+1. Transfer the `.apk` to your phone
+2. Settings → Security → **Install from Unknown Sources** → enable
 3. Tap the APK to install
-4. App will appear as **Mozosubz** with the brand icon
+4. App appears as **Mozosubz** with the brand icon
 
 ---
 
 ## Updating the App
-When you update and redeploy to Vercel, the Android app automatically shows the latest version — **no APK rebuild needed**.
+When you redeploy to Vercel, the Android app shows the latest version automatically — **no APK rebuild needed**.
 
-Only rebuild the APK when you change:
-- Splash screen or icon
+Rebuild the APK only when you change native things:
+- Splash screen / icon
 - Onboarding slides
 - App permissions
-- Native plugin settings
-- `capacitor.config.ts`
+- Firebase config (`google-services.json`)
 - Deep link configuration
+- `capacitor.config.ts`
