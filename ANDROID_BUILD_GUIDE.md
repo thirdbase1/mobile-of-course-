@@ -44,6 +44,9 @@
 ### Automatic (GitHub Actions — Easiest)
 Push to `main` → Go to your GitHub repo → **Actions** tab → Download APK from **Artifacts**.
 
+- **Debug APK** — built on every push, no signing needed, for testing only.
+- **Signed Release APK** — built on every push to `main`, fully signed and ready to install or upload to Google Play. Requires the signing secrets below to be configured first.
+
 ### Manual (on your machine)
 **Requirements:** Node.js 18+, pnpm, Java JDK 17, Android Studio
 
@@ -67,6 +70,47 @@ pnpm run android:build:release
 ```bash
 pnpm run android:open
 ```
+
+---
+
+## Release Signing Setup (one-time)
+
+The GitHub Actions workflow automatically signs the release APK using a keystore stored as GitHub secrets. You only need to do this setup once.
+
+### Step 1 — Generate a keystore
+
+Run the helper script from the project root:
+
+```bash
+./scripts/generate-keystore.sh
+```
+
+This runs `keytool` interactively — enter a strong password when prompted. The keystore file `release.keystore` will be created in the project root (it is already gitignored).
+
+### Step 2 — Encode the keystore as base64
+
+```bash
+base64 -w 0 release.keystore
+```
+
+Copy the entire output string.
+
+### Step 3 — Add 4 GitHub secrets
+
+Go to: **GitHub repo → Settings → Secrets and variables → Actions → New repository secret**
+
+| Secret name | Value |
+|---|---|
+| `KEYSTORE_BASE64` | The base64 string from Step 2 |
+| `KEYSTORE_PASSWORD` | The keystore password you chose |
+| `KEY_ALIAS` | `mozosubz-key` |
+| `KEY_PASSWORD` | The key password you chose (can be same as keystore password) |
+
+### Step 4 — Push to main
+
+The next push to `main` will produce a **signed** APK named `mozosubz-release-signed-<run_number>.apk` in the Actions artifacts. This APK can be installed on any Android phone and submitted to the Google Play Store.
+
+> **Keep your keystore safe!** Back it up to a secure location (password manager, encrypted cloud storage). If you lose it you cannot publish future updates to the Play Store under the same app listing.
 
 ---
 
