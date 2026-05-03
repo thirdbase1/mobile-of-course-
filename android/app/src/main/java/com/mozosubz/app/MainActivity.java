@@ -20,10 +20,8 @@ import android.os.Handler;
 import android.os.Looper;
 import android.provider.ContactsContract;
 import android.util.Log;
-import android.view.HapticFeedbackConstants;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -36,24 +34,19 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.splashscreen.SplashScreen;
 import androidx.core.view.WindowCompat;
-import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
-import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
 
     private static final String TAG                      = "MozosubzMain";
     private static final String BASE_URL                 = "https://mozosubz.xyz";
-    // URL to load when auto-retrying after reconnect — uses loadUrl() not reload()
-    // so we always go back to the real site even if an error page is currently shown
     private static final String MAIN_URL                 = "https://mozosubz.xyz/login";
     private static final int    NOTIF_PERMISSION_CODE    = 101;
     private static final int    CONTACTS_PERMISSION_CODE = 102;
 
-    private SwipeRefreshLayout swipeRefreshLayout;
-    private View               offlineOverlay;
-    private boolean            wasOffline = false;
+    private View    offlineOverlay;
+    private boolean wasOffline = false;
 
     private ActivityResultLauncher<Intent> contactPickerLauncher;
     private volatile String                pendingContactCallbackId;
@@ -69,15 +62,22 @@ public class MainActivity extends BridgeActivity {
             new ActivityResultContracts.StartActivityForResult(),
             this::onContactPickerResult);
 
-        // Transparent bars — edge-to-edge
+        // White status bar + navigation bar with dark icons — matches the website.
+        // setDecorFitsSystemWindows(true) keeps content inside the bars (no overlap).
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
-        getWindow().setStatusBarColor(Color.TRANSPARENT);
-        getWindow().setNavigationBarColor(Color.TRANSPARENT);
-        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
-        getWindow().getDecorView().post(this::goImmersive);
+        getWindow().setStatusBarColor(Color.WHITE);
+        getWindow().setNavigationBarColor(Color.WHITE);
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
 
-        // Wrap Capacitor's WebView in SwipeRefreshLayout (also sets our WebViewClient)
-        setupSwipeRefresh();
+        // Dark icons on white bar (works API 23+; compat lib handles older versions)
+        WindowInsetsControllerCompat wic =
+            WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
+        wic.setAppearanceLightStatusBars(true);
+        wic.setAppearanceLightNavigationBars(true);
+
+        // Set our custom WebViewClient (contacts polyfill + branded error page)
+        getBridge().getWebView().setWebViewClient(
+            new MozosubzWebViewClient(getBridge(), this, null));
 
         // Expose contacts bridge to JS as window.MozosubzContacts
         getBridge().getWebView().addJavascriptInterface(
@@ -97,78 +97,10 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
-    public void onWindowFocusChanged(boolean hasFocus) {
-        super.onWindowFocusChanged(hasFocus);
-        if (hasFocus) goImmersive();
-    }
-
-    @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
         handleDeepLink(intent);
-    }
-
-    // ── Full-screen / Immersive ───────────────────────────────────────────────
-
-    private void goImmersive() {
-        WindowInsetsControllerCompat controller =
-            WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
-        controller.hide(WindowInsetsCompat.Type.statusBars()
-                      | WindowInsetsCompat.Type.navigationBars());
-        controller.setSystemBarsBehavior(
-            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
-    }
-
-    // ── Pull-to-Refresh ───────────────────────────────────────────────────────
-
-    private void setupSwipeRefresh() {
-        WebView webView = getBridge().getWebView();
-        ViewGroup parent = (ViewGroup) webView.getParent();
-        if (parent == null) return;
-
-        int index = parent.indexOfChild(webView);
-        ViewGroup.LayoutParams wvParams = webView.getLayoutParams();
-        parent.removeViewAt(index);
-
-        swipeRefreshLayout = new SwipeRefreshLayout(this) {
-            @Override
-            public boolean canChildScrollUp() {
-                return webView.canScrollVertically(-1);
-            }
-        };
-
-        swipeRefreshLayout.setLayoutParams(wvParams != null ? wvParams :
-            new ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT));
-
-        swipeRefreshLayout.addView(webView,
-            new ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT));
-
-        parent.addView(swipeRefreshLayout, index);
-
-        swipeRefreshLayout.setProgressBackgroundColorSchemeColor(0xFF0B1120);
-        swipeRefreshLayout.setColorSchemeColors(0xFF0066FF, 0xFFFFFFFF);
-
-        swipeRefreshLayout.setOnRefreshListener(() -> {
-            hapticTap();
-            webView.reload();
-        });
-
-        getBridge().getWebView().setWebViewClient(
-            new MozosubzWebViewClient(getBridge(), this, swipeRefreshLayout));
-    }
-
-    // ── Haptic feedback ───────────────────────────────────────────────────────
-
-    private void hapticTap() {
-        View v = getWindow().getDecorView();
-        v.setHapticFeedbackEnabled(true);
-        v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY,
-            HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
     }
 
     // ── Branded error page ────────────────────────────────────────────────────
@@ -219,7 +151,7 @@ public class MainActivity extends BridgeActivity {
     private String readContact(Uri contactUri) {
         if (contactUri == null) return null;
         ContentResolver cr = getContentResolver();
-        try (Cursor c = cr.query(contactUri, null, null, null, null)) {
+        try (android.database.Cursor c = cr.query(contactUri, null, null, null, null)) {
             if (c == null || !c.moveToFirst()) return null;
             String name = c.getString(
                 c.getColumnIndexOrThrow(ContactsContract.Contacts.DISPLAY_NAME));
@@ -280,7 +212,7 @@ public class MainActivity extends BridgeActivity {
             if (isOnline()) {
                 hideOfflineScreen();
                 if (getBridge() != null && getBridge().getWebView() != null)
-                    getBridge().getWebView().reload();
+                    getBridge().getWebView().loadUrl(MAIN_URL);
             }
         });
         root.addView(offlineOverlay);
@@ -308,9 +240,7 @@ public class MainActivity extends BridgeActivity {
                     if (wasOffline) {
                         wasOffline = false;
                         hideOfflineScreen();
-                        // 1.5s delay — lets the connection fully stabilise before retrying.
-                        // Use loadUrl(MAIN_URL) not reload(): reload() re-fetches whatever
-                        // is currently in the WebView, which may be the local error page.
+                        // 1.5s delay lets the connection fully stabilise before retrying
                         new Handler(Looper.getMainLooper()).postDelayed(() -> {
                             if (getBridge() != null && getBridge().getWebView() != null)
                                 getBridge().getWebView().loadUrl(MAIN_URL);
