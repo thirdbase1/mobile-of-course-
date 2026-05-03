@@ -2,11 +2,13 @@ package com.mozosubz.app;
 
 import android.Manifest;
 import android.content.BroadcastReceiver;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
@@ -15,6 +17,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.ContactsContract;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -22,6 +25,9 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.widget.Button;
 import android.widget.FrameLayout;
+import androidx.activity.result.ActivityResult;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.splashscreen.SplashScreen;
@@ -29,8 +35,8 @@ import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
 
-    private static final String TAG                  = "MozosubzMain";
-    private static final String BASE_URL             = "https://mozosubz.xyz";
+    private static final String TAG                      = "MozosubzMain";
+    private static final String BASE_URL                 = "https://mozosubz.xyz";
     private static final int    NOTIF_PERMISSION_CODE    = 101;
     private static final int    CONTACTS_PERMISSION_CODE = 102;
 
@@ -40,26 +46,37 @@ public class MainActivity extends BridgeActivity {
     private WebView loadingWebView;
     private boolean loadingDismissed = false;
 
+    // Contact picker
+    private ActivityResultLauncher<Intent> contactPickerLauncher;
+    private volatile String                pendingContactCallbackId;
+
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         SplashScreen.installSplashScreen(this);
         super.onCreate(savedInstanceState);
-        // Replace Capacitor's WebViewClient with our subclass so we can
-        // intercept errors and show a branded error page.
+
+        // Register contact picker result handler (must be before onStart)
+        contactPickerLauncher = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            this::onContactPickerResult);
+
+        // Replace Capacitor's default WebViewClient with our extended version
         getBridge().getWebView().setWebViewClient(
             new MozosubzWebViewClient(getBridge(), this));
 
-        secureWindow();
+        // Add contacts bridge so JS can call window.MozosubzContacts.pickContact()
+        getBridge().getWebView().addJavascriptInterface(
+            new ContactsPickerBridge(this), "MozosubzContacts");
+
+        applyFullScreen();
         applyWebViewHardening();
         MozosubzFirebaseService.ensureChannel(this);
         requestNotificationPermission();
         requestContactsPermission();
         setupOfflineOverlay();
         startNetworkMonitoring();
-
-        // Show branded loading screen over everything while site loads
         showLoadingScreen();
 
         if (!checkOnboarding()) {
@@ -69,10 +86,43 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        // Re-apply full-screen whenever we regain focus (keyboard, dialogs, etc.
+        // can temporarily reveal system bars)
+        if (hasFocus) applyFullScreen();
+    }
+
+    @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
         handleDeepLink(intent);
+    }
+
+    // ── Full-screen immersive mode ────────────────────────────────────────────
+
+    @SuppressWarnings("deprecation")
+    private void applyFullScreen() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            android.view.WindowInsetsController wic =
+                getWindow().getInsetsController();
+            if (wic != null) {
+                wic.hide(android.view.WindowInsets.Type.statusBars()
+                       | android.view.WindowInsets.Type.navigationBars());
+                wic.setSystemBarsBehavior(
+                    android.view.WindowInsetsController
+                        .BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+            }
+        } else {
+            getWindow().getDecorView().setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                | View.SYSTEM_UI_FLAG_FULLSCREEN);
+        }
     }
 
     // ── Branded loading screen ────────────────────────────────────────────────
@@ -96,7 +146,6 @@ public class MainActivity extends BridgeActivity {
         loadingWebView.loadUrl("file:///android_asset/loading.html");
         root.addView(loadingWebView);
 
-        // Dismiss after 3.5 s — site should be loaded underneath by then
         new Handler(Looper.getMainLooper()).postDelayed(
             this::hideLoadingScreen, 3500);
     }
@@ -121,16 +170,9 @@ public class MainActivity extends BridgeActivity {
 
     // ── Branded error page ────────────────────────────────────────────────────
 
-    /**
-     * Called by MozosubzWebViewClient when the main frame fails to load.
-     * Replaces the browser's default error page with our branded error screen.
-     */
     public void showWebError(WebView webView, int errorCode) {
-        // Build the error page URL — we pass the code as a query param
-        // and load the HTML from assets so the logo PNG resolves correctly.
         runOnUiThread(() -> {
             try {
-                // Read error.html from assets
                 java.io.InputStream is = getAssets().open("error.html");
                 byte[] buf = new byte[is.available()];
                 is.read(buf);
@@ -139,15 +181,109 @@ public class MainActivity extends BridgeActivity {
                     .replace("location.search || location.hash || ''",
                         "'?code=" + errorCode + "'");
                 webView.loadDataWithBaseURL(
-                    "file:///android_asset/",
-                    html,
-                    "text/html",
-                    "UTF-8",
-                    null);
+                    "file:///android_asset/", html, "text/html", "UTF-8", null);
             } catch (Exception e) {
-                Log.e(TAG, "showWebError failed: " + e.getMessage());
+                Log.e(TAG, "showWebError: " + e.getMessage());
             }
         });
+    }
+
+    // ── Native Contact Picker ─────────────────────────────────────────────────
+
+    /**
+     * Called from ContactsPickerBridge (JS thread) when the website requests a contact.
+     * Stores the callbackId then launches the system contact picker on the UI thread.
+     */
+    public void launchContactPicker(String callbackId) {
+        pendingContactCallbackId = callbackId;
+        runOnUiThread(() -> {
+            try {
+                Intent intent = new Intent(Intent.ACTION_PICK,
+                    ContactsContract.Contacts.CONTENT_URI);
+                contactPickerLauncher.launch(intent);
+            } catch (Exception e) {
+                Log.e(TAG, "launchContactPicker: " + e.getMessage());
+                deliverContactToJs(callbackId, null);
+            }
+        });
+    }
+
+    /** Handles the result from the system contact picker. */
+    private void onContactPickerResult(ActivityResult result) {
+        String callbackId = pendingContactCallbackId;
+        pendingContactCallbackId = null;
+        if (callbackId == null) return;
+
+        String contactJson = null;
+        if (result.getResultCode() == RESULT_OK && result.getData() != null) {
+            contactJson = readContact(result.getData().getData());
+        }
+        deliverContactToJs(callbackId, contactJson);
+    }
+
+    /**
+     * Reads name + phone numbers from the given contact Uri and returns a
+     * Web Contacts API-compatible JSON string, or null on failure.
+     */
+    private String readContact(Uri contactUri) {
+        if (contactUri == null) return null;
+        ContentResolver cr = getContentResolver();
+        try (Cursor c = cr.query(contactUri, null, null, null, null)) {
+            if (c == null || !c.moveToFirst()) return null;
+
+            String name = c.getString(
+                c.getColumnIndexOrThrow(ContactsContract.Contacts.DISPLAY_NAME));
+            String id = c.getString(
+                c.getColumnIndexOrThrow(ContactsContract.Contacts._ID));
+
+            // Collect phone numbers
+            StringBuilder phonesArr = new StringBuilder();
+            try (Cursor ph = cr.query(
+                ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                new String[]{ContactsContract.CommonDataKinds.Phone.NUMBER},
+                ContactsContract.CommonDataKinds.Phone.CONTACT_ID + " = ?",
+                new String[]{id}, null)) {
+                if (ph != null) {
+                    boolean first = true;
+                    while (ph.moveToNext()) {
+                        String num = ph.getString(0);
+                        if (num == null || num.trim().isEmpty()) continue;
+                        if (!first) phonesArr.append(',');
+                        phonesArr.append('"').append(escapeJson(num.trim())).append('"');
+                        first = false;
+                    }
+                }
+            }
+
+            // Web Contacts API shape: { name: [...], tel: [...], email: [], address: [] }
+            return "{\"name\":[\"" + escapeJson(name) + "\"]," +
+                   "\"tel\":[" + phonesArr + "]," +
+                   "\"email\":[]," +
+                   "\"address\":[]}";
+        } catch (Exception e) {
+            Log.e(TAG, "readContact: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /** Calls window[callbackId](json) on the page — resolves the JS promise. */
+    private void deliverContactToJs(String callbackId, String json) {
+        if (getBridge() == null || getBridge().getWebView() == null) return;
+        String arg = json != null
+            ? "'" + json.replace("'", "\\'") + "'"
+            : "null";
+        String js = "if(typeof window['" + callbackId + "']==='function')" +
+                    "window['" + callbackId + "'](" + arg + ");";
+        getBridge().getWebView().post(() ->
+            getBridge().getWebView().evaluateJavascript(js, null));
+    }
+
+    private static String escapeJson(String s) {
+        if (s == null) return "";
+        return s.replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r");
     }
 
     // ── Offline overlay ───────────────────────────────────────────────────────
@@ -164,9 +300,8 @@ public class MainActivity extends BridgeActivity {
         retry.setOnClickListener(v -> {
             if (isOnline()) {
                 hideOfflineScreen();
-                if (getBridge() != null && getBridge().getWebView() != null) {
+                if (getBridge() != null && getBridge().getWebView() != null)
                     getBridge().getWebView().reload();
-                }
             }
         });
 
@@ -227,15 +362,6 @@ public class MainActivity extends BridgeActivity {
         }
 
         if (!isOnline()) { wasOffline = true; showOfflineScreen(); }
-    }
-
-    private void stopNetworkMonitoring() {
-        ConnectivityManager cm =
-            (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && networkCallback != null)
-            try { cm.unregisterNetworkCallback(networkCallback); } catch (Exception ignored) {}
-        if (legacyReceiver != null)
-            try { unregisterReceiver(legacyReceiver); } catch (Exception ignored) {}
     }
 
     private boolean isOnline() {
@@ -316,13 +442,7 @@ public class MainActivity extends BridgeActivity {
                 CONTACTS_PERMISSION_CODE);
     }
 
-    // ── Security ──────────────────────────────────────────────────────────────
-
-    private void secureWindow() {
-        // FLAG_SECURE removed — screenshots are allowed
-        getWindow().setStatusBarColor(getColor(R.color.mozosubz_bg_dark));
-        getWindow().setNavigationBarColor(getColor(R.color.mozosubz_bg_dark));
-    }
+    // ── WebView hardening ─────────────────────────────────────────────────────
 
     private void applyWebViewHardening() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT)
