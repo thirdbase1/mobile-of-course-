@@ -18,6 +18,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.provider.ContactsContract;
 import android.util.Log;
+import android.view.HapticFeedbackConstants;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -184,7 +185,10 @@ public class MainActivity extends BridgeActivity {
         swipeRefreshLayout.setProgressBackgroundColorSchemeColor(0xFF0B1120);
         swipeRefreshLayout.setColorSchemeColors(0xFF0066FF, 0xFFFFFFFF);
 
-        swipeRefreshLayout.setOnRefreshListener(() -> webView.reload());
+        swipeRefreshLayout.setOnRefreshListener(() -> {
+            hapticTap();
+            webView.reload();
+        });
 
         // Set our WebViewClient now that we have the SwipeRefreshLayout reference
         getBridge().getWebView().setWebViewClient(
@@ -216,9 +220,37 @@ public class MainActivity extends BridgeActivity {
 
     private void triggerBiometric() {
         BiometricGuard.check(this, new BiometricGuard.Callback() {
-            @Override public void onSuccess() { isUnlocked = true; hideLockScreen(); }
-            @Override public void onCancel()  { finish(); }
+            @Override public void onSuccess() {
+                isUnlocked = true;
+                hapticSuccess();
+                hideLockScreen();
+            }
+            @Override public void onCancel() { finish(); }
         });
+    }
+
+    // ── Haptic feedback ───────────────────────────────────────────────────────
+
+    /** Short click — used when pull-to-refresh activates. */
+    private void hapticTap() {
+        View v = getWindow().getDecorView();
+        v.setHapticFeedbackEnabled(true);
+        v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY,
+            HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
+    }
+
+    /** Success pulse — used when biometric authentication passes. */
+    private void hapticSuccess() {
+        View v = getWindow().getDecorView();
+        v.setHapticFeedbackEnabled(true);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            // CONFIRM gives a satisfying double-tap pattern on API 30+
+            v.performHapticFeedback(HapticFeedbackConstants.CONFIRM,
+                HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
+        } else {
+            v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY,
+                HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
+        }
     }
 
     // ── Branded error page ────────────────────────────────────────────────────
