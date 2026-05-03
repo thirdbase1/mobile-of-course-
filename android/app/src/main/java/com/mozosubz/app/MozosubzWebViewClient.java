@@ -1,23 +1,20 @@
 package com.mozosubz.app;
 
 import android.os.Build;
-import android.util.DisplayMetrics;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebView;
-import androidx.core.graphics.Insets;
-import androidx.core.view.ViewCompat;
-import androidx.core.view.WindowInsetsCompat;
 import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeWebViewClient;
 
 /**
  * Extends Capacitor's BridgeWebViewClient to:
- * 1. Inject a safe-area <style> tag so the website's content respects the
- *    status bar and navigation bar heights (edge-to-edge layout).
- * 2. Inject the navigator.contacts polyfill after each page load.
- * 3. Intercept load errors → show branded error page instead of browser default.
+ * 1. Inject the navigator.contacts polyfill after each page load.
+ * 2. Intercept load errors → show branded error page instead of browser default.
+ *
+ * Layout insets are handled by the OS via setDecorFitsSystemWindows(true),
+ * so no CSS injection is needed here.
  *
  * All navigation logic (allowNavigation, shouldOverrideUrlLoading, etc.) is
  * fully preserved via super calls.
@@ -25,24 +22,6 @@ import com.getcapacitor.BridgeWebViewClient;
 public class MozosubzWebViewClient extends BridgeWebViewClient {
 
     private final MainActivity activity;
-
-    // Injected once per page load. Adds padding equal to the actual system bar
-    // heights so website content is never hidden under the status bar or nav bar.
-    // The style tag is keyed by id so multiple injections are idempotent.
-    private static final String SAFE_AREA_JS_TEMPLATE =
-        "(function(){" +
-        "  var id='_mz_sa';" +
-        "  if(document.getElementById(id))return;" +
-        "  var s=document.createElement('style');" +
-        "  s.id=id;" +
-        "  s.textContent=" +
-        "    'body{" +
-        "      padding-top:%dpx!important;" +
-        "      padding-bottom:%dpx!important;" +
-        "      box-sizing:border-box!important" +
-        "    }';" +
-        "  (document.head||document.documentElement).appendChild(s);" +
-        "})();";
 
     // JS polyfill — overrides navigator.contacts with a bridge to the Android
     // contact picker. Injected after every page load so the website's contact
@@ -83,47 +62,9 @@ public class MozosubzWebViewClient extends BridgeWebViewClient {
     @Override
     public void onPageFinished(WebView view, String url) {
         super.onPageFinished(view, url);
-
         if (view != null) {
-            // 1. Inject safe-area padding using actual window inset values
-            injectSafeAreaPadding(view);
-
-            // 2. Inject contacts polyfill
             view.evaluateJavascript(CONTACTS_POLYFILL, null);
         }
-    }
-
-    /**
-     * Reads the current window insets (in physical px), converts to CSS px
-     * (= dp for standard-viewport pages), and injects a <style> element that
-     * pads the body so content sits inside the status bar / nav bar safe area.
-     */
-    private void injectSafeAreaPadding(WebView view) {
-        int topDp = 0, bottomDp = 0;
-
-        WindowInsetsCompat wi = ViewCompat.getRootWindowInsets(
-            activity.getWindow().getDecorView());
-        if (wi != null) {
-            Insets bars = wi.getInsets(WindowInsetsCompat.Type.systemBars());
-            float density = view.getContext().getResources()
-                .getDisplayMetrics().density;
-            topDp    = Math.round(bars.top    / density);
-            bottomDp = Math.round(bars.bottom / density);
-        }
-
-        // Fallback: if insets not yet available, read system resources
-        if (topDp == 0) {
-            DisplayMetrics dm = view.getContext().getResources().getDisplayMetrics();
-            int sbRes = view.getContext().getResources()
-                .getIdentifier("status_bar_height", "dimen", "android");
-            if (sbRes > 0)
-                topDp = Math.round(
-                    view.getContext().getResources().getDimensionPixelSize(sbRes)
-                    / dm.density);
-        }
-
-        String js = String.format(SAFE_AREA_JS_TEMPLATE, topDp, bottomDp);
-        view.evaluateJavascript(js, null);
     }
 
     // ── Android 6+ (API 23+) — detailed error object ──────────────────────────

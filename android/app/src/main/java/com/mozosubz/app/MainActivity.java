@@ -62,13 +62,12 @@ public class MainActivity extends BridgeActivity {
             new ActivityResultContracts.StartActivityForResult(),
             this::onContactPickerResult);
 
-        // ── Edge-to-edge layout ──────────────────────────────────────────────
-        // setDecorFitsSystemWindows(false) lets the WebView fill the entire
-        // screen (behind system bars). We inject CSS padding into each loaded
-        // page (see MozosubzWebViewClient.onPageFinished) so website content
-        // is never hidden under the bars.
+        // System bars are drawn by the OS on top of the window.
+        // setDecorFitsSystemWindows(true) tells the OS to add insets to the
+        // root layout automatically so the WebView sits neatly between the
+        // status bar and navigation bar with no manual CSS injection needed.
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
-        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
 
         // Status bar: dark brand navy so the clock/signal icons are clearly
         // visible as white. White icons are set via setAppearanceLightStatusBars(false).
