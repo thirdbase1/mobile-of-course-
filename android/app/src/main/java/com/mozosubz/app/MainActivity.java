@@ -16,6 +16,8 @@ import android.net.NetworkCapabilities;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.ContactsContract;
 import android.util.Log;
 import android.view.HapticFeedbackConstants;
@@ -43,6 +45,9 @@ public class MainActivity extends BridgeActivity {
 
     private static final String TAG                      = "MozosubzMain";
     private static final String BASE_URL                 = "https://mozosubz.xyz";
+    // URL to load when auto-retrying after reconnect — uses loadUrl() not reload()
+    // so we always go back to the real site even if an error page is currently shown
+    private static final String MAIN_URL                 = "https://mozosubz.xyz/login";
     private static final int    NOTIF_PERMISSION_CODE    = 101;
     private static final int    CONTACTS_PERMISSION_CODE = 102;
 
@@ -303,8 +308,13 @@ public class MainActivity extends BridgeActivity {
                     if (wasOffline) {
                         wasOffline = false;
                         hideOfflineScreen();
-                        if (getBridge() != null && getBridge().getWebView() != null)
-                            runOnUiThread(() -> getBridge().getWebView().reload());
+                        // 1.5s delay — lets the connection fully stabilise before retrying.
+                        // Use loadUrl(MAIN_URL) not reload(): reload() re-fetches whatever
+                        // is currently in the WebView, which may be the local error page.
+                        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                            if (getBridge() != null && getBridge().getWebView() != null)
+                                getBridge().getWebView().loadUrl(MAIN_URL);
+                        }, 1500);
                     }
                 }
                 @Override public void onLost(Network network) {
@@ -319,8 +329,10 @@ public class MainActivity extends BridgeActivity {
                         if (wasOffline) {
                             wasOffline = false;
                             hideOfflineScreen();
-                            if (getBridge() != null && getBridge().getWebView() != null)
-                                runOnUiThread(() -> getBridge().getWebView().reload());
+                            new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                                if (getBridge() != null && getBridge().getWebView() != null)
+                                    getBridge().getWebView().loadUrl(MAIN_URL);
+                            }, 1500);
                         }
                     } else { wasOffline = true; showOfflineScreen(); }
                 }
