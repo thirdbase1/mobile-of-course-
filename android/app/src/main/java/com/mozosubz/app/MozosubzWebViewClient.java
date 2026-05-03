@@ -5,7 +5,6 @@ import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebView;
-import android.webkit.WebViewClient;
 import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeWebViewClient;
 
@@ -33,7 +32,7 @@ public class MozosubzWebViewClient extends BridgeWebViewClient {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
                 && request != null && request.isForMainFrame()) {
             int code = error.getErrorCode();
-            if (code != WebViewClient.ERROR_CANCELLED) {
+            if (code != -33 /* ERROR_CANCELLED */) {
                 activity.showWebError(view, code);
             }
         }
@@ -47,7 +46,7 @@ public class MozosubzWebViewClient extends BridgeWebViewClient {
                                 String description, String failingUrl) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
             super.onReceivedError(view, errorCode, description, failingUrl);
-            if (errorCode != WebViewClient.ERROR_CANCELLED) {
+            if (errorCode != -33 /* ERROR_CANCELLED */) {
                 activity.showWebError(view, errorCode);
             }
         }

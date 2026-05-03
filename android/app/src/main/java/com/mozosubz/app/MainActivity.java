@@ -26,7 +26,6 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.splashscreen.SplashScreen;
 import com.getcapacitor.BridgeActivity;
-import com.getcapacitor.BridgeWebViewClient;
 
 public class MainActivity extends BridgeActivity {
 
@@ -41,19 +40,16 @@ public class MainActivity extends BridgeActivity {
     private WebView loadingWebView;
     private boolean loadingDismissed = false;
 
-    // ── Capacitor hook — return our custom WebViewClient ─────────────────────
-
-    @Override
-    protected BridgeWebViewClient getBridgeWebViewClient() {
-        return new MozosubzWebViewClient(getBridge(), this);
-    }
-
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         SplashScreen.installSplashScreen(this);
         super.onCreate(savedInstanceState);
+        // Replace Capacitor's WebViewClient with our subclass so we can
+        // intercept errors and show a branded error page.
+        getBridge().getWebView().setWebViewClient(
+            new MozosubzWebViewClient(getBridge(), this));
 
         secureWindow();
         applyWebViewHardening();
@@ -77,12 +73,6 @@ public class MainActivity extends BridgeActivity {
         super.onNewIntent(intent);
         setIntent(intent);
         handleDeepLink(intent);
-    }
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        stopNetworkMonitoring();
     }
 
     // ── Branded loading screen ────────────────────────────────────────────────
