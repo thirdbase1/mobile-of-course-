@@ -1,102 +1,198 @@
 'use client'
-
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
-import { Send, Square, RotateCcw, Copy, Check, Paperclip } from 'lucide-react'
+import { useStore, ChatMessage, MODELS } from '@/lib/store'
+import { getMessages, getSession, patchSession, openAgentSocket } from '@/lib/api'
 import MessageBubble from '@/components/MessageBubble'
 import ModelPicker from '@/components/ModelPicker'
-import { useStore, Message } from '@/lib/store'
-import { getMessages, openAgentSocket } from '@/lib/api'
+import RepoSelector from '@/components/RepoSelector'
+import CodeEditor from '@/components/CodeEditor'
+import GitBar from '@/components/GitBar'
 import clsx from 'clsx'
 
 export default function SessionPage() {
   const { id } = useParams<{ id: string }>()
   const searchParams = useSearchParams()
-  const { messages, setMessages, appendMessage, updateLastMessage, updateSession, selectedModel } = useStore()
 
-  const [input, setInput] = useState('')
-  const [running, setRunning] = useState(false)
-  const [copied, setCopied] = useState(false)
-  const wsRef = useRef<WebSocket | null>(null)
-  const bottomRef = useRef<HTMLDivElement>(null)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const didAutoSend = useRef(false)
+  const {
+    messages, setMessages, appendMessage, updateMessage, removeMessage,
+    sessions, updateSession,
+    model, setModel,
+    editorOpen, setEditorOpen,
+    repos,
+  } = useStore()
 
+  const [input,     setInput]     = useState('')
+  const [running,   setRunning]   = useState(false)
+  const [session,   setSession]   = useState<any>(null)
+  const [repoId,    setRepoId]    = useState<string | undefined>()
+  const [titleEdit, setTitleEdit] = useState(false)
+  const [titleVal,  setTitleVal]  = useState('')
+
+  const bottomRef    = useRef<HTMLDivElement>(null)
+  const textareaRef  = useRef<HTMLTextAreaElement>(null)
+  const wsRef        = useRef<WebSocket | null>(null)
+  const didAutoSend  = useRef(false)
+  const thinkingId   = useRef<string>('')
+  const streamingId  = useRef<string>('')
+  const toolCallIds  = useRef<Set<string>>(new Set())
+
+  // Load session + messages
   useEffect(() => {
-    getMessages(id).then(setMessages).catch(() => setMessages([]))
+    setMessages([])
+    getSession(id).then(s => {
+      setSession(s)
+      setTitleVal(s.title)
+      setRepoId(s.repo_id || undefined)
+      setModel(s.model)
+    }).catch(() => {})
+
+    getMessages(id).then(rawMsgs => {
+      const out: ChatMessage[] = []
+      for (const m of rawMsgs) {
+        if (m.role === 'user' || m.role === 'assistant') {
+          out.push({ id: m.id, role: m.role, content: m.content || '', created_at: m.created_at })
+        } else if (m.role === 'tool_call') {
+          out.push({
+            id: m.id, role: 'tool_call', tool_name: m.tool_name,
+            tool_call_id: m.tool_call_id, tool_input: m.tool_input,
+            created_at: m.created_at,
+          })
+        } else if (m.role === 'tool_result') {
+          // Attach output to matching tool_call bubble
+          const call = out.find(x => x.tool_call_id === m.tool_call_id || x.id === m.tool_call_id)
+          if (call) call.tool_output = m.tool_output || ''
+        }
+      }
+      setMessages(out)
+    }).catch(() => {})
   }, [id])
 
+  // Scroll to bottom
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  }, [messages.length])
 
-  // Auto-send prompt from URL (new session from dashboard)
+  // Auto-send ?q= param
   useEffect(() => {
-    const prompt = searchParams.get('prompt')
-    if (prompt && !didAutoSend.current && messages.length === 0) {
+    const q = searchParams.get('q')
+    if (q && !didAutoSend.current && messages.length === 0) {
       didAutoSend.current = true
-      setTimeout(() => send(prompt), 300)
+      setTimeout(() => send(q), 400)
     }
   }, [messages])
+
+  function stop() {
+    wsRef.current?.close()
+    wsRef.current = null
+    setRunning(false)
+    // Clean up any dangling thinking indicator
+    if (thinkingId.current) {
+      removeMessage(thinkingId.current)
+      thinkingId.current = ''
+    }
+    updateSession(id, { status: 'idle' })
+  }
 
   const send = useCallback(async (text?: string) => {
     const content = (text ?? input).trim()
     if (!content || running) return
     setInput('')
-
-    const userMsg: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content,
-      created_at: new Date().toISOString(),
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto'
     }
-    appendMessage(userMsg)
+
+    // Reset tool tracking
+    toolCallIds.current.clear()
+    streamingId.current = ''
+
+    // Optimistic user message
+    const userMsgId = 'user_' + Date.now()
+    appendMessage({ id: userMsgId, role: 'user', content, created_at: new Date().toISOString() })
     setRunning(true)
     updateSession(id, { status: 'running' })
 
-    // Thinking indicator
-    const thinkingId = Date.now().toString() + '_t'
-    appendMessage({ id: thinkingId, role: 'assistant', content: '', thinking: true, created_at: new Date().toISOString() })
+    // Show thinking
+    thinkingId.current = 'think_' + Date.now()
+    appendMessage({ id: thinkingId.current, role: 'assistant', content: '', thinking: true, created_at: new Date().toISOString() })
 
     const ws = openAgentSocket(id)
     wsRef.current = ws
-    let firstChunk = true
-    let assistantId = ''
+
+    ws.onopen = () => {
+      ws.send(JSON.stringify({ type: 'message', content, model, repo_id: repoId || null }))
+    }
 
     ws.onmessage = (e) => {
       const data = JSON.parse(e.data)
 
-      if (data.type === 'token') {
-        if (firstChunk) {
-          firstChunk = false
-          updateLastMessage({ thinking: false, content: data.content, id: assistantId || thinkingId })
-        } else {
-          updateLastMessage({ content: (messages.find(m => m.id === assistantId)?.content ?? '') + data.content })
+      if (data.type === 'message_start') {
+        // Replace thinking dot with real streaming message
+        if (thinkingId.current) {
+          updateMessage(thinkingId.current, { thinking: false, id: data.id, streaming: true, content: '' })
+          thinkingId.current = ''
         }
-      } else if (data.type === 'message_start') {
-        assistantId = data.id
+        streamingId.current = data.id
+
+      } else if (data.type === 'token') {
+        if (streamingId.current) {
+          updateMessage(streamingId.current, { streaming: true })
+          // Append token using functional form to avoid stale closure
+          useStore.setState(st => ({
+            messages: st.messages.map(m =>
+              m.id === streamingId.current
+                ? { ...m, content: (m.content || '') + data.content, streaming: true }
+                : m
+            )
+          }))
+        }
+
       } else if (data.type === 'tool_call') {
+        // Finalize streaming assistant message
+        if (streamingId.current) {
+          updateMessage(streamingId.current, { streaming: false })
+          streamingId.current = ''
+        }
+        // Remove stale thinking dot if any
+        if (thinkingId.current) {
+          removeMessage(thinkingId.current)
+          thinkingId.current = ''
+        }
+        // Add tool call bubble
+        toolCallIds.current.add(data.id)
         appendMessage({
-          id: data.id,
-          role: 'tool',
-          content: '',
-          tool_name: data.tool_name,
-          tool_input: data.tool_input,
-          created_at: new Date().toISOString(),
+          id:          data.id,
+          role:        'tool_call',
+          tool_name:   data.tool_name,
+          tool_call_id: data.tc_id,
+          tool_input:  data.tool_input,
+          created_at:  new Date().toISOString(),
         })
-        // New thinking dot after tool
-        appendMessage({ id: Date.now().toString() + '_t2', role: 'assistant', content: '', thinking: true, created_at: new Date().toISOString() })
-        firstChunk = true
+        // Show new thinking for agent's next response
+        thinkingId.current = 'think_' + Date.now()
+        appendMessage({ id: thinkingId.current, role: 'assistant', content: '', thinking: true, created_at: new Date().toISOString() })
+
       } else if (data.type === 'tool_result') {
-        setMessages(prev => prev.map(m => m.id === data.id ? { ...m, tool_output: data.output } : m))
+        updateMessage(data.id, { tool_output: data.output })
+
       } else if (data.type === 'done') {
+        if (streamingId.current) updateMessage(streamingId.current, { streaming: false })
+        if (thinkingId.current) { removeMessage(thinkingId.current); thinkingId.current = '' }
+        streamingId.current = ''
         ws.close()
         setRunning(false)
         updateSession(id, { status: 'idle' })
-        // Remove any leftover thinking dots
-        setMessages(prev => prev.filter(m => !m.thinking))
+
       } else if (data.type === 'error') {
-        updateLastMessage({ thinking: false, content: `**Error:** ${data.message}` })
+        if (streamingId.current) {
+          updateMessage(streamingId.current, { streaming: false, error: data.message })
+        } else if (thinkingId.current) {
+          updateMessage(thinkingId.current, { thinking: false, error: data.message })
+          thinkingId.current = ''
+        } else {
+          appendMessage({ id: 'err_' + Date.now(), role: 'assistant', content: '', error: data.message, created_at: new Date().toISOString() })
+        }
+        streamingId.current = ''
         ws.close()
         setRunning(false)
         updateSession(id, { status: 'error' })
@@ -104,96 +200,155 @@ export default function SessionPage() {
     }
 
     ws.onerror = () => {
+      if (thinkingId.current) { removeMessage(thinkingId.current); thinkingId.current = '' }
+      if (streamingId.current) updateMessage(streamingId.current, { streaming: false, error: 'Connection error' })
       setRunning(false)
-      updateLastMessage({ thinking: false, content: '**Connection error.** Please try again.' })
       updateSession(id, { status: 'error' })
     }
 
-    // Send user message
-    ws.onopen = () => {
-      ws.send(JSON.stringify({ type: 'message', content, model: selectedModel }))
+    ws.onclose = () => {
+      if (thinkingId.current) { removeMessage(thinkingId.current); thinkingId.current = '' }
+      if (streamingId.current) updateMessage(streamingId.current, { streaming: false })
+      streamingId.current = ''
     }
-  }, [input, running, id, selectedModel, messages])
+  }, [input, running, model, repoId, id])
 
-  function stop() {
-    wsRef.current?.close()
-    setRunning(false)
-    setMessages(prev => prev.filter(m => !m.thinking))
-    updateSession(id, { status: 'idle' })
+  async function saveTitle() {
+    setTitleEdit(false)
+    if (!titleVal.trim() || titleVal === session?.title) return
+    await patchSession(id, { title: titleVal }).catch(() => {})
+    updateSession(id, { title: titleVal })
+    setSession((s: any) => s ? { ...s, title: titleVal } : s)
   }
 
-  function copyLast() {
-    const last = [...messages].reverse().find(m => m.role === 'assistant' && m.content)
-    if (last) {
-      navigator.clipboard.writeText(last.content)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
-    }
+  async function changeRepo(rid: string | undefined) {
+    setRepoId(rid)
+    await patchSession(id, { repo_id: rid || null }).catch(() => {})
   }
+
+  const activeRepo = repos.find(r => r.id === repoId)
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Toolbar */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-bg-border bg-bg-surface shrink-0">
-        <div className="flex items-center gap-2">
-          <ModelPicker />
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={copyLast} className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 px-2 py-1.5 rounded-lg hover:bg-bg-panel transition-colors">
-            {copied ? <><Check size={12} className="text-accent-green" /> Copied</> : <><Copy size={12} /> Copy last</>}
-          </button>
-        </div>
-      </div>
-
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto py-4">
-        {messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-slate-500 text-sm">
-            <p>Send a message to start the agent</p>
-          </div>
-        )}
-        {messages.map(msg => <MessageBubble key={msg.id} msg={msg} />)}
-        <div ref={bottomRef} />
-      </div>
-
-      {/* Input */}
-      <div className="shrink-0 px-4 py-4 border-t border-bg-border bg-bg-surface">
-        <div className={clsx(
-          'flex gap-2 bg-bg-base border rounded-xl p-2 transition-colors',
-          running ? 'border-brand/50' : 'border-bg-border focus-within:border-brand'
-        )}>
-          <textarea
-            ref={textareaRef}
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
-            placeholder={running ? 'Agent is working…' : 'Ask the agent anything… (Enter to send, Shift+Enter for newline)'}
-            disabled={running}
-            rows={1}
-            className="flex-1 bg-transparent px-3 py-2 text-sm outline-none placeholder-slate-600 resize-none max-h-40 disabled:opacity-50"
-            style={{ height: 'auto' }}
-            onInput={e => {
-              const t = e.currentTarget
-              t.style.height = 'auto'
-              t.style.height = Math.min(t.scrollHeight, 160) + 'px'
-            }}
-          />
-          {running ? (
-            <button onClick={stop} className="bg-accent-red/10 hover:bg-accent-red/20 text-accent-red border border-accent-red/30 px-3 py-2 rounded-lg transition-colors self-end">
-              <Square size={14} />
-            </button>
+    <div className="flex flex-1 h-full min-h-0 overflow-hidden">
+      {/* Chat column */}
+      <div className="flex flex-col flex-1 min-w-0 min-h-0">
+        {/* Top bar */}
+        <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border bg-surface-1 shrink-0 flex-wrap gap-y-2">
+          {/* Session title */}
+          {titleEdit ? (
+            <input
+              autoFocus
+              value={titleVal}
+              onChange={e => setTitleVal(e.target.value)}
+              onBlur={saveTitle}
+              onKeyDown={e => { if (e.key === 'Enter') saveTitle() }}
+              className="bg-surface-0 border border-brand/40 rounded px-2 py-1 text-sm font-medium outline-none flex-1 min-w-0 max-w-xs"
+            />
           ) : (
             <button
-              onClick={() => send()}
-              disabled={!input.trim()}
-              className="bg-brand hover:bg-brand-light disabled:opacity-40 disabled:cursor-not-allowed text-white px-3 py-2 rounded-lg transition-colors self-end"
+              onClick={() => setTitleEdit(true)}
+              className="text-sm font-medium text-text-primary hover:text-brand transition-colors truncate max-w-xs"
+              title="Click to rename"
             >
-              <Send size={14} />
+              {session?.title || 'Session'}
             </button>
           )}
+
+          <div className="flex items-center gap-2 ml-auto flex-wrap">
+            <ModelPicker />
+            <RepoSelector value={repoId} onChange={changeRepo} compact />
+
+            {activeRepo && (
+              <GitBar repoId={activeRepo.id} repoFull={activeRepo.full_name} branch={activeRepo.default_branch} />
+            )}
+
+            <button
+              onClick={() => setEditorOpen(!editorOpen)}
+              className={clsx(
+                'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors border',
+                editorOpen
+                  ? 'bg-brand/15 border-brand/35 text-brand'
+                  : 'bg-surface-3 border-border text-text-muted hover:text-text-primary hover:border-border-strong'
+              )}
+              title="Toggle code editor"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+              </svg>
+              Editor
+            </button>
+          </div>
         </div>
-        <p className="text-xs text-slate-600 mt-2 text-center">Agent can execute code, read/write files, and interact with GitHub</p>
+
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto py-4 min-h-0">
+          {messages.length === 0 && (
+            <div className="flex flex-col items-center justify-center h-full text-text-muted text-sm gap-2">
+              <span className="text-2xl opacity-30">⚡</span>
+              <p>Send a message to start the agent</p>
+            </div>
+          )}
+          {messages.map(msg => (
+            <MessageBubble key={msg.id} msg={msg} />
+          ))}
+          <div ref={bottomRef} className="h-4" />
+        </div>
+
+        {/* Input */}
+        <div className="shrink-0 border-t border-border bg-surface-1 px-4 py-3">
+          <div className={clsx(
+            'flex gap-2 bg-surface-0 border rounded-xl p-2 transition-colors',
+            running ? 'border-brand/40' : 'border-border focus-within:border-brand/40'
+          )}>
+            <textarea
+              ref={textareaRef}
+              value={input}
+              onChange={e => {
+                setInput(e.target.value)
+                e.target.style.height = 'auto'
+                e.target.style.height = Math.min(e.target.scrollHeight, 160) + 'px'
+              }}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() }
+              }}
+              placeholder={running ? 'Agent is working…' : 'Message the agent… (Enter to send, Shift+Enter for newline)'}
+              disabled={running}
+              rows={1}
+              className="flex-1 bg-transparent px-3 py-2 text-sm text-text-primary placeholder-text-muted outline-none resize-none max-h-40 disabled:opacity-50 leading-relaxed"
+            />
+            {running ? (
+              <button
+                onClick={stop}
+                className="self-end flex items-center gap-1.5 bg-red/10 hover:bg-red/15 text-red border border-red/25 px-3 py-2 rounded-lg text-xs font-medium transition-colors shrink-0"
+              >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
+                Stop
+              </button>
+            ) : (
+              <button
+                onClick={() => send()}
+                disabled={!input.trim()}
+                className="self-end flex items-center gap-1.5 bg-brand hover:opacity-90 disabled:opacity-35 disabled:cursor-not-allowed text-white px-3 py-2 rounded-lg text-xs font-semibold transition-opacity shrink-0"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                </svg>
+                Send
+              </button>
+            )}
+          </div>
+          <p className="text-text-muted text-[10px] mt-1.5 text-center">
+            Agent can run code, read/write GitHub files, and create PRs
+          </p>
+        </div>
       </div>
+
+      {/* Code editor panel */}
+      {editorOpen && (
+        <div className="flex-shrink-0 border-l border-border" style={{ width: 460 }}>
+          <CodeEditor />
+        </div>
+      )}
     </div>
   )
 }

@@ -1,31 +1,32 @@
 'use client'
-
-import { useEffect, useState } from 'react'
-import { GitBranch, Plus, Loader2, Lock, Unlock, ExternalLink, Trash2, RefreshCw } from 'lucide-react'
+import { useState, useEffect } from 'react'
 import { useStore } from '@/lib/store'
-import { getRepos, importRepo, api } from '@/lib/api'
+import { getGithubRepos, importRepo, deleteRepo } from '@/lib/api'
+import clsx from 'clsx'
 
 export default function ReposPage() {
-  const { repos, setRepos } = useStore()
-  const [ghRepos, setGhRepos] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const { repos, addRepo, removeRepo } = useStore()
+  const [ghRepos,   setGhRepos]   = useState<any[]>([])
+  const [loading,   setLoading]   = useState(true)
   const [importing, setImporting] = useState<string | null>(null)
-  const [showImport, setShowImport] = useState(false)
-  const [search, setSearch] = useState('')
+  const [search,    setSearch]    = useState('')
+  const [showPanel, setShowPanel] = useState(false)
+  const [deleting,  setDeleting]  = useState<string | null>(null)
 
   useEffect(() => {
-    Promise.all([
-      getRepos().then(setRepos),
-      api.get('/repos/github').then(r => setGhRepos(r.data)),
-    ]).finally(() => setLoading(false))
+    getGithubRepos().then(setGhRepos).finally(() => setLoading(false))
   }, [])
 
-  async function doImport(repo: any) {
-    setImporting(repo.full_name)
+  const imported = new Set(repos.map(r => r.full_name))
+  const filtered = ghRepos
+    .filter(r => !imported.has(r.full_name))
+    .filter(r => r.full_name.toLowerCase().includes(search.toLowerCase()))
+
+  async function doImport(r: any) {
+    setImporting(r.full_name)
     try {
-      const r = await importRepo({ full_name: repo.full_name, default_branch: repo.default_branch })
-      setRepos([r, ...repos])
-      setShowImport(false)
+      const res = await importRepo({ full_name: r.full_name, default_branch: r.default_branch || 'main' })
+      addRepo(res)
     } catch (e: any) {
       alert(e?.response?.data?.detail || 'Import failed')
     } finally {
@@ -33,61 +34,82 @@ export default function ReposPage() {
     }
   }
 
-  async function removeRepo(id: string) {
-    await api.delete(`/repos/${id}`).catch(() => {})
-    setRepos(repos.filter(r => r.id !== id))
+  async function doDelete(id: string) {
+    setDeleting(id)
+    try {
+      await deleteRepo(id)
+      removeRepo(id)
+    } catch {}
+    setDeleting(null)
   }
 
-  const filtered = ghRepos.filter(r =>
-    r.full_name.toLowerCase().includes(search.toLowerCase())
-  ).filter(r => !repos.some(ir => ir.full_name === r.full_name))
-
   return (
-    <div className="h-full overflow-y-auto p-6">
-      <div className="max-w-3xl mx-auto">
+    <div className="flex-1 overflow-y-auto p-6">
+      <div className="max-w-2xl mx-auto">
+        {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-xl font-bold">Repositories</h1>
-            <p className="text-slate-400 text-sm mt-0.5">Import GitHub repos for the agent to work on</p>
+            <h1 className="text-lg font-bold text-text-primary">Repositories</h1>
+            <p className="text-text-muted text-xs mt-0.5">Import GitHub repos for the agent to read, edit, and commit to</p>
           </div>
           <button
-            onClick={() => setShowImport(!showImport)}
-            className="flex items-center gap-2 bg-brand hover:bg-brand-light text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            onClick={() => setShowPanel(!showPanel)}
+            className="flex items-center gap-2 bg-brand hover:opacity-90 text-white text-xs font-medium px-4 py-2 rounded-lg transition-opacity"
           >
-            <Plus size={15} /> Import Repo
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M12 5v14M5 12h14"/>
+            </svg>
+            Import repo
           </button>
         </div>
 
         {/* Import panel */}
-        {showImport && (
-          <div className="bg-bg-surface border border-bg-border rounded-xl p-4 mb-6">
-            <p className="text-sm font-medium mb-3">Your GitHub repositories</p>
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search repositories…"
-              className="w-full bg-bg-base border border-bg-border rounded-lg px-3 py-2 text-sm outline-none focus:border-brand mb-3 transition-colors"
-            />
-            <div className="max-h-64 overflow-y-auto space-y-1">
+        {showPanel && (
+          <div className="bg-surface-2 border border-border rounded-xl mb-5 overflow-hidden animate-fade-up">
+            <div className="px-4 py-3 border-b border-border">
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search your GitHub repositories…"
+                autoFocus
+                className="w-full bg-surface-1 border border-border rounded-lg px-3 py-2 text-sm text-text-primary placeholder-text-muted outline-none focus:border-brand/50 transition-colors"
+              />
+            </div>
+            <div className="max-h-72 overflow-y-auto">
               {loading ? (
-                <div className="flex items-center justify-center py-6 text-slate-500">
-                  <Loader2 size={18} className="animate-spin mr-2" /> Loading…
+                <div className="flex items-center justify-center py-8 text-text-muted text-sm gap-2">
+                  <span className="w-4 h-4 border-2 border-brand/30 border-t-brand rounded-full animate-spin"/>
+                  Loading your repos…
                 </div>
               ) : filtered.length === 0 ? (
-                <p className="text-slate-500 text-sm text-center py-4">
-                  {search ? 'No matches' : 'All repos already imported'}
+                <p className="text-text-muted text-sm text-center py-8">
+                  {search ? 'No repos match your search' : 'All your repos are already imported'}
                 </p>
               ) : filtered.map(r => (
-                <div key={r.full_name} className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-bg-panel transition-colors">
-                  {r.private ? <Lock size={13} className="text-slate-500 shrink-0" /> : <Unlock size={13} className="text-slate-500 shrink-0" />}
-                  <span className="flex-1 text-sm">{r.full_name}</span>
-                  {r.language && <span className="text-xs text-slate-500">{r.language}</span>}
+                <div
+                  key={r.full_name}
+                  className="flex items-center gap-3 px-4 py-2.5 hover:bg-surface-3 transition-colors border-b border-border/50 last:border-0"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-text-primary truncate">{r.full_name}</span>
+                      {r.private && <span className="text-[10px] text-text-muted bg-surface-4 px-1.5 py-0.5 rounded shrink-0">private</span>}
+                    </div>
+                    {r.description && <p className="text-xs text-text-muted mt-0.5 truncate">{r.description}</p>}
+                    <div className="flex items-center gap-2 mt-1">
+                      {r.language && <span className="text-[10px] text-text-muted">{r.language}</span>}
+                      <span className="text-[10px] text-text-muted">⎇ {r.default_branch || 'main'}</span>
+                    </div>
+                  </div>
                   <button
                     onClick={() => doImport(r)}
                     disabled={importing === r.full_name}
-                    className="flex items-center gap-1.5 text-xs bg-brand/10 hover:bg-brand/20 text-brand border border-brand/30 px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50"
+                    className="flex items-center gap-1.5 text-xs bg-brand/10 hover:bg-brand/15 text-brand border border-brand/25 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50 shrink-0"
                   >
-                    {importing === r.full_name ? <Loader2 size={11} className="animate-spin" /> : <Plus size={11} />}
+                    {importing === r.full_name
+                      ? <span className="w-3 h-3 border border-brand/30 border-t-brand rounded-full animate-spin" />
+                      : <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>
+                    }
                     Import
                   </button>
                 </div>
@@ -97,33 +119,66 @@ export default function ReposPage() {
         )}
 
         {/* Imported repos */}
-        <div className="space-y-3">
-          {repos.length === 0 ? (
-            <div className="bg-bg-surface border border-bg-border rounded-xl p-8 text-center">
-              <GitBranch size={32} className="text-slate-600 mx-auto mb-3" />
-              <p className="text-slate-400 text-sm">No repos imported yet</p>
-              <p className="text-slate-600 text-xs mt-1">Import a repo so the agent can read, edit, and commit code</p>
-            </div>
-          ) : repos.map(r => (
-            <div key={r.id} className="bg-bg-surface border border-bg-border rounded-xl p-4 flex items-center gap-4 hover:border-brand/50 transition-colors group">
-              <div className="w-9 h-9 bg-bg-panel rounded-lg flex items-center justify-center shrink-0">
-                <GitBranch size={17} className="text-brand" />
+        {repos.length === 0 && !showPanel ? (
+          <div className="bg-surface-2 border border-border rounded-xl p-10 text-center">
+            <div className="text-3xl mb-3 opacity-30">⎇</div>
+            <p className="text-text-secondary text-sm font-medium">No repos imported yet</p>
+            <p className="text-text-muted text-xs mt-1">Import a GitHub repo so the agent can read, edit, and commit code</p>
+          </div>
+        ) : (
+          <div className="space-y-2.5">
+            {repos.map(r => (
+              <div
+                key={r.id}
+                className="bg-surface-2 border border-border rounded-xl px-4 py-3.5 flex items-center gap-4 hover:border-border-strong transition-colors group"
+              >
+                <div className="w-9 h-9 bg-surface-3 rounded-lg flex items-center justify-center shrink-0 text-sm">
+                  {r.private ? '🔒' : '📦'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-sm text-text-primary truncate">{r.full_name}</span>
+                    {r.private && <span className="text-[10px] text-text-muted bg-surface-3 px-1.5 py-0.5 rounded shrink-0">private</span>}
+                  </div>
+                  {r.description && <p className="text-xs text-text-muted mt-0.5 truncate">{r.description}</p>}
+                  <div className="flex items-center gap-3 mt-1">
+                    {r.language && <span className="text-[10px] text-text-muted">{r.language}</span>}
+                    <span className="text-[10px] text-text-muted">⎇ {r.default_branch}</span>
+                    <span className="text-[10px] text-text-muted">
+                      Imported {new Date(r.imported_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                  <a
+                    href={`https://github.com/${r.full_name}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-text-muted hover:text-text-primary transition-colors"
+                    title="Open on GitHub"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/>
+                    </svg>
+                  </a>
+                  <button
+                    onClick={() => doDelete(r.id)}
+                    disabled={deleting === r.id}
+                    className="text-text-muted hover:text-red transition-colors disabled:opacity-50"
+                    title="Remove repo"
+                  >
+                    {deleting === r.id
+                      ? <span className="w-3 h-3 border border-red/30 border-t-red rounded-full animate-spin block"/>
+                      : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/>
+                        </svg>
+                    }
+                  </button>
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm">{r.full_name}</p>
-                <p className="text-xs text-slate-500 mt-0.5">branch: {r.default_branch} · imported {new Date(r.imported_at).toLocaleDateString()}</p>
-              </div>
-              <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <a href={`https://github.com/${r.full_name}`} target="_blank" className="text-slate-400 hover:text-slate-200 transition-colors">
-                  <ExternalLink size={15} />
-                </a>
-                <button onClick={() => removeRepo(r.id)} className="text-slate-500 hover:text-accent-red transition-colors">
-                  <Trash2 size={15} />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )

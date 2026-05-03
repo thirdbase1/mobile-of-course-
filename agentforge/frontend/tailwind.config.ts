@@ -1,45 +1,40 @@
 import type { Config } from 'tailwindcss'
 
 const config: Config = {
-  content: [
-    './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
-    './src/components/**/*.{js,ts,jsx,tsx,mdx}',
-    './src/app/**/*.{js,ts,jsx,tsx,mdx}',
-  ],
+  content: ['./src/**/*.{ts,tsx}'],
   theme: {
     extend: {
       colors: {
-        bg: {
-          base:    '#0d0f14',
-          surface: '#13161d',
-          panel:   '#1a1d27',
-          border:  '#2a2d3a',
+        surface: {
+          0: '#0a0b0f',
+          1: '#0f1117',
+          2: '#14161e',
+          3: '#1a1d27',
+          4: '#20232f',
+        },
+        border: {
+          DEFAULT: 'rgba(255,255,255,0.07)',
+          strong:  'rgba(255,255,255,0.12)',
         },
         brand: {
           DEFAULT: '#7c5cfc',
-          light:   '#9b7dff',
-          dark:    '#5b3de8',
+          dim:     'rgba(124,92,252,0.15)',
+          border:  'rgba(124,92,252,0.35)',
         },
-        accent: {
-          green:  '#22d3a0',
-          red:    '#f43f5e',
-          yellow: '#fbbf24',
-          blue:   '#38bdf8',
+        text: {
+          primary:   '#d4d8e1',
+          secondary: '#8b929e',
+          muted:     '#5a6070',
         },
+        green:  '#22c55e',
+        red:    '#f43f5e',
+        yellow: '#eab308',
+        blue:   '#38bdf8',
+        orange: '#f97316',
       },
       fontFamily: {
         mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
-      },
-      animation: {
-        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-        'blink': 'blink 1s step-end infinite',
-        'slide-up': 'slideUp 0.2s ease-out',
-        'fade-in': 'fadeIn 0.15s ease-out',
-      },
-      keyframes: {
-        blink: { '0%, 100%': { opacity: '1' }, '50%': { opacity: '0' } },
-        slideUp: { from: { transform: 'translateY(8px)', opacity: '0' }, to: { transform: 'translateY(0)', opacity: '1' } },
-        fadeIn: { from: { opacity: '0' }, to: { opacity: '1' } },
+        sans: ['Inter', 'system-ui', 'sans-serif'],
       },
     },
   },

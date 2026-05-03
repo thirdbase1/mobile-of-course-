@@ -7,30 +7,26 @@ from database import User
 
 router = APIRouter()
 
-def msg_out(m: Message):
+
+def _out(m: Message):
     return {
-        "id": m.id,
-        "role": m.role,
-        "content": m.content,
-        "tool_name": m.tool_name,
-        "tool_input": m.tool_input,
-        "tool_output": m.tool_output,
-        "created_at": m.created_at,
+        "id":           m.id,
+        "role":         m.role,
+        "content":      m.content,
+        "tool_name":    m.tool_name,
+        "tool_call_id": m.tool_call_id,
+        "tool_input":   m.tool_input,
+        "tool_output":  m.tool_output,
+        "created_at":   m.created_at,
     }
 
-@router.get("/{session_id}/messages")
-async def get_messages(
-    session_id: str,
-    user: User = Depends(current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    result = await db.execute(
-        select(Session).where(Session.id == session_id, Session.user_id == user.id)
-    )
-    s = result.scalar_one_or_none()
-    if not s: raise HTTPException(404, "Session not found")
 
-    msgs = await db.execute(
-        select(Message).where(Message.session_id == session_id).order_by(Message.created_at)
-    )
-    return [msg_out(m) for m in msgs.scalars().all()]
+@router.get("/{sid}/messages")
+async def get_messages(sid: str, user: User = Depends(current_user), db: AsyncSession = Depends(get_db)):
+    s = (await db.execute(select(Session).where(Session.id == sid, Session.user_id == user.id))).scalar_one_or_none()
+    if not s:
+        raise HTTPException(404, "Session not found")
+    msgs = (await db.execute(
+        select(Message).where(Message.session_id == sid).order_by(Message.created_at)
+    )).scalars().all()
+    return [_out(m) for m in msgs]

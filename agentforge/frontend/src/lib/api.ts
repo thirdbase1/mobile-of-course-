@@ -15,44 +15,50 @@ api.interceptors.request.use(cfg => {
   return cfg
 })
 
-api.interceptors.response.use(
-  r => r,
-  err => {
-    if (err.response?.status === 401) {
-      localStorage.removeItem('af_token')
-      window.location.href = '/'
-    }
-    return Promise.reject(err)
+api.interceptors.response.use(r => r, err => {
+  if (err.response?.status === 401 && typeof window !== 'undefined') {
+    localStorage.removeItem('af_token')
+    window.location.href = '/'
   }
-)
+  return Promise.reject(err)
+})
 
-// ── Auth ────────────────────────────────────────────────────────────────────
-export const getMe = () => api.get('/auth/me').then(r => r.data)
+// Auth
+export const getMe        = ()  => api.get('/auth/me').then(r => r.data)
 
-// ── Sessions ─────────────────────────────────────────────────────────────────
-export const getSessions    = ()           => api.get('/sessions').then(r => r.data)
-export const createSession  = (body: any)  => api.post('/sessions', body).then(r => r.data)
-export const getSession     = (id: string) => api.get(`/sessions/${id}`).then(r => r.data)
-export const deleteSession  = (id: string) => api.delete(`/sessions/${id}`).then(r => r.data)
+// Sessions
+export const getSessions  = ()          => api.get('/sessions').then(r => r.data)
+export const createSession= (b: any)    => api.post('/sessions', b).then(r => r.data)
+export const getSession   = (id: string)=> api.get(`/sessions/${id}`).then(r => r.data)
+export const patchSession = (id: string, b: any) => api.patch(`/sessions/${id}`, b).then(r => r.data)
+export const deleteSession= (id: string)=> api.delete(`/sessions/${id}`).then(r => r.data)
 
-// ── Messages ──────────────────────────────────────────────────────────────────
-export const getMessages    = (sid: string) => api.get(`/sessions/${sid}/messages`).then(r => r.data)
-export const sendMessage    = (sid: string, content: string, model: string) =>
-  api.post(`/sessions/${sid}/messages`, { content, model }).then(r => r.data)
+// Messages
+export const getMessages  = (sid: string) => api.get(`/sessions/${sid}/messages`).then(r => r.data)
 
-// ── Repos ─────────────────────────────────────────────────────────────────────
-export const getRepos       = ()           => api.get('/repos').then(r => r.data)
-export const importRepo     = (body: any)  => api.post('/repos/import', body).then(r => r.data)
-export const getFiles       = (rid: string, path = '') =>
-  api.get(`/repos/${rid}/files`, { params: { path } }).then(r => r.data)
-export const getFileContent = (rid: string, path: string) =>
-  api.get(`/repos/${rid}/file`, { params: { path } }).then(r => r.data)
+// Repos
+export const getRepos     = ()         => api.get('/repos').then(r => r.data)
+export const getGithubRepos=()         => api.get('/repos/github').then(r => r.data)
+export const importRepo   = (b: any)   => api.post('/repos/import', b).then(r => r.data)
+export const deleteRepo   = (id: string) => api.delete(`/repos/${id}`).then(r => r.data)
+export const listFiles    = (rid: string, path = '', ref = '') =>
+  api.get(`/repos/${rid}/files`, { params: { path, ref } }).then(r => r.data)
+export const getFile      = (rid: string, path: string, ref = '') =>
+  api.get(`/repos/${rid}/file`, { params: { path, ref } }).then(r => r.data)
+export const writeFile    = (rid: string, b: any) => api.post(`/repos/${rid}/file`, b).then(r => r.data)
+export const deleteFile   = (rid: string, path: string, sha: string, branch: string) =>
+  api.delete(`/repos/${rid}/file`, { params: { path, sha, branch } }).then(r => r.data)
+export const getBranches  = (rid: string) => api.get(`/repos/${rid}/branches`).then(r => r.data)
+export const createPR     = (rid: string, b: any) => api.post(`/repos/${rid}/pulls`, b).then(r => r.data)
 
-// ── Execution ─────────────────────────────────────────────────────────────────
-export const runCode = (body: { language: string; code: string; stdin?: string }) =>
-  api.post('/execute', body).then(r => r.data)
+// Execute
+export const runCode = (b: any) => api.post('/execute', b).then(r => r.data)
 
-// ── WebSocket helper ──────────────────────────────────────────────────────────
+// Settings
+export const getKeys  = () => api.get('/settings/keys').then(r => r.data)
+export const saveKeys = (b: any) => api.post('/settings/keys', b).then(r => r.data)
+
+// WebSocket
 export function openAgentSocket(sessionId: string): WebSocket {
   const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
   const host  = window.location.host
