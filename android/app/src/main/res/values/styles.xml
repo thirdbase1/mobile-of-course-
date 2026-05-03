@@ -6,20 +6,23 @@
         <item name="colorPrimary">@color/mozosubz_primary</item>
         <item name="colorPrimaryDark">@color/mozosubz_primary_dark</item>
         <item name="colorAccent">@color/mozosubz_accent</item>
-        <item name="android:windowBackground">@android:color/white</item>
-        <item name="android:statusBarColor">@android:color/white</item>
-        <item name="android:navigationBarColor">@android:color/white</item>
-        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowBackground">@color/splash_background</item>
+        <item name="android:statusBarColor">@color/splash_background</item>
+        <item name="android:navigationBarColor">@color/splash_background</item>
     </style>
 
-    <!-- Main activity theme — white bars, content fits within them, no overlap -->
+    <!-- Main activity theme — edge-to-edge, dark brand bars -->
     <style name="AppTheme.NoActionBar" parent="Theme.AppCompat.DayNight.NoActionBar">
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
-        <item name="android:windowBackground">@android:color/white</item>
-        <item name="android:statusBarColor">@android:color/white</item>
-        <item name="android:navigationBarColor">@android:color/white</item>
-        <item name="android:windowLightStatusBar">true</item>
+        <!-- Dark background prevents white flash before the page loads -->
+        <item name="android:windowBackground">@color/splash_background</item>
+        <!-- Dark brand status bar — white icons clearly visible -->
+        <item name="android:statusBarColor">@color/splash_background</item>
+        <!-- Dark brand nav bar — white handles clearly visible -->
+        <item name="android:navigationBarColor">@color/splash_background</item>
+        <!-- false = light (white) icons on dark bar -->
+        <item name="android:windowLightStatusBar">false</item>
         <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
     </style>
 
@@ -37,8 +40,8 @@
         <item name="colorPrimaryDark">@color/mozosubz_primary_dark</item>
         <item name="colorAccent">@color/mozosubz_accent</item>
         <item name="android:windowBackground">@color/mozosubz_bg_dark</item>
-        <item name="android:statusBarColor">@android:color/white</item>
-        <item name="android:navigationBarColor">@android:color/white</item>
+        <item name="android:statusBarColor">@color/splash_background</item>
+        <item name="android:navigationBarColor">@color/splash_background</item>
     </style>
 
 </resources>

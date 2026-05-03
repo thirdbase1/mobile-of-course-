@@ -62,20 +62,28 @@ public class MainActivity extends BridgeActivity {
             new ActivityResultContracts.StartActivityForResult(),
             this::onContactPickerResult);
 
-        // White status bar + navigation bar with dark icons — matches the website.
-        // setDecorFitsSystemWindows(true) keeps content inside the bars (no overlap).
+        // ── Edge-to-edge layout ──────────────────────────────────────────────
+        // setDecorFitsSystemWindows(false) lets the WebView fill the entire
+        // screen (behind system bars). We inject CSS padding into each loaded
+        // page (see MozosubzWebViewClient.onPageFinished) so website content
+        // is never hidden under the bars.
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
-        getWindow().setStatusBarColor(Color.WHITE);
-        getWindow().setNavigationBarColor(Color.WHITE);
-        WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
 
-        // Dark icons on white bar (works API 23+; compat lib handles older versions)
+        // Status bar: dark brand navy so the clock/signal icons are clearly
+        // visible as white. White icons are set via setAppearanceLightStatusBars(false).
+        getWindow().setStatusBarColor(Color.parseColor("#0b1120"));
+
+        // Nav bar: same dark brand color. White gesture handles on dark.
+        getWindow().setNavigationBarColor(Color.parseColor("#0b1120"));
+
         WindowInsetsControllerCompat wic =
             WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
-        wic.setAppearanceLightStatusBars(true);
-        wic.setAppearanceLightNavigationBars(true);
+        wic.setAppearanceLightStatusBars(false);   // white icons on dark status bar
+        wic.setAppearanceLightNavigationBars(false); // white handles on dark nav bar
 
-        // Set our custom WebViewClient (contacts polyfill + branded error page)
+        // Set our custom WebViewClient (safe-area CSS injection + contacts polyfill
+        // + branded error page)
         getBridge().getWebView().setWebViewClient(
             new MozosubzWebViewClient(getBridge(), this, null));
 
@@ -92,7 +100,8 @@ public class MainActivity extends BridgeActivity {
 
         if (!checkOnboarding()) {
             handleDeepLink(getIntent());
-            new UpdateChecker(this).checkIfNeeded();
+            // Check for updates every time the app opens (no 24-hour gate)
+            new UpdateChecker(this).check();
         }
     }
 
@@ -240,7 +249,6 @@ public class MainActivity extends BridgeActivity {
                     if (wasOffline) {
                         wasOffline = false;
                         hideOfflineScreen();
-                        // 1.5s delay lets the connection fully stabilise before retrying
                         new Handler(Looper.getMainLooper()).postDelayed(() -> {
                             if (getBridge() != null && getBridge().getWebView() != null)
                                 getBridge().getWebView().loadUrl(MAIN_URL);
