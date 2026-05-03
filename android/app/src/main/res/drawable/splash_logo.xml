@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Padded version of the splash icon.
+  Adding 60dp inset on all sides makes the logo appear ~50% smaller and
+  perfectly centred on the splash background.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:drawable="@drawable/mozosubz_logo"
+        android:left="60dp"
+        android:top="60dp"
+        android:right="60dp"
+        android:bottom="60dp" />
+</layer-list>

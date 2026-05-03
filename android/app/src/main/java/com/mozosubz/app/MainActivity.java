@@ -36,8 +36,6 @@ import androidx.core.splashscreen.SplashScreen;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
-import androidx.lifecycle.DefaultLifecycleObserver;
-import androidx.lifecycle.LifecycleOwner;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import com.getcapacitor.BridgeActivity;
 
@@ -47,21 +45,11 @@ public class MainActivity extends BridgeActivity {
     private static final String BASE_URL                 = "https://mozosubz.xyz";
     private static final int    NOTIF_PERMISSION_CODE    = 101;
     private static final int    CONTACTS_PERMISSION_CODE = 102;
-    private static final long   LOCK_TIMEOUT_MS          = 30_000;
 
-    // Pull-to-refresh
     private SwipeRefreshLayout swipeRefreshLayout;
+    private View               offlineOverlay;
+    private boolean            wasOffline = false;
 
-    // Offline overlay
-    private View    offlineOverlay;
-    private boolean wasOffline = false;
-
-    // Biometric lock
-    private View    lockOverlay;
-    private boolean isUnlocked     = false;
-    private long    backgroundedAt = 0;
-
-    // Contact picker
     private ActivityResultLauncher<Intent> contactPickerLauncher;
     private volatile String                pendingContactCallbackId;
 
@@ -72,12 +60,11 @@ public class MainActivity extends BridgeActivity {
         SplashScreen.installSplashScreen(this);
         super.onCreate(savedInstanceState);
 
-        // Must register before onStart
         contactPickerLauncher = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(),
             this::onContactPickerResult);
 
-        // Transparent bars — content draws edge-to-edge, then we hide them
+        // Transparent bars — edge-to-edge
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
         getWindow().setStatusBarColor(Color.TRANSPARENT);
         getWindow().setNavigationBarColor(Color.TRANSPARENT);
@@ -97,27 +84,6 @@ public class MainActivity extends BridgeActivity {
         requestContactsPermission();
         setupOfflineOverlay();
         startNetworkMonitoring();
-
-        // Re-lock after LOCK_TIMEOUT_MS in background
-        // (onResume/onPause are final in BridgeActivity — use lifecycle observer)
-        getLifecycle().addObserver(new DefaultLifecycleObserver() {
-            @Override public void onStop(LifecycleOwner owner) {
-                if (isUnlocked) backgroundedAt = System.currentTimeMillis();
-            }
-            @Override public void onStart(LifecycleOwner owner) {
-                if (isUnlocked && backgroundedAt > 0
-                        && (System.currentTimeMillis() - backgroundedAt) > LOCK_TIMEOUT_MS) {
-                    isUnlocked = false;
-                    showLockScreen();
-                    triggerBiometric();
-                }
-                backgroundedAt = 0;
-            }
-        });
-
-        // Biometric lock on cold start (website loads behind it)
-        showLockScreen();
-        triggerBiometric();
 
         if (!checkOnboarding()) {
             handleDeepLink(getIntent());
@@ -160,8 +126,6 @@ public class MainActivity extends BridgeActivity {
         ViewGroup.LayoutParams wvParams = webView.getLayoutParams();
         parent.removeViewAt(index);
 
-        // Override canChildScrollUp so the swipe gesture only fires when the
-        // page is scrolled all the way to the top — not mid-scroll.
         swipeRefreshLayout = new SwipeRefreshLayout(this) {
             @Override
             public boolean canChildScrollUp() {
@@ -181,7 +145,6 @@ public class MainActivity extends BridgeActivity {
 
         parent.addView(swipeRefreshLayout, index);
 
-        // Brand colors: blue spinner on dark background
         swipeRefreshLayout.setProgressBackgroundColorSchemeColor(0xFF0B1120);
         swipeRefreshLayout.setColorSchemeColors(0xFF0066FF, 0xFFFFFFFF);
 
@@ -190,67 +153,17 @@ public class MainActivity extends BridgeActivity {
             webView.reload();
         });
 
-        // Set our WebViewClient now that we have the SwipeRefreshLayout reference
         getBridge().getWebView().setWebViewClient(
             new MozosubzWebViewClient(getBridge(), this, swipeRefreshLayout));
     }
 
-    // ── Biometric Lock Screen ─────────────────────────────────────────────────
-
-    private void showLockScreen() {
-        if (lockOverlay != null) return;
-        FrameLayout root = findViewById(android.R.id.content);
-        lockOverlay = LayoutInflater.from(this).inflate(R.layout.view_lock, root, false);
-        lockOverlay.setAlpha(1f);
-        Button btnUnlock = lockOverlay.findViewById(R.id.btnUnlock);
-        btnUnlock.setOnClickListener(v -> triggerBiometric());
-        root.addView(lockOverlay);
-    }
-
-    private void hideLockScreen() {
-        if (lockOverlay == null) return;
-        final View v = lockOverlay;
-        lockOverlay = null;
-        runOnUiThread(() ->
-            v.animate().alpha(0f).setDuration(300).withEndAction(() -> {
-                try { ((FrameLayout) v.getParent()).removeView(v); }
-                catch (Exception ignored) {}
-            }).start());
-    }
-
-    private void triggerBiometric() {
-        BiometricGuard.check(this, new BiometricGuard.Callback() {
-            @Override public void onSuccess() {
-                isUnlocked = true;
-                hapticSuccess();
-                hideLockScreen();
-            }
-            @Override public void onCancel() { finish(); }
-        });
-    }
-
     // ── Haptic feedback ───────────────────────────────────────────────────────
 
-    /** Short click — used when pull-to-refresh activates. */
     private void hapticTap() {
         View v = getWindow().getDecorView();
         v.setHapticFeedbackEnabled(true);
         v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY,
             HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
-    }
-
-    /** Success pulse — used when biometric authentication passes. */
-    private void hapticSuccess() {
-        View v = getWindow().getDecorView();
-        v.setHapticFeedbackEnabled(true);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            // CONFIRM gives a satisfying double-tap pattern on API 30+
-            v.performHapticFeedback(HapticFeedbackConstants.CONFIRM,
-                HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
-        } else {
-            v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY,
-                HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
-        }
     }
 
     // ── Branded error page ────────────────────────────────────────────────────
@@ -369,15 +282,11 @@ public class MainActivity extends BridgeActivity {
     }
 
     private void showOfflineScreen() {
-        runOnUiThread(() -> {
-            if (offlineOverlay != null) offlineOverlay.setVisibility(View.VISIBLE);
-        });
+        runOnUiThread(() -> { if (offlineOverlay != null) offlineOverlay.setVisibility(View.VISIBLE); });
     }
 
     private void hideOfflineScreen() {
-        runOnUiThread(() -> {
-            if (offlineOverlay != null) offlineOverlay.setVisibility(View.GONE);
-        });
+        runOnUiThread(() -> { if (offlineOverlay != null) offlineOverlay.setVisibility(View.GONE); });
     }
 
     // ── Network monitoring ────────────────────────────────────────────────────
