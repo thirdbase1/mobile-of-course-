@@ -20,7 +20,6 @@ import android.view.View;
 import android.view.WindowManager;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
-import android.webkit.WebViewClient;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import androidx.core.app.ActivityCompat;
@@ -32,12 +31,13 @@ public class MainActivity extends BridgeActivity {
 
     private static final String BASE_URL              = "https://mozosubz.xyz";
     private static final int    NOTIF_PERMISSION_CODE = 101;
+    private static final int    CONTACTS_PERMISSION_CODE = 102;
 
     private View    offlineOverlay;
     private boolean wasOffline = false;
 
-    private WebView  loadingWebView;
-    private boolean  loadingDismissed = false;
+    private WebView loadingWebView;
+    private boolean loadingDismissed = false;
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -50,10 +50,11 @@ public class MainActivity extends BridgeActivity {
         applyWebViewHardening();
         MozosubzFirebaseService.ensureChannel(this);
         requestNotificationPermission();
+        requestContactsPermission();
         setupOfflineOverlay();
         startNetworkMonitoring();
 
-        // Show branded loading screen while the remote site loads
+        // Show branded loading screen over everything while site loads
         showLoadingScreen();
 
         if (!checkOnboarding()) {
@@ -85,45 +86,21 @@ public class MainActivity extends BridgeActivity {
         WebSettings ws = loadingWebView.getSettings();
         ws.setJavaScriptEnabled(true);
         ws.setDomStorageEnabled(true);
-
-        // Hide loading when the main site finishes loading
-        WebView mainWebView = getBridge() != null ? getBridge().getWebView() : null;
-        if (mainWebView != null) {
-            mainWebView.setWebViewClient(new WebViewClient() {
-                @Override
-                public void onPageFinished(WebView view, String url) {
-                    super.onPageFinished(view, url);
-                    hideLoadingScreen();
-                }
-
-                @Override
-                public boolean shouldOverrideUrlLoading(WebView view, android.webkit.WebResourceRequest request) {
-                    String url = request.getUrl().toString();
-                    if (url.contains("mozosubz.xyz")) {
-                        return false; // stay in WebView
-                    }
-                    // Open truly external links in browser
-                    try {
-                        startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
-                    } catch (Exception ignored) {}
-                    return true;
-                }
-            });
-        }
+        ws.setAllowFileAccess(true);
 
         loadingWebView.loadUrl("file:///android_asset/loading.html");
         root.addView(loadingWebView);
 
-        // Safety fallback: always hide after 4 seconds max
+        // Dismiss after 3.5 s (site should be loading underneath)
         new Handler(Looper.getMainLooper()).postDelayed(
-            this::hideLoadingScreen, 4000);
+            this::hideLoadingScreen, 3500);
     }
 
     private void hideLoadingScreen() {
         if (loadingDismissed || loadingWebView == null) return;
         loadingDismissed = true;
         final WebView lv = loadingWebView;
-        runOnUiThread(() -> {
+        runOnUiThread(() ->
             lv.animate()
                 .alpha(0f)
                 .setDuration(450)
@@ -134,8 +111,7 @@ public class MainActivity extends BridgeActivity {
                         root.removeView(lv);
                     } catch (Exception ignored) {}
                     loadingWebView = null;
-                }).start();
-        });
+                }).start());
     }
 
     // ── Offline overlay ───────────────────────────────────────────────────────
@@ -184,62 +160,46 @@ public class MainActivity extends BridgeActivity {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             networkCallback = new ConnectivityManager.NetworkCallback() {
-                @Override
-                public void onAvailable(Network network) {
+                @Override public void onAvailable(Network network) {
                     if (wasOffline) {
                         wasOffline = false;
                         hideOfflineScreen();
-                        if (getBridge() != null && getBridge().getWebView() != null) {
+                        if (getBridge() != null && getBridge().getWebView() != null)
                             runOnUiThread(() -> getBridge().getWebView().reload());
-                        }
                     }
                 }
-                @Override
-                public void onLost(Network network) {
-                    if (!isOnline()) {
-                        wasOffline = true;
-                        showOfflineScreen();
-                    }
+                @Override public void onLost(Network network) {
+                    if (!isOnline()) { wasOffline = true; showOfflineScreen(); }
                 }
             };
             cm.registerDefaultNetworkCallback(networkCallback);
         } else {
             legacyReceiver = new BroadcastReceiver() {
-                @Override
-                public void onReceive(Context ctx, Intent intent) {
+                @Override public void onReceive(Context ctx, Intent intent) {
                     if (isOnline()) {
                         if (wasOffline) {
                             wasOffline = false;
                             hideOfflineScreen();
-                            if (getBridge() != null && getBridge().getWebView() != null) {
+                            if (getBridge() != null && getBridge().getWebView() != null)
                                 runOnUiThread(() -> getBridge().getWebView().reload());
-                            }
                         }
-                    } else {
-                        wasOffline = true;
-                        showOfflineScreen();
-                    }
+                    } else { wasOffline = true; showOfflineScreen(); }
                 }
             };
-            IntentFilter filter = new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION);
-            registerReceiver(legacyReceiver, filter);
+            registerReceiver(legacyReceiver,
+                new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
         }
 
-        if (!isOnline()) {
-            wasOffline = true;
-            showOfflineScreen();
-        }
+        if (!isOnline()) { wasOffline = true; showOfflineScreen(); }
     }
 
     private void stopNetworkMonitoring() {
         ConnectivityManager cm =
             (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && networkCallback != null) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && networkCallback != null)
             try { cm.unregisterNetworkCallback(networkCallback); } catch (Exception ignored) {}
-        }
-        if (legacyReceiver != null) {
+        if (legacyReceiver != null)
             try { unregisterReceiver(legacyReceiver); } catch (Exception ignored) {}
-        }
     }
 
     private boolean isOnline() {
@@ -275,9 +235,8 @@ public class MainActivity extends BridgeActivity {
     }
 
     private String resolveDeepLinkUrl(Uri uri) {
-        if ("https".equals(uri.getScheme()) && "mozosubz.xyz".equals(uri.getHost())) {
+        if ("https".equals(uri.getScheme()) && "mozosubz.xyz".equals(uri.getHost()))
             return uri.toString();
-        }
         if ("mozosubz".equals(uri.getScheme())) {
             String path  = uri.getPath();
             String query = uri.getQuery();
@@ -294,41 +253,45 @@ public class MainActivity extends BridgeActivity {
         SharedPreferences prefs = getSharedPreferences("mozosubz_prefs", MODE_PRIVATE);
         if (prefs.getBoolean("onboarding_done", false)) return false;
         Intent intent = new Intent(this, OnboardingActivity.class);
-        if (getIntent() != null && getIntent().getData() != null) {
+        if (getIntent() != null && getIntent().getData() != null)
             intent.putExtra("deep_link_url", getIntent().getDataString());
-        }
         startActivity(intent);
         finish();
         return true;
     }
 
-    // ── Notifications permission (Android 13+) ────────────────────────────────
+    // ── Permissions ───────────────────────────────────────────────────────────
 
     private void requestNotificationPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
-                    != PackageManager.PERMISSION_GRANTED) {
+                    != PackageManager.PERMISSION_GRANTED)
                 ActivityCompat.requestPermissions(this,
                     new String[]{Manifest.permission.POST_NOTIFICATIONS},
                     NOTIF_PERMISSION_CODE);
-            }
         }
+    }
+
+    private void requestContactsPermission() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS)
+                != PackageManager.PERMISSION_GRANTED)
+            ActivityCompat.requestPermissions(this,
+                new String[]{Manifest.permission.READ_CONTACTS},
+                CONTACTS_PERMISSION_CODE);
     }
 
     // ── Security ──────────────────────────────────────────────────────────────
 
     private void secureWindow() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
-        }
         getWindow().setStatusBarColor(getColor(R.color.mozosubz_bg_dark));
         getWindow().setNavigationBarColor(getColor(R.color.mozosubz_bg_dark));
     }
 
     private void applyWebViewHardening() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT)
             WebView.setWebContentsDebuggingEnabled(false);
-        }
         WebView webView = getBridge() != null ? getBridge().getWebView() : null;
         if (webView == null) return;
         WebSettings s = webView.getSettings();

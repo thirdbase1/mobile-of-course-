@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: 'Mozosubz',
   webDir: 'out',
   server: {
-    url: 'https://mozosubz.xyz',
+    url: 'https://mozosubz.xyz/login',
     cleartext: false,
     allowNavigation: ['mozosubz.xyz', '*.mozosubz.xyz'],
   },

@@ -1,13 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Dark brand background -->
     <item>
         <shape android:shape="rectangle">
             <solid android:color="@color/splash_background"/>
         </shape>
     </item>
+    <!-- Actual Mozosubz logo — centered, compact -->
     <item
-        android:width="128dp"
-        android:height="128dp"
+        android:width="96dp"
+        android:height="96dp"
         android:gravity="center"
-        android:drawable="@drawable/mozosubz_icon_fg"/>
+        android:drawable="@drawable/mozosubz_logo"/>
 </layer-list>

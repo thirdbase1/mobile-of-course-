@@ -1,50 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:aapt="http://schemas.android.com/aapt"
-    android:width="108dp"
-    android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-
-    <!-- Blue gradient background (safe-zone: 18dp inset, 72dp box) -->
-    <path android:pathData="M37.5,18 L70.5,18 A19.5,19.5,0,0,1,90,37.5 L90,70.5 A19.5,19.5,0,0,1,70.5,90 L37.5,90 A19.5,19.5,0,0,1,18,70.5 L18,37.5 A19.5,19.5,0,0,1,37.5,18 Z">
-        <aapt:attr name="android:fillColor">
-            <gradient
-                android:startX="18" android:startY="18"
-                android:endX="90"  android:endY="90"
-                android:type="linear">
-                <item android:offset="0" android:color="#FF1e40af"/>
-                <item android:offset="1" android:color="#FF1a56db"/>
-            </gradient>
-        </aapt:attr>
-    </path>
-
-    <!-- Top highlight -->
-    <path android:pathData="M37.5,18 L70.5,18 A19.5,19.5,0,0,1,90,37.5 L90,54 L18,54 L18,37.5 A19.5,19.5,0,0,1,37.5,18 Z"
-        android:fillColor="#0FFFFFFF"/>
-
-    <!-- Signal bar short -->
-    <path android:pathData="M33.75,62 A2.25,2.25,0,0,0,31.5,64.25 L31.5,74.25 A2.25,2.25,0,0,0,33.75,76.5 L36,76.5 A2.25,2.25,0,0,0,38.25,74.25 L38.25,64.25 A2.25,2.25,0,0,0,36,62 Z"
-        android:fillColor="#59FFFFFF"/>
-
-    <!-- Signal bar tall -->
-    <path android:pathData="M42.75,53 A2.25,2.25,0,0,0,40.5,55.25 L40.5,74.25 A2.25,2.25,0,0,0,42.75,76.5 L45,76.5 A2.25,2.25,0,0,0,47.25,74.25 L47.25,55.25 A2.25,2.25,0,0,0,45,53 Z"
-        android:fillColor="#8CFFFFFF"/>
-
-    <!-- M mark -->
-    <path android:pathData="M51,69 L51,45 L57.75,57 L64.5,45 L64.5,69"
-        android:strokeWidth="4.5"
-        android:strokeColor="#FFFFFFFF"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:fillColor="#00000000"/>
-
-    <!-- Lightning bolt -->
-    <path android:pathData="M57.75,36 L53.25,51 L57.375,51 L55.5,72"
-        android:strokeWidth="2.625"
-        android:strokeColor="#FFf97316"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:fillColor="#00000000"/>
-
-</vector>
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/mozosubz_logo"
+    android:insetLeft="14%"
+    android:insetRight="14%"
+    android:insetTop="14%"
+    android:insetBottom="14%" />
