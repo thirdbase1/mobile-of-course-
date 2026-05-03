@@ -36,6 +36,8 @@ import androidx.core.splashscreen.SplashScreen;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
+import androidx.lifecycle.DefaultLifecycleObserver;
+import androidx.lifecycle.LifecycleOwner;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
@@ -95,6 +97,23 @@ public class MainActivity extends BridgeActivity {
         setupOfflineOverlay();
         startNetworkMonitoring();
 
+        // Re-lock when app returns from background after LOCK_TIMEOUT_MS.
+        // onResume/onPause are final in BridgeActivity — use lifecycle observer instead.
+        getLifecycle().addObserver(new DefaultLifecycleObserver() {
+            @Override public void onStop(LifecycleOwner owner) {
+                if (isUnlocked) backgroundedAt = System.currentTimeMillis();
+            }
+            @Override public void onStart(LifecycleOwner owner) {
+                if (isUnlocked && backgroundedAt > 0
+                        && (System.currentTimeMillis() - backgroundedAt) > LOCK_TIMEOUT_MS) {
+                    isUnlocked = false;
+                    showLockScreen();
+                    triggerBiometric();
+                }
+                backgroundedAt = 0;
+            }
+        });
+
         // Show biometric lock on cold start (website loads behind it)
         showLockScreen();
         triggerBiometric();
@@ -103,25 +122,6 @@ public class MainActivity extends BridgeActivity {
             handleDeepLink(getIntent());
             new UpdateChecker(this).checkIfNeeded();
         }
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        // Re-lock if app was in background longer than LOCK_TIMEOUT_MS
-        if (isUnlocked && backgroundedAt > 0
-                && (System.currentTimeMillis() - backgroundedAt) > LOCK_TIMEOUT_MS) {
-            isUnlocked = false;
-            showLockScreen();
-            triggerBiometric();
-        }
-        backgroundedAt = 0;
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        if (isUnlocked) backgroundedAt = System.currentTimeMillis();
     }
 
     @Override
