@@ -9,6 +9,7 @@ import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
+import android.graphics.Color;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
@@ -21,6 +22,7 @@ import android.provider.ContactsContract;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.WindowManager;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.widget.Button;
@@ -31,6 +33,9 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.splashscreen.SplashScreen;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
@@ -57,20 +62,30 @@ public class MainActivity extends BridgeActivity {
         SplashScreen.installSplashScreen(this);
         super.onCreate(savedInstanceState);
 
-        // Register contact picker result handler (must be before onStart)
+        // Must register before onStart
         contactPickerLauncher = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(),
             this::onContactPickerResult);
 
-        // Replace Capacitor's default WebViewClient with our extended version
+        // Replace Capacitor's WebViewClient with our extended version
         getBridge().getWebView().setWebViewClient(
             new MozosubzWebViewClient(getBridge(), this));
 
-        // Add contacts bridge so JS can call window.MozosubzContacts.pickContact()
+        // Expose contacts bridge to JavaScript as window.MozosubzContacts
         getBridge().getWebView().addJavascriptInterface(
             new ContactsPickerBridge(this), "MozosubzContacts");
 
-        applyFullScreen();
+        // Transparent bars — content will draw behind/under them, then we hide them
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+        getWindow().setStatusBarColor(Color.TRANSPARENT);
+        getWindow().setNavigationBarColor(Color.TRANSPARENT);
+
+        // Tell the layout system the app handles its own insets
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+
+        // Post full-screen call so the window is fully attached when we run it
+        getWindow().getDecorView().post(this::goImmersive);
+
         applyWebViewHardening();
         MozosubzFirebaseService.ensureChannel(this);
         requestNotificationPermission();
@@ -88,9 +103,8 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
-        // Re-apply full-screen whenever we regain focus (keyboard, dialogs, etc.
-        // can temporarily reveal system bars)
-        if (hasFocus) applyFullScreen();
+        // Re-apply every time we regain focus — dialogs, keyboard, etc. can restore bars
+        if (hasFocus) goImmersive();
     }
 
     @Override
@@ -100,29 +114,20 @@ public class MainActivity extends BridgeActivity {
         handleDeepLink(intent);
     }
 
-    // ── Full-screen immersive mode ────────────────────────────────────────────
+    // ── Full-screen / Immersive ───────────────────────────────────────────────
 
-    @SuppressWarnings("deprecation")
-    private void applyFullScreen() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            android.view.WindowInsetsController wic =
-                getWindow().getInsetsController();
-            if (wic != null) {
-                wic.hide(android.view.WindowInsets.Type.statusBars()
-                       | android.view.WindowInsets.Type.navigationBars());
-                wic.setSystemBarsBehavior(
-                    android.view.WindowInsetsController
-                        .BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
-            }
-        } else {
-            getWindow().getDecorView().setSystemUiVisibility(
-                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                | View.SYSTEM_UI_FLAG_FULLSCREEN);
-        }
+    /**
+     * Hides both status bar and navigation bar using WindowInsetsControllerCompat —
+     * the officially recommended approach that works on API 21 through 35+.
+     * Bars reappear transiently on edge-swipe and auto-hide again.
+     */
+    private void goImmersive() {
+        WindowInsetsControllerCompat controller =
+            WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
+        controller.hide(WindowInsetsCompat.Type.statusBars()
+                      | WindowInsetsCompat.Type.navigationBars());
+        controller.setSystemBarsBehavior(
+            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
     }
 
     // ── Branded loading screen ────────────────────────────────────────────────
@@ -190,17 +195,12 @@ public class MainActivity extends BridgeActivity {
 
     // ── Native Contact Picker ─────────────────────────────────────────────────
 
-    /**
-     * Called from ContactsPickerBridge (JS thread) when the website requests a contact.
-     * Stores the callbackId then launches the system contact picker on the UI thread.
-     */
     public void launchContactPicker(String callbackId) {
         pendingContactCallbackId = callbackId;
         runOnUiThread(() -> {
             try {
-                Intent intent = new Intent(Intent.ACTION_PICK,
-                    ContactsContract.Contacts.CONTENT_URI);
-                contactPickerLauncher.launch(intent);
+                contactPickerLauncher.launch(new Intent(Intent.ACTION_PICK,
+                    ContactsContract.Contacts.CONTENT_URI));
             } catch (Exception e) {
                 Log.e(TAG, "launchContactPicker: " + e.getMessage());
                 deliverContactToJs(callbackId, null);
@@ -208,36 +208,27 @@ public class MainActivity extends BridgeActivity {
         });
     }
 
-    /** Handles the result from the system contact picker. */
     private void onContactPickerResult(ActivityResult result) {
         String callbackId = pendingContactCallbackId;
         pendingContactCallbackId = null;
         if (callbackId == null) return;
-
         String contactJson = null;
-        if (result.getResultCode() == RESULT_OK && result.getData() != null) {
+        if (result.getResultCode() == RESULT_OK && result.getData() != null)
             contactJson = readContact(result.getData().getData());
-        }
         deliverContactToJs(callbackId, contactJson);
     }
 
-    /**
-     * Reads name + phone numbers from the given contact Uri and returns a
-     * Web Contacts API-compatible JSON string, or null on failure.
-     */
     private String readContact(Uri contactUri) {
         if (contactUri == null) return null;
         ContentResolver cr = getContentResolver();
         try (Cursor c = cr.query(contactUri, null, null, null, null)) {
             if (c == null || !c.moveToFirst()) return null;
-
             String name = c.getString(
                 c.getColumnIndexOrThrow(ContactsContract.Contacts.DISPLAY_NAME));
             String id = c.getString(
                 c.getColumnIndexOrThrow(ContactsContract.Contacts._ID));
 
-            // Collect phone numbers
-            StringBuilder phonesArr = new StringBuilder();
+            StringBuilder phones = new StringBuilder();
             try (Cursor ph = cr.query(
                 ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
                 new String[]{ContactsContract.CommonDataKinds.Phone.NUMBER},
@@ -248,25 +239,20 @@ public class MainActivity extends BridgeActivity {
                     while (ph.moveToNext()) {
                         String num = ph.getString(0);
                         if (num == null || num.trim().isEmpty()) continue;
-                        if (!first) phonesArr.append(',');
-                        phonesArr.append('"').append(escapeJson(num.trim())).append('"');
+                        if (!first) phones.append(',');
+                        phones.append('"').append(escapeJson(num.trim())).append('"');
                         first = false;
                     }
                 }
             }
-
-            // Web Contacts API shape: { name: [...], tel: [...], email: [], address: [] }
             return "{\"name\":[\"" + escapeJson(name) + "\"]," +
-                   "\"tel\":[" + phonesArr + "]," +
-                   "\"email\":[]," +
-                   "\"address\":[]}";
+                   "\"tel\":[" + phones + "],\"email\":[],\"address\":[]}";
         } catch (Exception e) {
             Log.e(TAG, "readContact: " + e.getMessage());
             return null;
         }
     }
 
-    /** Calls window[callbackId](json) on the page — resolves the JS promise. */
     private void deliverContactToJs(String callbackId, String json) {
         if (getBridge() == null || getBridge().getWebView() == null) return;
         String arg = json != null
