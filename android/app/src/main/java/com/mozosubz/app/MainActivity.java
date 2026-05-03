@@ -44,12 +44,16 @@ public class MainActivity extends BridgeActivity {
     private static final String BASE_URL                 = "https://mozosubz.xyz";
     private static final int    NOTIF_PERMISSION_CODE    = 101;
     private static final int    CONTACTS_PERMISSION_CODE = 102;
+    // Re-lock after app is backgrounded for more than 30 seconds
+    private static final long   LOCK_TIMEOUT_MS          = 30_000;
 
     private View    offlineOverlay;
     private boolean wasOffline = false;
 
-    private WebView loadingWebView;
-    private boolean loadingDismissed = false;
+    // Biometric lock
+    private View    lockOverlay;
+    private boolean isUnlocked       = false;
+    private long    backgroundedAt   = 0;
 
     // Contact picker
     private ActivityResultLauncher<Intent> contactPickerLauncher;
@@ -67,24 +71,22 @@ public class MainActivity extends BridgeActivity {
             new ActivityResultContracts.StartActivityForResult(),
             this::onContactPickerResult);
 
+        // Transparent bars so content draws edge-to-edge
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+        getWindow().setStatusBarColor(Color.TRANSPARENT);
+        getWindow().setNavigationBarColor(Color.TRANSPARENT);
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+
+        // Post full-screen so the window is fully attached first
+        getWindow().getDecorView().post(this::goImmersive);
+
         // Replace Capacitor's WebViewClient with our extended version
         getBridge().getWebView().setWebViewClient(
             new MozosubzWebViewClient(getBridge(), this));
 
-        // Expose contacts bridge to JavaScript as window.MozosubzContacts
+        // Expose contacts bridge to JS as window.MozosubzContacts
         getBridge().getWebView().addJavascriptInterface(
             new ContactsPickerBridge(this), "MozosubzContacts");
-
-        // Transparent bars — content will draw behind/under them, then we hide them
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
-        getWindow().setStatusBarColor(Color.TRANSPARENT);
-        getWindow().setNavigationBarColor(Color.TRANSPARENT);
-
-        // Tell the layout system the app handles its own insets
-        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
-
-        // Post full-screen call so the window is fully attached when we run it
-        getWindow().getDecorView().post(this::goImmersive);
 
         applyWebViewHardening();
         MozosubzFirebaseService.ensureChannel(this);
@@ -92,7 +94,10 @@ public class MainActivity extends BridgeActivity {
         requestContactsPermission();
         setupOfflineOverlay();
         startNetworkMonitoring();
-        showLoadingScreen();
+
+        // Show biometric lock on cold start (website loads behind it)
+        showLockScreen();
+        triggerBiometric();
 
         if (!checkOnboarding()) {
             handleDeepLink(getIntent());
@@ -101,9 +106,27 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        // Re-lock if app was in background longer than LOCK_TIMEOUT_MS
+        if (isUnlocked && backgroundedAt > 0
+                && (System.currentTimeMillis() - backgroundedAt) > LOCK_TIMEOUT_MS) {
+            isUnlocked = false;
+            showLockScreen();
+            triggerBiometric();
+        }
+        backgroundedAt = 0;
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (isUnlocked) backgroundedAt = System.currentTimeMillis();
+    }
+
+    @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
-        // Re-apply every time we regain focus — dialogs, keyboard, etc. can restore bars
         if (hasFocus) goImmersive();
     }
 
@@ -116,11 +139,6 @@ public class MainActivity extends BridgeActivity {
 
     // ── Full-screen / Immersive ───────────────────────────────────────────────
 
-    /**
-     * Hides both status bar and navigation bar using WindowInsetsControllerCompat —
-     * the officially recommended approach that works on API 21 through 35+.
-     * Bars reappear transiently on edge-swipe and auto-hide again.
-     */
     private void goImmersive() {
         WindowInsetsControllerCompat controller =
             WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
@@ -130,47 +148,43 @@ public class MainActivity extends BridgeActivity {
             WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
     }
 
-    // ── Branded loading screen ────────────────────────────────────────────────
+    // ── Biometric Lock Screen ─────────────────────────────────────────────────
 
-    private void showLoadingScreen() {
-        FrameLayout root = (FrameLayout) getWindow().getDecorView()
-            .findViewById(android.R.id.content);
+    private void showLockScreen() {
+        if (lockOverlay != null) return;
+        FrameLayout root = findViewById(android.R.id.content);
+        lockOverlay = LayoutInflater.from(this).inflate(R.layout.view_lock, root, false);
+        lockOverlay.setAlpha(1f);
 
-        loadingWebView = new WebView(this);
-        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.MATCH_PARENT,
-            FrameLayout.LayoutParams.MATCH_PARENT);
-        loadingWebView.setLayoutParams(lp);
-        loadingWebView.setBackgroundColor(0xFF0B1120);
+        Button btnUnlock = lockOverlay.findViewById(R.id.btnUnlock);
+        btnUnlock.setOnClickListener(v -> triggerBiometric());
 
-        WebSettings ws = loadingWebView.getSettings();
-        ws.setJavaScriptEnabled(true);
-        ws.setDomStorageEnabled(true);
-        ws.setAllowFileAccess(true);
-
-        loadingWebView.loadUrl("file:///android_asset/loading.html");
-        root.addView(loadingWebView);
-
-        new Handler(Looper.getMainLooper()).postDelayed(
-            this::hideLoadingScreen, 3500);
+        root.addView(lockOverlay);
     }
 
-    private void hideLoadingScreen() {
-        if (loadingDismissed || loadingWebView == null) return;
-        loadingDismissed = true;
-        final WebView lv = loadingWebView;
+    private void hideLockScreen() {
+        if (lockOverlay == null) return;
+        final View v = lockOverlay;
+        lockOverlay = null;
         runOnUiThread(() ->
-            lv.animate()
-                .alpha(0f)
-                .setDuration(450)
-                .withEndAction(() -> {
-                    try {
-                        FrameLayout root = (FrameLayout) getWindow().getDecorView()
-                            .findViewById(android.R.id.content);
-                        root.removeView(lv);
-                    } catch (Exception ignored) {}
-                    loadingWebView = null;
-                }).start());
+            v.animate().alpha(0f).setDuration(300).withEndAction(() -> {
+                try {
+                    FrameLayout root = findViewById(android.R.id.content);
+                    root.removeView(v);
+                } catch (Exception ignored) {}
+            }).start());
+    }
+
+    private void triggerBiometric() {
+        BiometricGuard.check(this, new BiometricGuard.Callback() {
+            @Override public void onSuccess() {
+                isUnlocked = true;
+                hideLockScreen();
+            }
+            @Override public void onCancel() {
+                finish();
+            }
+        });
     }
 
     // ── Branded error page ────────────────────────────────────────────────────
@@ -212,22 +226,21 @@ public class MainActivity extends BridgeActivity {
         String callbackId = pendingContactCallbackId;
         pendingContactCallbackId = null;
         if (callbackId == null) return;
-        String contactJson = null;
+        String json = null;
         if (result.getResultCode() == RESULT_OK && result.getData() != null)
-            contactJson = readContact(result.getData().getData());
-        deliverContactToJs(callbackId, contactJson);
+            json = readContact(result.getData().getData());
+        deliverContactToJs(callbackId, json);
     }
 
     private String readContact(Uri contactUri) {
         if (contactUri == null) return null;
         ContentResolver cr = getContentResolver();
-        try (Cursor c = cr.query(contactUri, null, null, null, null)) {
+        try (android.database.Cursor c = cr.query(contactUri, null, null, null, null)) {
             if (c == null || !c.moveToFirst()) return null;
             String name = c.getString(
                 c.getColumnIndexOrThrow(ContactsContract.Contacts.DISPLAY_NAME));
             String id = c.getString(
                 c.getColumnIndexOrThrow(ContactsContract.Contacts._ID));
-
             StringBuilder phones = new StringBuilder();
             try (Cursor ph = cr.query(
                 ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
@@ -255,11 +268,9 @@ public class MainActivity extends BridgeActivity {
 
     private void deliverContactToJs(String callbackId, String json) {
         if (getBridge() == null || getBridge().getWebView() == null) return;
-        String arg = json != null
-            ? "'" + json.replace("'", "\\'") + "'"
-            : "null";
-        String js = "if(typeof window['" + callbackId + "']==='function')" +
-                    "window['" + callbackId + "'](" + arg + ");";
+        String arg = json != null ? "'" + json.replace("'", "\\'") + "'" : "null";
+        String js  = "if(typeof window['" + callbackId + "']==='function')" +
+                     "window['" + callbackId + "'](" + arg + ");";
         getBridge().getWebView().post(() ->
             getBridge().getWebView().evaluateJavascript(js, null));
     }
@@ -277,11 +288,9 @@ public class MainActivity extends BridgeActivity {
     private void setupOfflineOverlay() {
         FrameLayout root = (FrameLayout) getWindow().getDecorView()
             .findViewById(android.R.id.content);
-
         offlineOverlay = LayoutInflater.from(this)
             .inflate(R.layout.view_offline, root, false);
         offlineOverlay.setVisibility(View.GONE);
-
         Button retry = offlineOverlay.findViewById(R.id.btnRetry);
         retry.setOnClickListener(v -> {
             if (isOnline()) {
@@ -290,20 +299,15 @@ public class MainActivity extends BridgeActivity {
                     getBridge().getWebView().reload();
             }
         });
-
         root.addView(offlineOverlay);
     }
 
     private void showOfflineScreen() {
-        runOnUiThread(() -> {
-            if (offlineOverlay != null) offlineOverlay.setVisibility(View.VISIBLE);
-        });
+        runOnUiThread(() -> { if (offlineOverlay != null) offlineOverlay.setVisibility(View.VISIBLE); });
     }
 
     private void hideOfflineScreen() {
-        runOnUiThread(() -> {
-            if (offlineOverlay != null) offlineOverlay.setVisibility(View.GONE);
-        });
+        runOnUiThread(() -> { if (offlineOverlay != null) offlineOverlay.setVisibility(View.GONE); });
     }
 
     // ── Network monitoring ────────────────────────────────────────────────────
@@ -314,7 +318,6 @@ public class MainActivity extends BridgeActivity {
     private void startNetworkMonitoring() {
         ConnectivityManager cm =
             (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
-
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             networkCallback = new ConnectivityManager.NetworkCallback() {
                 @Override public void onAvailable(Network network) {
@@ -346,7 +349,6 @@ public class MainActivity extends BridgeActivity {
             registerReceiver(legacyReceiver,
                 new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
         }
-
         if (!isOnline()) { wasOffline = true; showOfflineScreen(); }
     }
 
@@ -377,8 +379,7 @@ public class MainActivity extends BridgeActivity {
         String url = resolveDeepLinkUrl(data);
         if (url != null && getBridge() != null && getBridge().getWebView() != null) {
             final String finalUrl = url;
-            getBridge().getWebView().post(() ->
-                getBridge().getWebView().loadUrl(finalUrl));
+            getBridge().getWebView().post(() -> getBridge().getWebView().loadUrl(finalUrl));
         }
     }
 
