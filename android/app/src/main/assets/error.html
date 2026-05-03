@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
+<title>Mozosubz</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{
+  width:100%;height:100%;
+  background:#0b1120;
+  display:flex;align-items:center;justify-content:center;
+  overflow:hidden;
+  font-family:-apple-system,'DM Sans','Space Grotesk',sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{
+  display:flex;flex-direction:column;align-items:center;
+  padding:40px 32px;width:100%;max-width:360px;
+  text-align:center;
+}
+.logo{
+  width:80px;height:80px;border-radius:20px;
+  object-fit:cover;margin-bottom:28px;
+  opacity:0.7;
+}
+.icon-ring{
+  width:64px;height:64px;border-radius:50%;
+  background:rgba(249,115,22,0.1);border:1.5px solid rgba(249,115,22,0.3);
+  display:flex;align-items:center;justify-content:center;
+  margin-bottom:24px;
+}
+.icon-ring svg{width:28px;height:28px;}
+.title{
+  font-size:20px;font-weight:700;color:#fff;
+  letter-spacing:-0.5px;margin-bottom:10px;
+}
+.msg{
+  font-size:14px;color:rgba(255,255,255,0.45);
+  line-height:1.6;margin-bottom:36px;
+}
+.btn{
+  display:block;width:100%;padding:15px 0;
+  background:#1a56db;color:#fff;
+  font-size:15px;font-weight:600;
+  border:none;border-radius:14px;cursor:pointer;
+  letter-spacing:0.1px;
+  transition:opacity .15s;
+  -webkit-tap-highlight-color:transparent;
+}
+.btn:active{opacity:0.8;}
+.hint{
+  margin-top:20px;font-size:12px;
+  color:rgba(255,255,255,0.2);letter-spacing:0.2px;
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <img class="logo" src="mozosubz_logo.png" alt="Mozosubz"/>
+
+  <div class="icon-ring">
+    <!-- wifi-off icon -->
+    <svg viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="1.8"
+         stroke-linecap="round" stroke-linejoin="round" id="errIcon">
+      <line x1="2" y1="2" x2="22" y2="22"/>
+      <path d="M8.5 16.5a5 5 0 0 1 7 0"/>
+      <path d="M2 8.82a15 15 0 0 1 4.17-2.65"/>
+      <path d="M10.66 5c4.01-.36 8.14.9 11.34 3.76"/>
+      <path d="M16.85 11.25a10 10 0 0 1 2.22 1.68"/>
+      <path d="M5 12.55a10 10 0 0 1 5.17-2.39"/>
+      <line x1="12" y1="20" x2="12.01" y2="20"/>
+    </svg>
+  </div>
+
+  <div class="title" id="errTitle">No connection</div>
+  <div class="msg" id="errMsg">
+    Check your internet connection and tap Retry to try again.
+  </div>
+
+  <button class="btn" onclick="retry()">Retry</button>
+  <div class="hint" id="errCode"></div>
+</div>
+
+<script>
+var params = {};
+try {
+  var q = (location.search || location.hash || '').replace(/^[?#]/,'');
+  q.split('&').forEach(function(p){
+    var kv = p.split('=');
+    if (kv[0]) params[kv[0]] = decodeURIComponent(kv[1]||'');
+  });
+} catch(e){}
+
+var code = parseInt(params.code || '0', 10);
+var title = document.getElementById('errTitle');
+var msg   = document.getElementById('errMsg');
+var icon  = document.getElementById('errIcon');
+var hint  = document.getElementById('errCode');
+
+// Swap icon for server errors
+function setServerIcon() {
+  icon.innerHTML = '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>';
+  icon.setAttribute('stroke','#f97316');
+}
+
+if (code === -2 || code === -6 || code === -7) {
+  title.textContent = 'No connection';
+  msg.textContent = 'Check your internet connection and tap Retry to try again.';
+} else if (code === -8) {
+  setServerIcon();
+  title.textContent = 'Connection timed out';
+  msg.textContent = 'The server took too long to respond. Please try again.';
+} else if (code === -11) {
+  setServerIcon();
+  title.textContent = 'Secure connection failed';
+  msg.textContent = 'There was a problem with the secure connection. Please try again.';
+} else if (code === -999) {
+  setServerIcon();
+  title.textContent = 'Service unavailable';
+  msg.textContent = 'Our servers are experiencing a brief issue. We\'ll be back shortly.';
+} else if (code === -15) {
+  setServerIcon();
+  title.textContent = 'Too many requests';
+  msg.textContent = 'Please wait a moment then tap Retry.';
+} else if (code !== 0) {
+  setServerIcon();
+  title.textContent = 'Something went wrong';
+  msg.textContent = 'An unexpected error occurred. Please try again.';
+}
+
+if (code !== 0) hint.textContent = 'Error ' + code;
+
+function retry() {
+  window.location.href = 'https://mozosubz.xyz/login';
+}
+</script>
+</body>
+</html>

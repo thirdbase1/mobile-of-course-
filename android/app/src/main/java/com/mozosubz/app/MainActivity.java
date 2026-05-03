@@ -15,9 +15,9 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.view.WindowManager;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.widget.Button;
@@ -26,11 +26,13 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.splashscreen.SplashScreen;
 import com.getcapacitor.BridgeActivity;
+import com.getcapacitor.BridgeWebViewClient;
 
 public class MainActivity extends BridgeActivity {
 
-    private static final String BASE_URL              = "https://mozosubz.xyz";
-    private static final int    NOTIF_PERMISSION_CODE = 101;
+    private static final String TAG                  = "MozosubzMain";
+    private static final String BASE_URL             = "https://mozosubz.xyz";
+    private static final int    NOTIF_PERMISSION_CODE    = 101;
     private static final int    CONTACTS_PERMISSION_CODE = 102;
 
     private View    offlineOverlay;
@@ -38,6 +40,13 @@ public class MainActivity extends BridgeActivity {
 
     private WebView loadingWebView;
     private boolean loadingDismissed = false;
+
+    // ── Capacitor hook — return our custom WebViewClient ─────────────────────
+
+    @Override
+    protected BridgeWebViewClient getBridgeWebViewClient() {
+        return new MozosubzWebViewClient(getBridge(), this);
+    }
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -70,7 +79,13 @@ public class MainActivity extends BridgeActivity {
         handleDeepLink(intent);
     }
 
-    // ── Branded loading screen ─────────────────────────────────────────────────
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        stopNetworkMonitoring();
+    }
+
+    // ── Branded loading screen ────────────────────────────────────────────────
 
     private void showLoadingScreen() {
         FrameLayout root = (FrameLayout) getWindow().getDecorView()
@@ -91,7 +106,7 @@ public class MainActivity extends BridgeActivity {
         loadingWebView.loadUrl("file:///android_asset/loading.html");
         root.addView(loadingWebView);
 
-        // Dismiss after 3.5 s (site should be loading underneath)
+        // Dismiss after 3.5 s — site should be loaded underneath by then
         new Handler(Looper.getMainLooper()).postDelayed(
             this::hideLoadingScreen, 3500);
     }
@@ -112,6 +127,37 @@ public class MainActivity extends BridgeActivity {
                     } catch (Exception ignored) {}
                     loadingWebView = null;
                 }).start());
+    }
+
+    // ── Branded error page ────────────────────────────────────────────────────
+
+    /**
+     * Called by MozosubzWebViewClient when the main frame fails to load.
+     * Replaces the browser's default error page with our branded error screen.
+     */
+    public void showWebError(WebView webView, int errorCode) {
+        // Build the error page URL — we pass the code as a query param
+        // and load the HTML from assets so the logo PNG resolves correctly.
+        runOnUiThread(() -> {
+            try {
+                // Read error.html from assets
+                java.io.InputStream is = getAssets().open("error.html");
+                byte[] buf = new byte[is.available()];
+                is.read(buf);
+                is.close();
+                String html = new String(buf, "UTF-8")
+                    .replace("location.search || location.hash || ''",
+                        "'?code=" + errorCode + "'");
+                webView.loadDataWithBaseURL(
+                    "file:///android_asset/",
+                    html,
+                    "text/html",
+                    "UTF-8",
+                    null);
+            } catch (Exception e) {
+                Log.e(TAG, "showWebError failed: " + e.getMessage());
+            }
+        });
     }
 
     // ── Offline overlay ───────────────────────────────────────────────────────
@@ -283,8 +329,7 @@ public class MainActivity extends BridgeActivity {
     // ── Security ──────────────────────────────────────────────────────────────
 
     private void secureWindow() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-            getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
+        // FLAG_SECURE removed — screenshots are allowed
         getWindow().setStatusBarColor(getColor(R.color.mozosubz_bg_dark));
         getWindow().setNavigationBarColor(getColor(R.color.mozosubz_bg_dark));
     }

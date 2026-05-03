@@ -18,9 +18,10 @@
         <item name="android:navigationBarColor">@color/mozosubz_bg_dark</item>
     </style>
 
+    <!-- Launch theme — uses the real logo PNG for the system splash screen -->
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@color/splash_background</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/mozosubz_icon</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/mozosubz_logo</item>
         <item name="windowSplashScreenAnimationDuration">500</item>
         <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
     </style>
