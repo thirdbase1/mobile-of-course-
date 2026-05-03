@@ -16,12 +16,11 @@ import android.net.NetworkCapabilities;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
 import android.provider.ContactsContract;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -38,6 +37,7 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.lifecycle.DefaultLifecycleObserver;
 import androidx.lifecycle.LifecycleOwner;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
@@ -46,16 +46,19 @@ public class MainActivity extends BridgeActivity {
     private static final String BASE_URL                 = "https://mozosubz.xyz";
     private static final int    NOTIF_PERMISSION_CODE    = 101;
     private static final int    CONTACTS_PERMISSION_CODE = 102;
-    // Re-lock after app is backgrounded for more than 30 seconds
     private static final long   LOCK_TIMEOUT_MS          = 30_000;
 
+    // Pull-to-refresh
+    private SwipeRefreshLayout swipeRefreshLayout;
+
+    // Offline overlay
     private View    offlineOverlay;
     private boolean wasOffline = false;
 
     // Biometric lock
     private View    lockOverlay;
-    private boolean isUnlocked       = false;
-    private long    backgroundedAt   = 0;
+    private boolean isUnlocked     = false;
+    private long    backgroundedAt = 0;
 
     // Contact picker
     private ActivityResultLauncher<Intent> contactPickerLauncher;
@@ -73,18 +76,15 @@ public class MainActivity extends BridgeActivity {
             new ActivityResultContracts.StartActivityForResult(),
             this::onContactPickerResult);
 
-        // Transparent bars so content draws edge-to-edge
+        // Transparent bars — content draws edge-to-edge, then we hide them
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
         getWindow().setStatusBarColor(Color.TRANSPARENT);
         getWindow().setNavigationBarColor(Color.TRANSPARENT);
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
-
-        // Post full-screen so the window is fully attached first
         getWindow().getDecorView().post(this::goImmersive);
 
-        // Replace Capacitor's WebViewClient with our extended version
-        getBridge().getWebView().setWebViewClient(
-            new MozosubzWebViewClient(getBridge(), this));
+        // Wrap Capacitor's WebView in SwipeRefreshLayout (also sets our WebViewClient)
+        setupSwipeRefresh();
 
         // Expose contacts bridge to JS as window.MozosubzContacts
         getBridge().getWebView().addJavascriptInterface(
@@ -97,8 +97,8 @@ public class MainActivity extends BridgeActivity {
         setupOfflineOverlay();
         startNetworkMonitoring();
 
-        // Re-lock when app returns from background after LOCK_TIMEOUT_MS.
-        // onResume/onPause are final in BridgeActivity — use lifecycle observer instead.
+        // Re-lock after LOCK_TIMEOUT_MS in background
+        // (onResume/onPause are final in BridgeActivity — use lifecycle observer)
         getLifecycle().addObserver(new DefaultLifecycleObserver() {
             @Override public void onStop(LifecycleOwner owner) {
                 if (isUnlocked) backgroundedAt = System.currentTimeMillis();
@@ -114,7 +114,7 @@ public class MainActivity extends BridgeActivity {
             }
         });
 
-        // Show biometric lock on cold start (website loads behind it)
+        // Biometric lock on cold start (website loads behind it)
         showLockScreen();
         triggerBiometric();
 
@@ -148,6 +148,49 @@ public class MainActivity extends BridgeActivity {
             WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
     }
 
+    // ── Pull-to-Refresh ───────────────────────────────────────────────────────
+
+    private void setupSwipeRefresh() {
+        WebView webView = getBridge().getWebView();
+        ViewGroup parent = (ViewGroup) webView.getParent();
+        if (parent == null) return;
+
+        int index = parent.indexOfChild(webView);
+        ViewGroup.LayoutParams wvParams = webView.getLayoutParams();
+        parent.removeViewAt(index);
+
+        // Override canChildScrollUp so the swipe gesture only fires when the
+        // page is scrolled all the way to the top — not mid-scroll.
+        swipeRefreshLayout = new SwipeRefreshLayout(this) {
+            @Override
+            public boolean canChildScrollUp() {
+                return webView.canScrollVertically(-1);
+            }
+        };
+
+        swipeRefreshLayout.setLayoutParams(wvParams != null ? wvParams :
+            new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT));
+
+        swipeRefreshLayout.addView(webView,
+            new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT));
+
+        parent.addView(swipeRefreshLayout, index);
+
+        // Brand colors: blue spinner on dark background
+        swipeRefreshLayout.setProgressBackgroundColorSchemeColor(0xFF0B1120);
+        swipeRefreshLayout.setColorSchemeColors(0xFF0066FF, 0xFFFFFFFF);
+
+        swipeRefreshLayout.setOnRefreshListener(() -> webView.reload());
+
+        // Set our WebViewClient now that we have the SwipeRefreshLayout reference
+        getBridge().getWebView().setWebViewClient(
+            new MozosubzWebViewClient(getBridge(), this, swipeRefreshLayout));
+    }
+
     // ── Biometric Lock Screen ─────────────────────────────────────────────────
 
     private void showLockScreen() {
@@ -155,10 +198,8 @@ public class MainActivity extends BridgeActivity {
         FrameLayout root = findViewById(android.R.id.content);
         lockOverlay = LayoutInflater.from(this).inflate(R.layout.view_lock, root, false);
         lockOverlay.setAlpha(1f);
-
         Button btnUnlock = lockOverlay.findViewById(R.id.btnUnlock);
         btnUnlock.setOnClickListener(v -> triggerBiometric());
-
         root.addView(lockOverlay);
     }
 
@@ -168,22 +209,15 @@ public class MainActivity extends BridgeActivity {
         lockOverlay = null;
         runOnUiThread(() ->
             v.animate().alpha(0f).setDuration(300).withEndAction(() -> {
-                try {
-                    FrameLayout root = findViewById(android.R.id.content);
-                    root.removeView(v);
-                } catch (Exception ignored) {}
+                try { ((FrameLayout) v.getParent()).removeView(v); }
+                catch (Exception ignored) {}
             }).start());
     }
 
     private void triggerBiometric() {
         BiometricGuard.check(this, new BiometricGuard.Callback() {
-            @Override public void onSuccess() {
-                isUnlocked = true;
-                hideLockScreen();
-            }
-            @Override public void onCancel() {
-                finish();
-            }
+            @Override public void onSuccess() { isUnlocked = true; hideLockScreen(); }
+            @Override public void onCancel()  { finish(); }
         });
     }
 
@@ -235,7 +269,7 @@ public class MainActivity extends BridgeActivity {
     private String readContact(Uri contactUri) {
         if (contactUri == null) return null;
         ContentResolver cr = getContentResolver();
-        try (android.database.Cursor c = cr.query(contactUri, null, null, null, null)) {
+        try (Cursor c = cr.query(contactUri, null, null, null, null)) {
             if (c == null || !c.moveToFirst()) return null;
             String name = c.getString(
                 c.getColumnIndexOrThrow(ContactsContract.Contacts.DISPLAY_NAME));
@@ -303,11 +337,15 @@ public class MainActivity extends BridgeActivity {
     }
 
     private void showOfflineScreen() {
-        runOnUiThread(() -> { if (offlineOverlay != null) offlineOverlay.setVisibility(View.VISIBLE); });
+        runOnUiThread(() -> {
+            if (offlineOverlay != null) offlineOverlay.setVisibility(View.VISIBLE);
+        });
     }
 
     private void hideOfflineScreen() {
-        runOnUiThread(() -> { if (offlineOverlay != null) offlineOverlay.setVisibility(View.GONE); });
+        runOnUiThread(() -> {
+            if (offlineOverlay != null) offlineOverlay.setVisibility(View.GONE);
+        });
     }
 
     // ── Network monitoring ────────────────────────────────────────────────────

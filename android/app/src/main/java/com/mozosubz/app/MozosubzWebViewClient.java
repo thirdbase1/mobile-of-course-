@@ -5,23 +5,27 @@ import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebView;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeWebViewClient;
 
 /**
  * Extends Capacitor's BridgeWebViewClient to:
- * 1. Intercept load errors → show branded error page instead of browser's default.
- * 2. Inject the navigator.contacts polyfill after each page finishes loading.
+ * 1. Stop the pull-to-refresh spinner when the page finishes loading.
+ * 2. Inject the navigator.contacts polyfill after each page load.
+ * 3. Intercept load errors → show branded error page instead of browser default.
  *
  * All navigation logic (allowNavigation, shouldOverrideUrlLoading, etc.) is
  * fully preserved via super calls.
  */
 public class MozosubzWebViewClient extends BridgeWebViewClient {
 
-    private final MainActivity activity;
+    private final MainActivity       activity;
+    private final SwipeRefreshLayout swipeRefresh;
 
-    // JS polyfill — overrides navigator.contacts with a bridge to Android contact picker.
-    // Injected after every page load so the website's contact button works natively.
+    // JS polyfill — overrides navigator.contacts with a bridge to the Android
+    // contact picker. Injected after every page load so the website's contact
+    // button works natively without any changes to the website itself.
     private static final String CONTACTS_POLYFILL =
         "(function(){" +
         "  if(!window.MozosubzContacts)return;" +
@@ -47,16 +51,23 @@ public class MozosubzWebViewClient extends BridgeWebViewClient {
         "  }catch(e){console.warn('MozosubzContacts polyfill error:',e);}" +
         "})();";
 
-    public MozosubzWebViewClient(Bridge bridge, MainActivity activity) {
+    public MozosubzWebViewClient(Bridge bridge, MainActivity activity,
+                                 SwipeRefreshLayout swipeRefresh) {
         super(bridge);
-        this.activity = activity;
+        this.activity     = activity;
+        this.swipeRefresh = swipeRefresh;
     }
 
-    // ── Inject contacts polyfill after page loads ─────────────────────────────
+    // ── Page finished: stop refresh spinner + inject contacts polyfill ────────
 
     @Override
     public void onPageFinished(WebView view, String url) {
         super.onPageFinished(view, url);
+        // Stop the pull-to-refresh spinner (safe to call even if not refreshing)
+        if (swipeRefresh != null) {
+            swipeRefresh.post(() -> swipeRefresh.setRefreshing(false));
+        }
+        // Inject contacts polyfill so navigator.contacts works on the website
         if (view != null) {
             view.evaluateJavascript(CONTACTS_POLYFILL, null);
         }
@@ -72,6 +83,8 @@ public class MozosubzWebViewClient extends BridgeWebViewClient {
                 && request != null && request.isForMainFrame()) {
             int code = error.getErrorCode();
             if (code != -33 /* ERROR_CANCELLED */) {
+                if (swipeRefresh != null)
+                    swipeRefresh.post(() -> swipeRefresh.setRefreshing(false));
                 activity.showWebError(view, code);
             }
         }
@@ -86,6 +99,8 @@ public class MozosubzWebViewClient extends BridgeWebViewClient {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
             super.onReceivedError(view, errorCode, description, failingUrl);
             if (errorCode != -33 /* ERROR_CANCELLED */) {
+                if (swipeRefresh != null)
+                    swipeRefresh.post(() -> swipeRefresh.setRefreshing(false));
                 activity.showWebError(view, errorCode);
             }
         }
@@ -99,6 +114,8 @@ public class MozosubzWebViewClient extends BridgeWebViewClient {
         super.onReceivedHttpError(view, request, errorResponse);
         if (request != null && request.isForMainFrame()
                 && errorResponse.getStatusCode() >= 500) {
+            if (swipeRefresh != null)
+                swipeRefresh.post(() -> swipeRefresh.setRefreshing(false));
             activity.showWebError(view, -999);
         }
     }
