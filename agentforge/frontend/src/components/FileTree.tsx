@@ -54,7 +54,10 @@ export default function FileTree({ repoId, repoFull, branch }: Props) {
 
   function normalize(items: any[]): TreeNode[] {
     return (Array.isArray(items) ? items : []).map(i => ({
-      name: i.name, path: i.path, type: i.type === 'dir' ? 'dir' : 'file', size: i.size,
+      name: i.name,
+      path: i.path,
+      type: (i.type === 'dir' ? 'dir' : 'file') as 'dir' | 'file',
+      size: i.size,
     })).sort((a, b) => {
       if (a.type !== b.type) return a.type === 'dir' ? -1 : 1
       return a.name.localeCompare(b.name)
