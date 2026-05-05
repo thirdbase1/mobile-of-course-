@@ -2,10 +2,6 @@
 const BACKEND = process.env.BACKEND_URL || 'http://localhost:8000'
 
 const nextConfig = {
-  // Allow requests from any host when running in certain proxy environments
-  experimental: {
-    allowedHosts: ['all'],
-  },
   async rewrites() {
     return [
       {
@@ -32,5 +28,4 @@ const nextConfig = {
     ]
   },
 }
-
 export default nextConfig
