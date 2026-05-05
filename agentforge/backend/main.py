@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 import os, logging, time, sys
 
@@ -68,6 +69,15 @@ app.include_router(execute.router,  prefix="/execute",  tags=["execute"])
 app.include_router(settings.router, prefix="/settings", tags=["settings"])
 app.include_router(ws_agent.router, prefix="/ws",       tags=["ws"])
 
+@app.get("/")
+async def root():
+    return JSONResponse({
+        "name": "AgentForge API",
+        "status": "online",
+        "docs": "/docs",
+        "health": "/health"
+    })
+
 @app.get("/health")
 async def health():
     return {
@@ -79,7 +89,6 @@ async def health():
 
 if __name__ == "__main__":
     import uvicorn
-    # Important: pxxl requires the app to bind to 0.0.0.0 and use the provided PORT
     port_str = os.getenv("PORT", "8000")
     try:
         port = int(port_str)
