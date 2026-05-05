@@ -1,7 +1,8 @@
 /** @type {import('next').NextConfig} */
-const BACKEND = 'https://8zgnjk.wormhole.bar'
+const BACKEND = process.env.BACKEND_URL || 'http://localhost:8000'
 
 const nextConfig = {
+  // Allow requests from any host when running in certain proxy environments
   experimental: {
     allowedHosts: ['all'],
   },
@@ -31,4 +32,5 @@ const nextConfig = {
     ]
   },
 }
+
 export default nextConfig
