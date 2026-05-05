@@ -9,15 +9,20 @@ from database import Repo
 
 log = logging.getLogger(__name__)
 
-JUDGE0_BASE = "https://judge0-ce.p.rapidapi.com"
-LANG_IDS = {
-    "python": 71, "python3": 71,
-    "javascript": 63, "js": 63, "node": 63,
-    "bash": 46, "shell": 46, "sh": 46,
-    "cpp": 54, "c++": 54, "c": 50,
-    "java": 62, "ruby": 72, "rust": 73,
-    "typescript": 74, "ts": 74,
-    "go": 60, "php": 68,
+# Using Wandbox API (Free, no key required)
+WANDBOX_URL = "https://wandbox.org/api/compile.json"
+
+WANDBOX_COMPILERS = {
+    "python": "cpython-3.12.7", "python3": "cpython-3.12.7",
+    "javascript": "nodejs-20.17.0", "js": "nodejs-20.17.0", "node": "nodejs-20.17.0",
+    "bash": "bash", "shell": "bash", "sh": "bash",
+    "cpp": "gcc-13.2.0", "c++": "gcc-13.2.0", "c": "gcc-13.2.0-c",
+    "java": "openjdk-head",
+    "ruby": "ruby-3.3.5",
+    "rust": "rust-1.82.0",
+    "typescript": "typescript-5.6.2", "ts": "typescript-5.6.2",
+    "go": "go-1.23.2",
+    "php": "php-8.3.11",
 }
 
 # ─── Tool definitions sent to every model ─────────────────────────────────────
@@ -247,56 +252,36 @@ async def _execute_code(args: dict, ctx: dict) -> str:
     lang  = args.get("language", "python").lower().strip()
     code  = args.get("code", "")
     stdin = args.get("stdin", "")
-    key   = ctx.get("judge0_key") or os.getenv("JUDGE0_API_KEY", "")
-    lid   = LANG_IDS.get(lang)
+    compiler = WANDBOX_COMPILERS.get(lang)
 
-    if not lid:
-        return f"Unsupported language '{lang}'. Choose from: {', '.join(LANG_IDS)}"
-    if not key:
-        return (
-            "⚠ Code execution requires a Judge0 API key.\n"
-            "Add one in Settings. Get a free key at rapidapi.com/judge0-official/api/judge0-ce"
-        )
+    if not compiler:
+        return f"Unsupported language '{lang}'. Supported: {', '.join(WANDBOX_COMPILERS.keys())}"
 
-    hdrs = {"X-RapidAPI-Key": key, "X-RapidAPI-Host": "judge0-ce.p.rapidapi.com", "Content-Type": "application/json"}
-    pay  = {
-        "language_id": lid,
-        "source_code": base64.b64encode(code.encode()).decode(),
-        "stdin":       base64.b64encode(stdin.encode()).decode(),
-        "cpu_time_limit": 15, "memory_limit": 131072, "enable_network": False,
+    pay = {
+        "compiler": compiler,
+        "code": code,
+        "stdin": stdin,
+        "save": False
     }
 
-    async with httpx.AsyncClient(timeout=90) as client:
-        r = await client.post(f"{JUDGE0_BASE}/submissions?base64_encoded=true&wait=false", json=pay, headers=hdrs)
-        if r.status_code not in (200, 201):
-            return f"Judge0 submission failed ({r.status_code}): {r.text[:200]}"
-        token = r.json().get("token")
-        if not token:
-            return "No submission token from Judge0"
+    async with httpx.AsyncClient(timeout=45) as client:
+        try:
+            r = await client.post(WANDBOX_URL, json=pay)
+            if r.status_code != 200:
+                return f"Sandbox error ({r.status_code}): {r.text[:200]}"
 
-        for _ in range(25):
-            await asyncio.sleep(1.2)
-            res  = await client.get(f"{JUDGE0_BASE}/submissions/{token}?base64_encoded=true", headers=hdrs)
-            data = res.json()
-            sid  = data.get("status", {}).get("id", 0)
-            if sid > 2:
-                def dec(v):
-                    if not v: return ""
-                    try: return base64.b64decode(v).decode("utf-8", errors="replace")
-                    except: return v
-                stdout  = dec(data.get("stdout"))
-                stderr  = dec(data.get("stderr")) or dec(data.get("compile_output"))
-                status  = data.get("status", {}).get("description", "")
-                elapsed = data.get("time", "?")
-                mem     = data.get("memory", "?")
-                exit_c  = data.get("exit_code", "?")
-                out = []
-                if stdout: out.append(f"STDOUT:\n{stdout.rstrip()}")
-                if stderr: out.append(f"STDERR:\n{stderr.rstrip()}")
-                out.append(f"[{status}] exit={exit_c} time={elapsed}s mem={mem}KB")
-                return "\n".join(out) or "(no output)"
+            data = r.json()
+            stdout = data.get("program_output", "")
+            stderr = data.get("program_error", "") or data.get("compiler_error", "")
+            exit_c = data.get("status", "1")
 
-    return "Execution timed out after 30s"
+            out = []
+            if stdout: out.append(f"STDOUT:\n{stdout.rstrip()}")
+            if stderr: out.append(f"STDERR:\n{stderr.rstrip()}")
+            out.append(f"[Finished] exit={exit_c}")
+            return "\n".join(out) or "(no output)"
+        except Exception as e:
+            return f"Sandbox connection failed: {e}"
 
 
 # ─── GitHub helpers ────────────────────────────────────────────────────────────
