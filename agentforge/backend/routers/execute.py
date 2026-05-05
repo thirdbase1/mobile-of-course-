@@ -1,4 +1,4 @@
-import os, httpx, base64, asyncio
+import os, httpx, asyncio, logging
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,74 +7,64 @@ from auth_utils import current_user
 from database import User, get_db, ApiSettings
 
 router = APIRouter()
+log = logging.getLogger(__name__)
 
-JUDGE0_BASE = "https://judge0-ce.p.rapidapi.com"
-LANG_IDS    = {
-    "python": 71, "python3": 71,
-    "javascript": 63, "js": 63, "node": 63,
-    "bash": 46, "shell": 46, "sh": 46,
-    "cpp": 54, "c++": 54, "c": 50,
-    "java": 62,
-    "ruby": 72,
-    "rust": 73,
-    "typescript": 74, "ts": 74,
-    "go": 60,
-    "php": 68,
-    "swift": 83,
-    "kotlin": 78,
-    "r": 80,
+# Using Wandbox API (Free, no key required)
+WANDBOX_URL = "https://wandbox.org/api/compile.json"
+
+# Mapping for Wandbox
+WANDBOX_COMPILERS = {
+    "python": "cpython-3.12.7", "python3": "cpython-3.12.7",
+    "javascript": "nodejs-20.17.0", "js": "nodejs-20.17.0", "node": "nodejs-20.17.0",
+    "bash": "bash", "shell": "bash", "sh": "bash",
+    "cpp": "gcc-13.2.0", "c++": "gcc-13.2.0", "c": "gcc-13.2.0-c",
+    "java": "openjdk-head",
+    "ruby": "ruby-3.3.5",
+    "rust": "rust-1.82.0",
+    "typescript": "typescript-5.6.2", "ts": "typescript-5.6.2",
+    "go": "go-1.23.2",
+    "php": "php-8.3.11",
 }
-
 
 class ExecReq(BaseModel):
     language: str
     code:     str
     stdin:    str = ""
 
-
 @router.post("")
 async def execute_code(body: ExecReq, user: User = Depends(current_user), db: AsyncSession = Depends(get_db)):
-    s    = (await db.execute(select(ApiSettings).where(ApiSettings.user_id == user.id))).scalar_one_or_none()
-    key  = (s.judge0_api_key if s else None) or os.getenv("JUDGE0_API_KEY", "")
     lang = body.language.lower().strip()
-    lid  = LANG_IDS.get(lang)
+    compiler = WANDBOX_COMPILERS.get(lang)
 
-    if not lid:
-        raise HTTPException(400, f"Unsupported language '{lang}'. Supported: {', '.join(LANG_IDS)}")
-    if not key:
-        return {"stdout": "", "stderr": "No Judge0 API key — add one in Settings to enable code execution.", "exit_code": 1, "status": "no_key"}
+    if not compiler:
+        raise HTTPException(400, f"Unsupported language '{lang}'.")
 
-    hdrs = {"X-RapidAPI-Key": key, "X-RapidAPI-Host": "judge0-ce.p.rapidapi.com", "Content-Type": "application/json"}
-    pay  = {
-        "language_id": lid,
-        "source_code": base64.b64encode(body.code.encode()).decode(),
-        "stdin":       base64.b64encode(body.stdin.encode()).decode(),
-        "cpu_time_limit": 15, "memory_limit": 131072, "enable_network": False,
+    pay = {
+        "compiler": compiler,
+        "code": body.code,
+        "stdin": body.stdin,
+        "save": False
     }
 
-    async with httpx.AsyncClient(timeout=60) as client:
-        r = await client.post(f"{JUDGE0_BASE}/submissions?base64_encoded=true&wait=false", json=pay, headers=hdrs)
-        if r.status_code not in (200, 201):
-            return {"stdout": "", "stderr": f"Judge0 error {r.status_code}: {r.text[:200]}", "exit_code": 1, "status": "error"}
-        token = r.json().get("token")
-        if not token:
-            return {"stdout": "", "stderr": "No token from Judge0", "exit_code": 1, "status": "error"}
+    async with httpx.AsyncClient(timeout=45) as client:
+        try:
+            r = await client.post(WANDBOX_URL, json=pay)
+            if r.status_code != 200:
+                return {"stdout": "", "stderr": f"Sandbox error ({r.status_code}): {r.text[:200]}", "exit_code": 1, "status": "error"}
 
-        for _ in range(25):
-            await asyncio.sleep(1.2)
-            res  = await client.get(f"{JUDGE0_BASE}/submissions/{token}?base64_encoded=true", headers=hdrs)
-            data = res.json()
-            if data.get("status", {}).get("id", 0) > 2:
-                def dec(v):
-                    if not v: return ""
-                    try: return base64.b64decode(v).decode("utf-8", errors="replace")
-                    except: return v
-                return {
-                    "stdout":    dec(data.get("stdout")),
-                    "stderr":    dec(data.get("stderr")) or dec(data.get("compile_output")),
-                    "exit_code": data.get("exit_code") or 0,
-                    "time":      data.get("time"),
-                    "memory":    data.get("memory"),
-                    "status":    data.get("status", {}).get("description", "Unknown"),
-                }
-    return {"stdout": "", "stderr": "Timed out", "exit_code": 1, "status": "timeout"}
+            data = r.json()
+            # Wandbox returns status "0" for success (string)
+            status_code = data.get("status", "1")
+
+            stdout = data.get("program_output", "")
+            stderr = data.get("program_error", "") or data.get("compiler_error", "")
+
+            return {
+                "stdout":    stdout,
+                "stderr":    stderr,
+                "exit_code": 0 if status_code == "0" else 1,
+                "status":    "success" if status_code == "0" else "failed"
+            }
+        except Exception as e:
+            log.exception("Wandbox execution failed")
+            return {"stdout": "", "stderr": f"Sandbox connection failed: {str(e)}", "exit_code": 1, "status": "error"}

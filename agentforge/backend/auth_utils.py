@@ -1,6 +1,6 @@
 import os
 from datetime import datetime, timezone, timedelta
-import jwt
+from jose import jwt
 from fastapi import Depends, HTTPException, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession

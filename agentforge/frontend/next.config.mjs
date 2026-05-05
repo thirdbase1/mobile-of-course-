@@ -1,7 +1,10 @@
 /** @type {import('next').NextConfig} */
-const BACKEND = process.env.BACKEND_URL || 'http://localhost:8000'
+const BACKEND = 'https://8zgnjk.wormhole.bar'
 
 const nextConfig = {
+  experimental: {
+    allowedHosts: ['all'],
+  },
   async rewrites() {
     return [
       {
@@ -15,7 +18,6 @@ const nextConfig = {
       { protocol: 'https', hostname: 'avatars.githubusercontent.com' },
     ],
   },
-  // Needed for WebSocket proxying on pxxl
   async headers() {
     return [
       {
@@ -29,5 +31,4 @@ const nextConfig = {
     ]
   },
 }
-
 export default nextConfig
