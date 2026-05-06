@@ -1,11 +1,8 @@
-"""
-All tools the agent can call.
-All three providers (Groq, OpenRouter, xAI) use identical OpenAI-compatible
-function calling format — same definitions, same execution logic.
-"""
-import os, json, base64, asyncio, re, logging
+import os, json, base64, asyncio, re, logging, subprocess
 import httpx
+from pathlib import Path
 from database import Repo
+from services.workspace import get_workspace_path
 
 log = logging.getLogger(__name__)
 
@@ -26,129 +23,90 @@ WANDBOX_COMPILERS = {
 }
 
 # ─── Tool definitions sent to every model ─────────────────────────────────────
-# All three providers (Groq, OpenRouter, xAI) accept identical OpenAI-format tools.
 
 TOOL_DEFINITIONS = [
     {
         "type": "function",
         "function": {
-            "name": "execute_code",
-            "description": (
-                "Execute code in a secure isolated sandbox. Supports Python, JavaScript/Node.js, "
-                "Bash, C, C++, Java, Ruby, Rust, TypeScript, Go, PHP. "
-                "Returns stdout, stderr, exit code, and execution time. "
-                "Use this to test code, run scripts, validate logic, process data."
-            ),
+            "name": "read_file",
+            "description": "Read the contents of a file from the local workspace.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "language": {"type": "string", "description": "Language: python, javascript, bash, cpp, java, ruby, rust, typescript, go, php"},
-                    "code":     {"type": "string", "description": "The complete code to execute"},
-                    "stdin":    {"type": "string", "description": "Optional stdin input", "default": ""},
+                    "path": {"type": "string", "description": "Path relative to workspace root"},
                 },
-                "required": ["language", "code"],
+                "required": ["path"],
             },
         },
     },
     {
         "type": "function",
         "function": {
-            "name": "github_read_file",
-            "description": "Read the full contents of a file from a GitHub repository.",
+            "name": "write_file",
+            "description": "Write or overwrite a file in the local workspace.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "repo":   {"type": "string", "description": "Repository in 'owner/name' format, e.g. 'octocat/hello-world'"},
-                    "path":   {"type": "string", "description": "File path from repo root, e.g. 'src/main.py'"},
-                    "branch": {"type": "string", "description": "Branch name (defaults to repo default branch)", "default": "main"},
+                    "path":    {"type": "string", "description": "Path relative to workspace root"},
+                    "content": {"type": "string", "description": "New content of the file"},
                 },
-                "required": ["repo", "path"],
+                "required": ["path", "content"],
             },
         },
     },
     {
         "type": "function",
         "function": {
-            "name": "github_write_file",
-            "description": (
-                "Create or update a file in a GitHub repository. "
-                "This automatically commits the change. "
-                "Use for saving code changes, creating new files, updating configs."
-            ),
+            "name": "list_files",
+            "description": "List files in the local workspace at a given path.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "repo":    {"type": "string", "description": "Repository in 'owner/name' format"},
-                    "path":    {"type": "string", "description": "File path to write, e.g. 'src/utils.py'"},
-                    "content": {"type": "string", "description": "Complete file content to write"},
-                    "message": {"type": "string", "description": "Git commit message describing the change"},
-                    "branch":  {"type": "string", "description": "Branch to commit to", "default": "main"},
+                    "path": {"type": "string", "description": "Directory path relative to root", "default": ""},
                 },
-                "required": ["repo", "path", "content", "message"],
             },
         },
     },
     {
         "type": "function",
         "function": {
-            "name": "github_list_files",
-            "description": "List files and directories at a path in a GitHub repository.",
+            "name": "delete_file",
+            "description": "Delete a file or directory from the local workspace.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "repo":   {"type": "string", "description": "Repository in 'owner/name' format"},
-                    "path":   {"type": "string", "description": "Directory path (empty string for root)", "default": ""},
-                    "branch": {"type": "string", "description": "Branch name", "default": "main"},
+                    "path": {"type": "string", "description": "Path relative to root"},
                 },
-                "required": ["repo"],
+                "required": ["path"],
             },
         },
     },
     {
         "type": "function",
         "function": {
-            "name": "github_delete_file",
-            "description": "Delete a file from a GitHub repository.",
+            "name": "run_bash",
+            "description": "Run a bash command in the local workspace. Use this for testing, building, or running tools.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "repo":    {"type": "string", "description": "Repository in 'owner/name' format"},
-                    "path":    {"type": "string", "description": "File path to delete"},
-                    "message": {"type": "string", "description": "Commit message", "default": "Delete file"},
-                    "branch":  {"type": "string", "description": "Branch name", "default": "main"},
+                    "command": {"type": "string", "description": "The bash command to run"},
                 },
-                "required": ["repo", "path"],
+                "required": ["command"],
             },
         },
     },
     {
         "type": "function",
         "function": {
-            "name": "github_search_code",
-            "description": "Search for code patterns or text within a GitHub repository.",
+            "name": "github_commit_and_push",
+            "description": "Commit all current changes in the local workspace and push them to GitHub.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "repo":  {"type": "string", "description": "Repository in 'owner/name' format"},
-                    "query": {"type": "string", "description": "Search query (GitHub code search syntax supported)"},
+                    "message": {"type": "string", "description": "Commit message"},
+                    "branch":  {"type": "string", "description": "Target branch (will be created if doesn't exist)", "default": "main"},
                 },
-                "required": ["repo", "query"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "github_create_branch",
-            "description": "Create a new branch in a GitHub repository from an existing branch.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "repo":   {"type": "string", "description": "Repository in 'owner/name' format"},
-                    "branch": {"type": "string", "description": "New branch name to create"},
-                    "from":   {"type": "string", "description": "Source branch to branch from", "default": "main"},
-                },
-                "required": ["repo", "branch"],
+                "required": ["message"],
             },
         },
     },
@@ -156,33 +114,17 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "github_create_pr",
-            "description": "Create a pull request in a GitHub repository.",
+            "description": "Create a pull request on GitHub.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "repo":  {"type": "string", "description": "Repository in 'owner/name' format"},
-                    "title": {"type": "string", "description": "Pull request title"},
-                    "body":  {"type": "string", "description": "PR description (markdown supported)"},
-                    "head":  {"type": "string", "description": "Source branch (the branch with changes)"},
-                    "base":  {"type": "string", "description": "Target branch to merge into", "default": "main"},
+                    "repo":  {"type": "string", "description": "Repository 'owner/name'"},
+                    "title": {"type": "string", "description": "PR title"},
+                    "body":  {"type": "string", "description": "PR body"},
+                    "head":  {"type": "string", "description": "Branch with changes"},
+                    "base":  {"type": "string", "description": "Target branch", "default": "main"},
                 },
-                "required": ["repo", "title", "body", "head", "base"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "github_list_commits",
-            "description": "List recent commits on a branch in a GitHub repository.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "repo":   {"type": "string", "description": "Repository in 'owner/name' format"},
-                    "branch": {"type": "string", "description": "Branch name", "default": "main"},
-                    "limit":  {"type": "integer", "description": "Number of commits to return (max 30)", "default": 10},
-                },
-                "required": ["repo"],
+                "required": ["repo", "title", "body", "head"],
             },
         },
     },
@@ -190,31 +132,13 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "web_search",
-            "description": (
-                "Search the web for documentation, error messages, API references, library info, "
-                "or any current information. Use when you need to look something up."
-            ),
+            "description": "Search the web for info.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "query": {"type": "string", "description": "Search query"},
                 },
                 "required": ["query"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "fetch_url",
-            "description": "Fetch and read the content of any URL — documentation pages, JSON APIs, raw files, etc.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "url":  {"type": "string", "description": "Full URL to fetch"},
-                    "mode": {"type": "string", "description": "'text' for HTML/text content, 'json' for JSON APIs", "default": "text"},
-                },
-                "required": ["url"],
             },
         },
     },
@@ -225,20 +149,16 @@ TOOL_DEFINITIONS = [
 
 async def execute_tool(name: str, args: dict, ctx: dict) -> str:
     fn = {
-        "execute_code":       _execute_code,
-        "github_read_file":   _gh_read,
-        "github_write_file":  _gh_write,
-        "github_list_files":  _gh_list,
-        "github_delete_file": _gh_delete,
-        "github_search_code": _gh_search,
-        "github_create_branch": _gh_create_branch,
-        "github_create_pr":   _gh_create_pr,
-        "github_list_commits": _gh_list_commits,
-        "web_search":         _web_search,
-        "fetch_url":          _fetch_url,
+        "read_file":      _read_file,
+        "write_file":     _write_file,
+        "list_files":     _list_files,
+        "delete_file":    _delete_file,
+        "run_bash":       _run_bash,
+        "github_commit_and_push": _gh_commit_push,
+        "github_create_pr": _gh_create_pr,
+        "web_search":      _web_search,
     }.get(name)
-    if not fn:
-        return f"Unknown tool: {name}"
+    if not fn: return f"Unknown tool: {name}"
     try:
         return await fn(args, ctx)
     except Exception as e:
@@ -246,259 +166,126 @@ async def execute_tool(name: str, args: dict, ctx: dict) -> str:
         return f"Tool error: {e}"
 
 
-# ─── Code execution ────────────────────────────────────────────────────────────
+# ─── Local Workspace Tools ─────────────────────────────────────────────────────
 
-async def _execute_code(args: dict, ctx: dict) -> str:
-    lang  = args.get("language", "python").lower().strip()
-    code  = args.get("code", "")
-    stdin = args.get("stdin", "")
-    compiler = WANDBOX_COMPILERS.get(lang)
+def _safe_path(base: Path, relative: str) -> Path:
+    target = (base / relative).resolve()
+    if not str(target).startswith(str(base.resolve())):
+        raise ValueError("Access outside workspace not allowed")
+    return target
 
-    if not compiler:
-        return f"Unsupported language '{lang}'. Supported: {', '.join(WANDBOX_COMPILERS.keys())}"
+async def _read_file(args: dict, ctx: dict) -> str:
+    ws = get_workspace_path(ctx["session_id"])
+    path = _safe_path(ws, args["path"])
+    if not path.is_file(): return f"Error: {args['path']} is not a file or does not exist."
+    content = path.read_text(errors="replace")
+    return f"File: {args['path']}\n---\n{content}"
 
-    pay = {
-        "compiler": compiler,
-        "code": code,
-        "stdin": stdin,
-        "save": False
-    }
+async def _write_file(args: dict, ctx: dict) -> str:
+    ws = get_workspace_path(ctx["session_id"])
+    path = _safe_path(ws, args["path"])
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(args["content"])
+    return f"✓ Successfully wrote to {args['path']}"
 
-    async with httpx.AsyncClient(timeout=45) as client:
-        try:
-            r = await client.post(WANDBOX_URL, json=pay)
-            if r.status_code != 200:
-                return f"Sandbox error ({r.status_code}): {r.text[:200]}"
+async def _list_files(args: dict, ctx: dict) -> str:
+    ws = get_workspace_path(ctx["session_id"])
+    path = _safe_path(ws, args.get("path", ""))
+    if not path.is_dir(): return f"Error: {args.get('path')} is not a directory."
+    items = []
+    for item in sorted(path.iterdir()):
+        if item.name.startswith(".git") and item.name != ".gitignore": continue
+        icon = "📁" if item.is_dir() else "📄"
+        items.append(f"{icon} {item.name}")
+    return f"Contents of {args.get('path') or '/'}:\n" + "\n".join(items)
 
-            data = r.json()
-            stdout = data.get("program_output", "")
-            stderr = data.get("program_error", "") or data.get("compiler_error", "")
-            exit_c = data.get("status", "1")
+async def _delete_file(args: dict, ctx: dict) -> str:
+    ws = get_workspace_path(ctx["session_id"])
+    path = _safe_path(ws, args["path"])
+    if path.is_dir():
+        shutil.rmtree(path)
+    else:
+        path.unlink()
+    return f"✓ Deleted {args['path']}"
 
-            out = []
-            if stdout: out.append(f"STDOUT:\n{stdout.rstrip()}")
-            if stderr: out.append(f"STDERR:\n{stderr.rstrip()}")
-            out.append(f"[Finished] exit={exit_c}")
-            return "\n".join(out) or "(no output)"
-        except Exception as e:
-            return f"Sandbox connection failed: {e}"
+async def _run_bash(args: dict, ctx: dict) -> str:
+    ws = get_workspace_path(ctx["session_id"])
+    cmd = args["command"]
 
+    # Block some dangerous commands if needed, but for now trust the isolation/agent
+    process = await asyncio.create_subprocess_shell(
+        cmd,
+        cwd=str(ws),
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE
+    )
+    stdout, stderr = await process.communicate()
 
-# ─── GitHub helpers ────────────────────────────────────────────────────────────
-
-def _gh_hdrs(ctx: dict) -> dict:
-    token = ctx.get("github_token", "")
-    if not token:
-        raise ValueError("No GitHub token — user needs to sign in with GitHub")
-    return {
-        "Authorization": f"Bearer {token}",
-        "Accept": "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-    }
-
-
-async def _gh_read(args: dict, ctx: dict) -> str:
-    hdrs = _gh_hdrs(ctx)
-    repo = args.get("repo", "")
-    path = args.get("path", "")
-    ref  = args.get("branch", "main")
-    async with httpx.AsyncClient(timeout=15) as c:
-        r = await c.get(f"https://api.github.com/repos/{repo}/contents/{path}", params={"ref": ref}, headers=hdrs)
-    if r.status_code != 200:
-        return f"Error reading {path} ({r.status_code}): {r.json().get('message', r.text[:200])}"
-    data = r.json()
-    if isinstance(data, list):
-        return f"'{path}' is a directory. Use github_list_files instead."
-    raw  = base64.b64decode(data.get("content", "").replace("\n", "")).decode("utf-8", errors="replace")
-    size = len(raw.splitlines())
-    return f"File: {repo}/{path} ({size} lines)\n```\n{raw}\n```"
+    out = []
+    if stdout: out.append(f"STDOUT:\n{stdout.decode(errors='replace')}")
+    if stderr: out.append(f"STDERR:\n{stderr.decode(errors='replace')}")
+    out.append(f"[Exit Code: {process.returncode}]")
+    return "\n".join(out)
 
 
-async def _gh_write(args: dict, ctx: dict) -> str:
-    hdrs    = _gh_hdrs(ctx)
-    repo    = args.get("repo", "")
-    path    = args.get("path", "")
-    content = args.get("content", "")
-    msg     = args.get("message", "Update via AgentForge")
-    branch  = args.get("branch", "main")
+# ─── GitHub Workspace Tools ────────────────────────────────────────────────────
 
-    async with httpx.AsyncClient(timeout=15) as c:
-        ex  = await c.get(f"https://api.github.com/repos/{repo}/contents/{path}", params={"ref": branch}, headers=hdrs)
-        sha = ex.json().get("sha") if ex.status_code == 200 else None
-        pay = {"message": msg, "content": base64.b64encode(content.encode()).decode(), "branch": branch}
-        if sha: pay["sha"] = sha
-        r   = await c.put(f"https://api.github.com/repos/{repo}/contents/{path}", json=pay, headers=hdrs)
-
-    if r.status_code in (200, 201):
-        action = "Updated" if sha else "Created"
-        commit = r.json().get("commit", {}).get("sha", "")[:8]
-        return f"✓ {action} {repo}/{path} on '{branch}' (commit {commit})"
-    return f"Error writing file ({r.status_code}): {r.json().get('message', r.text[:200])}"
-
-
-async def _gh_list(args: dict, ctx: dict) -> str:
-    hdrs   = _gh_hdrs(ctx)
-    repo   = args.get("repo", "")
-    path   = args.get("path", "")
+async def _gh_commit_push(args: dict, ctx: dict) -> str:
+    ws = get_workspace_path(ctx["session_id"])
+    msg = args["message"]
     branch = args.get("branch", "main")
-    async with httpx.AsyncClient(timeout=15) as c:
-        r = await c.get(f"https://api.github.com/repos/{repo}/contents/{path}", params={"ref": branch}, headers=hdrs)
-    if r.status_code != 200:
-        return f"Error listing {path} ({r.status_code}): {r.json().get('message', '')}"
-    items = r.json()
-    if not isinstance(items, list):
-        return "That path is a file, not a directory."
-    lines = []
-    for item in sorted(items, key=lambda x: (0 if x["type"] == "dir" else 1, x["name"])):
-        icon = "📁" if item["type"] == "dir" else "📄"
-        size = f" ({item.get('size', 0)} B)" if item["type"] == "file" else ""
-        lines.append(f"{icon} {item['name']}{size}")
-    return f"Contents of {repo}/{path or '(root)'} [{branch}]:\n" + "\n".join(lines)
+    token = ctx.get("github_token")
+    repo = ctx.get("default_repo")
 
+    if not repo or not token: return "Error: Repo or Token missing."
 
-async def _gh_delete(args: dict, ctx: dict) -> str:
-    hdrs = _gh_hdrs(ctx)
-    repo = args.get("repo", "")
-    path = args.get("path", "")
-    msg  = args.get("message", "Delete file")
-    br   = args.get("branch", "main")
-    async with httpx.AsyncClient(timeout=15) as c:
-        ex = await c.get(f"https://api.github.com/repos/{repo}/contents/{path}", params={"ref": br}, headers=hdrs)
-        if ex.status_code != 200:
-            return f"File not found: {path}"
-        sha = ex.json().get("sha")
-        r   = await c.delete(f"https://api.github.com/repos/{repo}/contents/{path}", json={"message": msg, "sha": sha, "branch": br}, headers=hdrs)
-    if r.status_code == 200:
-        return f"✓ Deleted {repo}/{path} from '{br}'"
-    return f"Error deleting ({r.status_code}): {r.json().get('message', '')}"
+    cmds = [
+        ["git", "config", "user.email", "agent@agentforge.app"],
+        ["git", "config", "user.name", "AgentForge"],
+        ["git", "add", "."],
+        ["git", "commit", "-m", msg],
+        ["git", "push", "origin", f"HEAD:{branch}"]
+    ]
 
+    results = []
+    for c in cmds:
+        p = await asyncio.create_subprocess_exec(*c, cwd=str(ws), stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+        so, se = await p.communicate()
+        if p.returncode != 0 and c[0] == "git" and c[1] == "commit":
+            if "nothing to commit" in se.decode().lower(): continue
+        if p.returncode != 0:
+            return f"Error at step {' '.join(c)}: {se.decode()}"
+        results.append(so.decode())
 
-async def _gh_search(args: dict, ctx: dict) -> str:
-    hdrs  = _gh_hdrs(ctx)
-    repo  = args.get("repo", "")
-    query = args.get("query", "")
-    async with httpx.AsyncClient(timeout=15) as c:
-        r = await c.get(
-            "https://api.github.com/search/code",
-            params={"q": f"{query} repo:{repo}", "per_page": 10},
-            headers=hdrs,
-        )
-    if r.status_code == 422:
-        return "Search index not ready for this repo. Try reading specific files instead."
-    if r.status_code != 200:
-        return f"Search error ({r.status_code}): {r.text[:200]}"
-    data  = r.json()
-    items = data.get("items", [])
-    if not items:
-        return f"No results for '{query}' in {repo}"
-    lines = [f"Found {data.get('total_count', 0)} results for '{query}' in {repo}:\n"]
-    for item in items[:8]:
-        lines.append(f"📄 {item.get('path')}")
-        for match in item.get("text_matches", []):
-            snippet = match.get("fragment", "").replace("\n", " ").strip()
-            if snippet:
-                lines.append(f"   …{snippet[:120]}…")
-    return "\n".join(lines)
-
-
-async def _gh_create_branch(args: dict, ctx: dict) -> str:
-    hdrs   = _gh_hdrs(ctx)
-    repo   = args.get("repo", "")
-    branch = args.get("branch", "")
-    source = args.get("from", "main")
-    async with httpx.AsyncClient(timeout=15) as c:
-        ref = await c.get(f"https://api.github.com/repos/{repo}/git/refs/heads/{source}", headers=hdrs)
-        if ref.status_code != 200:
-            return f"Source branch '{source}' not found"
-        sha = ref.json()["object"]["sha"]
-        r   = await c.post(f"https://api.github.com/repos/{repo}/git/refs", json={"ref": f"refs/heads/{branch}", "sha": sha}, headers=hdrs)
-    if r.status_code == 201:
-        return f"✓ Created branch '{branch}' from '{source}' in {repo}"
-    if r.status_code == 422:
-        return f"Branch '{branch}' already exists"
-    return f"Error creating branch ({r.status_code}): {r.json().get('message', '')}"
-
+    return f"✓ Changes committed and pushed to branch '{branch}' in {repo}"
 
 async def _gh_create_pr(args: dict, ctx: dict) -> str:
-    hdrs = _gh_hdrs(ctx)
-    repo = args.get("repo", "")
+    token = ctx.get("github_token")
+    if not token: return "No GitHub token."
+    repo = args["repo"]
     async with httpx.AsyncClient(timeout=15) as c:
         r = await c.post(
             f"https://api.github.com/repos/{repo}/pulls",
-            json={"title": args.get("title"), "body": args.get("body", ""), "head": args.get("head"), "base": args.get("base", "main")},
-            headers=hdrs,
+            json={"title": args["title"], "body": args["body"], "head": args["head"], "base": args.get("base", "main")},
+            headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
         )
     if r.status_code == 201:
         pr = r.json()
-        return f"✓ Pull request created: {pr.get('html_url')} (#{pr.get('number')})"
-    return f"Error creating PR ({r.status_code}): {r.json().get('message', r.text[:200])}"
+        return f"✓ PR created: {pr.get('html_url')}"
+    return f"Error creating PR: {r.json().get('message')}"
 
 
-async def _gh_list_commits(args: dict, ctx: dict) -> str:
-    hdrs   = _gh_hdrs(ctx)
-    repo   = args.get("repo", "")
-    branch = args.get("branch", "main")
-    limit  = min(args.get("limit", 10), 30)
-    async with httpx.AsyncClient(timeout=15) as c:
-        r = await c.get(
-            f"https://api.github.com/repos/{repo}/commits",
-            params={"sha": branch, "per_page": limit},
-            headers=hdrs,
-        )
-    if r.status_code != 200:
-        return f"Error fetching commits ({r.status_code})"
-    commits = r.json()
-    lines   = [f"Recent commits on '{branch}' in {repo}:\n"]
-    for cm in commits:
-        sha  = cm.get("sha", "")[:7]
-        msg  = cm.get("commit", {}).get("message", "").split("\n")[0][:80]
-        auth = cm.get("commit", {}).get("author", {}).get("name", "?")
-        date = cm.get("commit", {}).get("author", {}).get("date", "")[:10]
-        lines.append(f"  {sha}  {date}  {auth}: {msg}")
-    return "\n".join(lines)
-
-
-# ─── Web tools ──────────────────────────────────────────────────────────────────
+# ─── Web tools (same as before but simplified) ──────────────────────────────────
 
 async def _web_search(args: dict, ctx: dict) -> str:
-    query = args.get("query", "")
+    query = args["query"]
     try:
-        async with httpx.AsyncClient(timeout=12) as c:
-            r = await c.get(
-                "https://api.duckduckgo.com/",
-                params={"q": query, "format": "json", "no_html": 1, "skip_disambig": 1},
-                headers={"User-Agent": "AgentForge/2.0"},
-            )
-        data    = r.json()
-        results = []
-        if data.get("AbstractText"):
-            results.append(f"**{data.get('Heading', query)}**\n{data['AbstractText']}\nSource: {data.get('AbstractURL', '')}")
-        for t in data.get("RelatedTopics", [])[:6]:
-            if isinstance(t, dict) and t.get("Text"):
-                results.append(f"• {t['Text'][:200]}\n  {t.get('FirstURL', '')}")
-        if results:
-            return f"Search: \"{query}\"\n\n" + "\n\n".join(results)
-    except Exception:
-        pass
-    return f"No results from DuckDuckGo for \"{query}\". Try fetch_url with a specific documentation URL."
+        async with httpx.AsyncClient(timeout=10) as c:
+            r = await c.get("https://api.duckduckgo.com/", params={"q": query, "format": "json", "no_html": 1})
+        data = r.json()
+        res = [f"**{data.get('Heading', query)}**\n{data.get('AbstractText', '')}"]
+        for t in data.get("RelatedTopics", [])[:3]:
+            if isinstance(t, dict) and t.get("Text"): res.append(t["Text"])
+        return "\n\n".join(res)
+    except: return "No search results found."
 
-
-async def _fetch_url(args: dict, ctx: dict) -> str:
-    url  = args.get("url", "")
-    mode = args.get("mode", "text")
-    try:
-        async with httpx.AsyncClient(timeout=20, follow_redirects=True) as c:
-            r = await c.get(url, headers={"User-Agent": "AgentForge/2.0"})
-        if mode == "json":
-            try:
-                return json.dumps(r.json(), indent=2)[:5000]
-            except Exception:
-                return r.text[:3000]
-        text = r.text
-        text = re.sub(r'<style[^>]*>.*?</style>', '', text, flags=re.S)
-        text = re.sub(r'<script[^>]*>.*?</script>', '', text, flags=re.S)
-        text = re.sub(r'<[^>]+>', ' ', text)
-        text = re.sub(r'\s+', ' ', text).strip()
-        return text[:5000]
-    except Exception as e:
-        return f"Failed to fetch {url}: {e}"

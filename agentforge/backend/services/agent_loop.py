@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from database import Session, Message, User, ApiSettings, Repo
 from services.tools import TOOL_DEFINITIONS, execute_tool
+from services.workspace import clone_repo_to_workspace, get_workspace_path
 
 log = logging.getLogger(__name__)
 
@@ -134,11 +135,22 @@ async def run_agent_loop(
     # Tool execution context
     tool_ctx = {
         "github_token": user.github_token,
+        "session_id": session.id,
         "judge0_key":   judge0,
         "db":           db,
         "user":         user,
     }
 
+
+    # Initialize workspace and clone repo if needed
+    if session.repo_id:
+        repo = (await db.execute(select(Repo).where(Repo.id == session.repo_id))).scalar_one_or_none()
+        if repo:
+            await websocket.send_json({"type": "info", "message": f"Initializing workspace and cloning {repo.full_name}..."})
+            ok, msg = await clone_repo_to_workspace(session.id, repo.full_name, user.github_token, repo.default_branch)
+            if not ok:
+                await websocket.send_json({"type": "error", "message": f"Failed to initialize workspace: {msg}"})
+                return
     # Load repo info if session has one
     repo_info = ""
     if session.repo_id:

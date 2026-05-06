@@ -1,354 +1,276 @@
 'use client'
-import { useEffect, useRef, useState, useCallback } from 'react'
-import { useParams, useSearchParams } from 'next/navigation'
-import { useStore, ChatMessage, MODELS } from '@/lib/store'
-import { getMessages, getSession, patchSession, openAgentSocket } from '@/lib/api'
+import { useEffect, useState, useRef } from 'react'
+import { useParams, useSearchParams, useRouter } from 'next/navigation'
+import { getSession, getMessages, openAgentSocket, listFiles, getFile } from '@/lib/api'
 import MessageBubble from '@/components/MessageBubble'
-import ModelPicker from '@/components/ModelPicker'
-import RepoSelector from '@/components/RepoSelector'
+import FileTree from '@/components/FileTree'
 import CodeEditor from '@/components/CodeEditor'
-import GitBar from '@/components/GitBar'
+import {
+  Send,
+  Loader2,
+  Layout,
+  Code2,
+  ChevronRight,
+  ChevronLeft,
+  Terminal,
+  Files,
+  Cpu,
+  Hash
+} from 'lucide-react'
 import clsx from 'clsx'
 
 export default function SessionPage() {
-  const { id } = useParams<{ id: string }>()
+  const { id } = useParams()
   const searchParams = useSearchParams()
+  const router = useRouter()
 
-  const {
-    messages, setMessages, appendMessage, updateMessage, removeMessage,
-    sessions, updateSession,
-    model, setModel,
-    editorOpen, setEditorOpen,
-    repos,
-  } = useStore()
+  const [session, setSession] = useState<any>(null)
+  const [messages, setMessages] = useState<any[]>([])
+  const [input, setInput] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [sending, setSending] = useState(false)
 
-  const [input,     setInput]     = useState('')
-  const [running,   setRunning]   = useState(false)
-  const [session,   setSession]   = useState<any>(null)
-  const [repoId,    setRepoId]    = useState<string | undefined>()
-  const [titleEdit, setTitleEdit] = useState(false)
-  const [titleVal,  setTitleVal]  = useState('')
+  const [showExplorer, setShowExplorer] = useState(true)
+  const [selectedFile, setSelectedFile] = useState<string | null>(null)
+  const [fileContent, setFileContent] = useState('')
 
-  const bottomRef    = useRef<HTMLDivElement>(null)
-  const textareaRef  = useRef<HTMLTextAreaElement>(null)
-  const wsRef        = useRef<WebSocket | null>(null)
-  const didAutoSend  = useRef(false)
-  const thinkingId   = useRef<string>('')
-  const streamingId  = useRef<string>('')
-  const toolCallIds  = useRef<Set<string>>(new Set())
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const wsRef = useRef<WebSocket | null>(null)
 
-  // Load session + messages
   useEffect(() => {
-    setMessages([])
-    getSession(id).then(s => {
+    // Initial data
+    Promise.all([
+      getSession(id as string),
+      getMessages(id as string)
+    ]).then(([s, ms]) => {
       setSession(s)
-      setTitleVal(s.title)
-      setRepoId(s.repo_id || undefined)
-      setModel(s.model)
-    }).catch(() => {})
+      setMessages(ms)
+      setLoading(false)
 
-    getMessages(id).then(rawMsgs => {
-      const out: ChatMessage[] = []
-      for (const m of rawMsgs) {
-        if (m.role === 'user' || m.role === 'assistant') {
-          out.push({ id: m.id, role: m.role, content: m.content || '', created_at: m.created_at })
-        } else if (m.role === 'tool_call') {
-          out.push({
-            id: m.id, role: 'tool_call', tool_name: m.tool_name,
-            tool_call_id: m.tool_call_id, tool_input: m.tool_input,
-            created_at: m.created_at,
-          })
-        } else if (m.role === 'tool_result') {
-          // Attach output to matching tool_call bubble
-          const call = out.find(x => x.tool_call_id === m.tool_call_id || x.id === m.tool_call_id)
-          if (call) call.tool_output = m.tool_output || ''
-        }
-      }
-      setMessages(out)
-    }).catch(() => {})
+      // If query param exists, send it
+      const q = searchParams.get('q')
+      if (q) startAgent(q)
+    })
+
+    return () => wsRef.current?.close()
   }, [id])
 
-  // Scroll to bottom
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages.length])
-
-  // Auto-send ?q= param
-  useEffect(() => {
-    const q = searchParams.get('q')
-    if (q && !didAutoSend.current && messages.length === 0) {
-      didAutoSend.current = true
-      setTimeout(() => send(q), 400)
-    }
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
   }, [messages])
 
-  function stop() {
-    wsRef.current?.close()
-    wsRef.current = null
-    setRunning(false)
-    // Clean up any dangling thinking indicator
-    if (thinkingId.current) {
-      removeMessage(thinkingId.current)
-      thinkingId.current = ''
-    }
-    updateSession(id, { status: 'idle' })
-  }
+  function startAgent(text: string) {
+    if (!text.trim() || sending) return
 
-  const send = useCallback(async (text?: string) => {
-    const content = (text ?? input).trim()
-    if (!content || running) return
+    // Add user message locally
+    const userMsg = { role: 'user', content: text, id: Date.now().toString() }
+    setMessages(prev => [...prev, userMsg])
     setInput('')
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto'
-    }
+    setSending(true)
 
-    // Reset tool tracking
-    toolCallIds.current.clear()
-    streamingId.current = ''
-
-    // Optimistic user message
-    const userMsgId = 'user_' + Date.now()
-    appendMessage({ id: userMsgId, role: 'user', content, created_at: new Date().toISOString() })
-    setRunning(true)
-    updateSession(id, { status: 'running' })
-
-    // Show thinking
-    thinkingId.current = 'think_' + Date.now()
-    appendMessage({ id: thinkingId.current, role: 'assistant', content: '', thinking: true, created_at: new Date().toISOString() })
-
-    const ws = openAgentSocket(id)
+    // Open WebSocket
+    if (wsRef.current) wsRef.current.close()
+    const ws = openAgentSocket(id as string)
     wsRef.current = ws
-
-    ws.onopen = () => {
-      ws.send(JSON.stringify({ type: 'message', content, model, repo_id: repoId || null }))
-    }
 
     ws.onmessage = (e) => {
       const data = JSON.parse(e.data)
 
-      if (data.type === 'message_start') {
-        // Replace thinking dot with real streaming message
-        if (thinkingId.current) {
-          updateMessage(thinkingId.current, { thinking: false, id: data.id, streaming: true, content: '' })
-          thinkingId.current = ''
-        }
-        streamingId.current = data.id
-
-      } else if (data.type === 'token') {
-        if (streamingId.current) {
-          updateMessage(streamingId.current, { streaming: true })
-          // Append token using functional form to avoid stale closure
-          useStore.setState(st => ({
-            messages: st.messages.map(m =>
-              m.id === streamingId.current
-                ? { ...m, content: (m.content || '') + data.content, streaming: true }
-                : m
-            )
-          }))
-        }
-
-      } else if (data.type === 'tool_call') {
-        // Finalize streaming assistant message
-        if (streamingId.current) {
-          updateMessage(streamingId.current, { streaming: false })
-          streamingId.current = ''
-        }
-        // Remove stale thinking dot if any
-        if (thinkingId.current) {
-          removeMessage(thinkingId.current)
-          thinkingId.current = ''
-        }
-        // Add tool call bubble
-        toolCallIds.current.add(data.id)
-        appendMessage({
-          id:          data.id,
-          role:        'tool_call',
-          tool_name:   data.tool_name,
-          tool_call_id: data.tc_id,
-          tool_input:  data.tool_input,
-          created_at:  new Date().toISOString(),
+      if (data.type === 'token') {
+        setMessages(prev => {
+          const last = prev[prev.length - 1]
+          if (last?.role === 'assistant' && last.id === data.id) {
+            return [...prev.slice(0, -1), { ...last, content: (last.content || '') + data.content }]
+          }
+          return [...prev, { role: 'assistant', content: data.content, id: data.id }]
         })
-        // Show new thinking for agent's next response
-        thinkingId.current = 'think_' + Date.now()
-        appendMessage({ id: thinkingId.current, role: 'assistant', content: '', thinking: true, created_at: new Date().toISOString() })
-
+      } else if (data.type === 'message_start') {
+         setMessages(prev => [...prev, { role: 'assistant', content: '', id: data.id }])
+      } else if (data.type === 'tool_call') {
+        setMessages(prev => [...prev, { role: 'tool_call', ...data }])
       } else if (data.type === 'tool_result') {
-        updateMessage(data.id, { tool_output: data.output })
-
+        setMessages(prev => {
+          const updated = prev.map(m => {
+            if (m.role === 'tool_call' && m.tc_id === data.tc_id) {
+              return { ...m, result: data.output }
+            }
+            return m
+          })
+          return [...updated, { role: 'tool_result', content: data.output, tc_id: data.tc_id }]
+        })
+      } else if (data.type === 'info') {
+        setMessages(prev => [...prev, { role: 'info', content: data.message }])
       } else if (data.type === 'done') {
-        if (streamingId.current) updateMessage(streamingId.current, { streaming: false })
-        if (thinkingId.current) { removeMessage(thinkingId.current); thinkingId.current = '' }
-        streamingId.current = ''
+        setSending(false)
         ws.close()
-        setRunning(false)
-        updateSession(id, { status: 'idle' })
-
       } else if (data.type === 'error') {
-        if (streamingId.current) {
-          updateMessage(streamingId.current, { streaming: false, error: data.message })
-        } else if (thinkingId.current) {
-          updateMessage(thinkingId.current, { thinking: false, error: data.message })
-          thinkingId.current = ''
-        } else {
-          appendMessage({ id: 'err_' + Date.now(), role: 'assistant', content: '', error: data.message, created_at: new Date().toISOString() })
-        }
-        streamingId.current = ''
+        setMessages(prev => [...prev, { role: 'assistant', content: '⚠️ ' + data.message, id: 'err-' + Date.now() }])
+        setSending(false)
         ws.close()
-        setRunning(false)
-        updateSession(id, { status: 'error' })
       }
     }
 
-    ws.onerror = () => {
-      if (thinkingId.current) { removeMessage(thinkingId.current); thinkingId.current = '' }
-      if (streamingId.current) updateMessage(streamingId.current, { streaming: false, error: 'Connection error' })
-      setRunning(false)
-      updateSession(id, { status: 'error' })
+    ws.onopen = () => {
+      ws.send(JSON.stringify({ type: 'start', message: text }))
     }
 
-    ws.onclose = () => {
-      if (thinkingId.current) { removeMessage(thinkingId.current); thinkingId.current = '' }
-      if (streamingId.current) updateMessage(streamingId.current, { streaming: false })
-      streamingId.current = ''
-    }
-  }, [input, running, model, repoId, id])
-
-  async function saveTitle() {
-    setTitleEdit(false)
-    if (!titleVal.trim() || titleVal === session?.title) return
-    await patchSession(id, { title: titleVal }).catch(() => {})
-    updateSession(id, { title: titleVal })
-    setSession((s: any) => s ? { ...s, title: titleVal } : s)
+    ws.onerror = () => setSending(false)
+    ws.onclose = () => setSending(false)
   }
 
-  async function changeRepo(rid: string | undefined) {
-    setRepoId(rid)
-    await patchSession(id, { repo_id: rid || null }).catch(() => {})
+  async function handleFileSelect(path: string) {
+    if (!session?.repo_id) return
+    setSelectedFile(path)
+    try {
+      // In the new workspace model, we need a way to read files from the workspace
+      // For now, use the existing github file reader if available, or just show path
+      // Actually, let's keep it simple - this view is for results.
+    } catch (err) {}
   }
 
-  const activeRepo = repos.find(r => r.id === repoId)
+  if (loading) return (
+    <div className="flex-1 flex flex-col items-center justify-center">
+      <Loader2 className="w-10 h-10 animate-spin text-muted-foreground" />
+      <p className="mt-4 text-muted-foreground animate-pulse">Loading session...</p>
+    </div>
+  )
 
   return (
-    <div className="flex flex-1 h-full min-h-0 overflow-hidden">
-      {/* Chat column */}
-      <div className="flex flex-col flex-1 min-w-0 min-h-0">
-        {/* Top bar */}
-        <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border bg-surface-1 shrink-0 flex-wrap gap-y-2">
-          {/* Session title */}
-          {titleEdit ? (
-            <input
-              autoFocus
-              value={titleVal}
-              onChange={e => setTitleVal(e.target.value)}
-              onBlur={saveTitle}
-              onKeyDown={e => { if (e.key === 'Enter') saveTitle() }}
-              className="bg-surface-0 border border-brand/40 rounded px-2 py-1 text-sm font-medium outline-none flex-1 min-w-0 max-w-xs"
-            />
-          ) : (
-            <button
-              onClick={() => setTitleEdit(true)}
-              className="text-sm font-medium text-text-primary hover:text-brand transition-colors truncate max-w-xs"
-              title="Click to rename"
+    <div className="flex-1 flex overflow-hidden">
+      {/* Sidebar Explorer */}
+      <div className={clsx(
+        "hidden lg:flex flex-col border-r border-border bg-card transition-all duration-300",
+        showExplorer ? "w-64" : "w-0 overflow-hidden border-0"
+      )}>
+        <div className="p-4 flex items-center justify-between border-b border-border">
+          <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+            <Files className="w-3.5 h-3.5" /> Workspace
+          </span>
+        </div>
+        <div className="flex-1 overflow-y-auto p-2">
+           <div className="text-xs text-muted-foreground px-2 py-4 italic">
+             {session?.repo ? "Isolated workspace active." : "No repository attached."}
+           </div>
+           {/* Future: Real-time FileTree from Workspace */}
+        </div>
+      </div>
+
+      {/* Main Chat Area */}
+      <div className="flex-1 flex flex-col min-w-0 bg-background">
+        {/* Session Header */}
+        <div className="h-14 border-b border-border flex items-center justify-between px-4 bg-card/30 backdrop-blur-md sticky top-0 z-10">
+          <div className="flex items-center gap-4 min-w-0">
+             <button
+              onClick={() => setShowExplorer(!showExplorer)}
+              className="p-2 hover:bg-secondary rounded-md text-muted-foreground hidden lg:block"
             >
-              {session?.title || 'Session'}
+              <Layout className="w-4 h-4" />
             </button>
-          )}
+            <div className="min-w-0">
+              <h2 className="text-sm font-bold truncate">{session?.title}</h2>
+              <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                <Hash className="w-2.5 h-2.5" />
+                <span>{session?.model.split('/')[1]}</span>
+                {session?.repo && (
+                  <>
+                    <span className="w-1 h-1 rounded-full bg-border" />
+                    <span className="truncate">{session.repo.full_name}</span>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
 
-          <div className="flex items-center gap-2 ml-auto flex-wrap">
-            <ModelPicker />
-            <RepoSelector value={repoId} onChange={changeRepo} compact />
-
-            {activeRepo && (
-              <GitBar repoId={activeRepo.id} repoFull={activeRepo.full_name} branch={activeRepo.default_branch} />
+          <div className="flex items-center gap-2">
+            {sending && (
+              <div className="flex items-center gap-2 px-3 py-1 bg-primary/10 rounded-full border border-primary/20">
+                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                <span className="text-[10px] font-bold text-primary uppercase">Thinking</span>
+              </div>
             )}
-
-            <button
-              onClick={() => setEditorOpen(!editorOpen)}
-              className={clsx(
-                'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors border',
-                editorOpen
-                  ? 'bg-brand/15 border-brand/35 text-brand'
-                  : 'bg-surface-3 border-border text-text-muted hover:text-text-primary hover:border-border-strong'
-              )}
-              title="Toggle code editor"
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
-              </svg>
-              Editor
-            </button>
           </div>
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto py-4 min-h-0">
-          {messages.length === 0 && (
-            <div className="flex flex-col items-center justify-center h-full text-text-muted text-sm gap-2">
-              <span className="text-2xl opacity-30">⚡</span>
-              <p>Send a message to start the agent</p>
+        <div ref={scrollRef} className="flex-1 overflow-y-auto no-scrollbar scroll-smooth">
+          {messages.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center p-8 text-center">
+              <div className="w-16 h-16 rounded-3xl bg-secondary flex items-center justify-center mb-6">
+                <Terminal className="w-8 h-8 text-muted-foreground" />
+              </div>
+              <h3 className="text-lg font-bold mb-2">Agent initialized and ready.</h3>
+              <p className="text-sm text-muted-foreground max-w-sm">
+                Ask me to analyze code, fix bugs, or implement features in this repository.
+              </p>
+            </div>
+          ) : (
+            <div className="pb-12">
+              {messages.map((m, i) => (
+                <MessageBubble key={m.id || i} msg={m} />
+              ))}
+              {sending && (
+                 <div className="max-w-3xl mx-auto w-full flex gap-6 py-8 px-4 md:px-0 opacity-50">
+                    <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
+                      <Cpu className="w-5 h-5 text-primary-foreground animate-pulse" />
+                    </div>
+                    <div className="flex-1 space-y-2 pt-2">
+                      <div className="h-2 w-1/4 bg-secondary rounded animate-pulse" />
+                      <div className="h-2 w-3/4 bg-secondary rounded animate-pulse" />
+                    </div>
+                 </div>
+              )}
             </div>
           )}
-          {messages.map(msg => (
-            <MessageBubble key={msg.id} msg={msg} />
-          ))}
-          <div ref={bottomRef} className="h-4" />
         </div>
 
-        {/* Input */}
-        <div className="shrink-0 border-t border-border bg-surface-1 px-4 py-3">
-          <div className={clsx(
-            'flex gap-2 bg-surface-0 border rounded-xl p-2 transition-colors',
-            running ? 'border-brand/40' : 'border-border focus-within:border-brand/40'
-          )}>
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={e => {
-                setInput(e.target.value)
-                e.target.style.height = 'auto'
-                e.target.style.height = Math.min(e.target.scrollHeight, 160) + 'px'
-              }}
-              onKeyDown={e => {
-                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() }
-              }}
-              placeholder={running ? 'Agent is working…' : 'Message the agent… (Enter to send, Shift+Enter for newline)'}
-              disabled={running}
-              rows={1}
-              className="flex-1 bg-transparent px-3 py-2 text-sm text-text-primary placeholder-text-muted outline-none resize-none max-h-40 disabled:opacity-50 leading-relaxed"
-            />
-            {running ? (
-              <button
-                onClick={stop}
-                className="self-end flex items-center gap-1.5 bg-red/10 hover:bg-red/15 text-red border border-red/25 px-3 py-2 rounded-lg text-xs font-medium transition-colors shrink-0"
-              >
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
-                Stop
-              </button>
-            ) : (
-              <button
-                onClick={() => send()}
-                disabled={!input.trim()}
-                className="self-end flex items-center gap-1.5 bg-brand hover:opacity-90 disabled:opacity-35 disabled:cursor-not-allowed text-white px-3 py-2 rounded-lg text-xs font-semibold transition-opacity shrink-0"
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
-                </svg>
-                Send
-              </button>
-            )}
+        {/* Input area */}
+        <div className="p-4 bg-background border-t border-border">
+          <div className="max-w-3xl mx-auto relative group">
+             <div className="absolute -top-12 left-0 right-0 flex justify-center opacity-0 group-focus-within:opacity-100 transition-opacity pointer-events-none">
+                <div className="px-3 py-1 rounded-full bg-secondary border border-border text-[10px] text-muted-foreground">
+                  Press <kbd className="font-sans font-bold">Shift + Enter</kbd> for new line
+                </div>
+             </div>
+             <form
+              onSubmit={e => { e.preventDefault(); startAgent(input) }}
+              className="relative bg-card border border-border rounded-2xl shadow-sm focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/50 transition-all overflow-hidden"
+            >
+              <textarea
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    startAgent(input)
+                  }
+                }}
+                placeholder="Message AgentForge..."
+                className="w-full bg-transparent px-4 py-4 text-sm focus:outline-none resize-none min-h-[60px] max-h-[200px]"
+                rows={1}
+              />
+              <div className="flex items-center justify-between px-4 pb-3">
+                 <div className="flex items-center gap-2">
+                   <div className="p-1.5 hover:bg-secondary rounded-md text-muted-foreground cursor-pointer transition-colors">
+                     <Code2 className="w-4 h-4" />
+                   </div>
+                 </div>
+                 <button
+                  type="submit"
+                  disabled={!input.trim() || sending}
+                  className="p-1.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                </button>
+              </div>
+            </form>
           </div>
-          <p className="text-text-muted text-[10px] mt-1.5 text-center">
-            Agent can run code, read/write GitHub files, and create PRs
-          </p>
+          <div className="max-w-3xl mx-auto mt-2 text-center">
+            <p className="text-[10px] text-muted-foreground">
+              AgentForge can make mistakes. Verify important code before merging.
+            </p>
+          </div>
         </div>
       </div>
-
-      {/* Code editor panel */}
-      {editorOpen && (
-        <div className="flex-shrink-0 border-l border-border" style={{ width: 460 }}>
-          <CodeEditor />
-        </div>
-      )}
     </div>
   )
 }

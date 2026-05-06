@@ -6,7 +6,7 @@ from database import get_db, Session, Message, Repo
 from auth_utils import current_user
 from database import User
 
-router = APIRouter()
+router = APIRouter(prefix="/sessions", tags=["sessions"])
 
 
 class CreateSession(BaseModel):

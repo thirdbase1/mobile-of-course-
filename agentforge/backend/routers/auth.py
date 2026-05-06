@@ -6,7 +6,7 @@ from sqlalchemy import select
 from database import get_db, User
 from auth_utils import create_token, current_user
 
-router = APIRouter()
+router = APIRouter(prefix="/auth", tags=["auth"])
 
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 

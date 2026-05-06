@@ -1,98 +1,229 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { useStore, MODELS } from '@/lib/store'
-import { createSession } from '@/lib/api'
-import ModelPicker from '@/components/ModelPicker'
-import RepoSelector from '@/components/RepoSelector'
-
-const STARTERS = [
-  { icon: '🔍', text: 'Review my repo for security issues and fix the critical ones' },
-  { icon: '🧪', text: 'Write comprehensive tests for every function in this codebase' },
-  { icon: '🚀', text: 'Set up GitHub Actions CI/CD for automated testing and deployment' },
-  { icon: '🐛', text: 'Find all TODO and FIXME comments in my repo and fix them one by one' },
-  { icon: '📦', text: 'Refactor this codebase to use modern best practices and patterns' },
-  { icon: '📊', text: 'Build a REST API with FastAPI, add authentication, and write tests' },
-]
+import { useStore } from '@/lib/store'
+import { createSession, importRepo } from '@/lib/api'
+import {
+  Plus,
+  Search,
+  GitBranch,
+  Code2,
+  Terminal,
+  Zap,
+  ArrowRight,
+  Loader2,
+  X,
+  MessageSquarePlus
+} from 'lucide-react'
+import clsx from 'clsx'
+import { motion, AnimatePresence } from 'framer-motion'
 
 export default function DashboardHome() {
-  const { user, model, setModel, upsertSession, repos } = useStore()
-  const [input,  setInput]  = useState('')
-  const [repoId, setRepoId] = useState<string | undefined>()
-  const [loading,setLoading]= useState(false)
+  const { user, repos, setRepos, upsertSession, model } = useStore()
+  const [loading, setLoading] = useState(false)
+  const [selectedRepo, setSelectedRepo] = useState<any>(null)
+  const [initialPrompt, setInitialPrompt] = useState('')
   const router = useRouter()
 
-  async function start(text?: string) {
-    const content = (text ?? input).trim()
-    if (!content || loading) return
+  async function startNewChat(repoId?: string, prompt?: string) {
     setLoading(true)
     try {
-      const title = content.slice(0, 70) + (content.length > 70 ? '…' : '')
-      const s     = await createSession({ title, model, repo_id: repoId || null })
+      const content = prompt?.trim() || "Analyze this repository and tell me what it does."
+      const title = content.slice(0, 50) + (content.length > 50 ? '...' : '')
+      const s = await createSession({
+        title,
+        model,
+        repo_id: repoId || null
+      })
       upsertSession(s)
       router.push(`/dashboard/session/${s.id}?q=${encodeURIComponent(content)}`)
-    } catch { setLoading(false) }
+    } catch (err) {
+      console.error(err)
+      setLoading(false)
+    }
   }
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 overflow-y-auto">
-      <div className="w-full max-w-2xl">
-        {/* Greeting */}
-        <div className="text-center mb-10">
-          <div className="w-12 h-12 bg-brand/15 border border-brand/25 rounded-2xl flex items-center justify-center text-xl mx-auto mb-4">⚡</div>
-          <h1 className="text-2xl font-bold text-text-primary mb-2">
-            {user ? `Hey ${user.login}` : 'AgentForge'}
-          </h1>
-          <p className="text-text-secondary text-sm">Tell me what to build, fix, or ship.</p>
-        </div>
+    <div className="flex-1 overflow-y-auto">
+      <div className="max-w-5xl mx-auto px-6 py-12">
+        {/* Header */}
+        <header className="mb-12">
+          <motion.h1
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-4xl font-bold tracking-tight mb-4"
+          >
+            Welcome back, {user?.name || user?.login}
+          </motion.h1>
+          <motion.p
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="text-muted-foreground text-lg"
+          >
+            Select a repository to start a new engineering session.
+          </motion.p>
+        </header>
 
-        {/* Config row */}
-        <div className="flex items-center gap-2 mb-3">
-          <ModelPicker />
-          {repos.length > 0 && <RepoSelector value={repoId} onChange={setRepoId} />}
-        </div>
-
-        {/* Input */}
-        <form onSubmit={e => { e.preventDefault(); start() }} className="mb-6">
-          <div className="relative bg-surface-2 border border-border rounded-xl focus-within:border-brand/50 transition-colors">
-            <textarea
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); start() } }}
-              placeholder="What do you want me to build or fix?"
-              rows={3}
-              className="w-full bg-transparent px-4 py-3.5 text-sm text-text-primary placeholder-text-muted outline-none resize-none leading-relaxed"
-            />
-            <div className="px-3 pb-3 flex justify-end">
-              <button
-                type="submit"
-                disabled={!input.trim() || loading}
-                className="bg-brand hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm px-4 py-2 rounded-lg font-medium transition-opacity flex items-center gap-2"
-              >
-                {loading ? <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : '⚡'}
-                Start agent
-              </button>
+        {/* Quick Actions / New Session */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+           <motion.button
+            whileHover={{ y: -4 }}
+            onClick={() => startNewChat()}
+            className="flex flex-col items-start p-6 rounded-xl border border-border bg-card hover:border-primary/50 transition-all text-left group"
+          >
+            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary mb-4 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+              <Plus className="w-5 h-5" />
             </div>
-          </div>
-        </form>
+            <h3 className="font-semibold mb-1">New Empty Chat</h3>
+            <p className="text-sm text-muted-foreground">Start a conversation without a specific repository context.</p>
+          </motion.button>
 
-        {/* Starters */}
-        <div>
-          <p className="text-text-muted text-xs uppercase tracking-wider mb-3">Quick start</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {STARTERS.map(s => (
-              <button
-                key={s.text}
-                onClick={() => start(s.text)}
-                className="flex items-start gap-3 text-left px-4 py-3 bg-surface-2 border border-border hover:border-brand/40 rounded-xl text-sm text-text-secondary hover:text-text-primary transition-colors group"
-              >
-                <span className="text-base mt-px shrink-0">{s.icon}</span>
-                <span className="leading-snug">{s.text}</span>
-              </button>
-            ))}
-          </div>
+          <motion.button
+            whileHover={{ y: -4 }}
+            onClick={() => router.push('/dashboard/repos')}
+            className="flex flex-col items-start p-6 rounded-xl border border-border bg-card hover:border-primary/50 transition-all text-left group"
+          >
+            <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center text-foreground mb-4 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+              <GitBranch className="w-5 h-5" />
+            </div>
+            <h3 className="font-semibold mb-1">Import Repository</h3>
+            <p className="text-sm text-muted-foreground">Connect a new GitHub repository to AgentForge.</p>
+          </motion.button>
+
+          <motion.div
+            whileHover={{ y: -4 }}
+            className="flex flex-col items-start p-6 rounded-xl border border-border bg-card transition-all text-left"
+          >
+            <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center text-foreground mb-4">
+              <Zap className="w-5 h-5" />
+            </div>
+            <h3 className="font-semibold mb-1">Agent Status</h3>
+            <p className="text-sm text-muted-foreground">System is online. High-capacity models available.</p>
+          </motion.div>
         </div>
+
+        {/* Repositories */}
+        <section>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold flex items-center gap-2">
+              <Code2 className="w-5 h-5" />
+              Your Repositories
+            </h2>
+          </div>
+
+          {repos.length === 0 ? (
+             <div className="flex flex-col items-center justify-center p-12 rounded-xl border border-dashed border-border bg-secondary/20">
+                <GitBranch className="w-12 h-12 text-muted-foreground mb-4 opacity-20" />
+                <p className="text-muted-foreground mb-6 text-center">No repositories imported yet.</p>
+                <button
+                  onClick={() => router.push('/dashboard/repos')}
+                  className="px-6 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors"
+                >
+                  Import your first repo
+                </button>
+             </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {repos.map(repo => (
+                <motion.div
+                  key={repo.id}
+                  layoutId={repo.id}
+                  onClick={() => setSelectedRepo(repo)}
+                  className="p-4 rounded-xl border border-border bg-card hover:bg-secondary/50 cursor-pointer transition-all group"
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="font-semibold truncate pr-2">{repo.name}</div>
+                    <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
+                  </div>
+                  <p className="text-xs text-muted-foreground line-clamp-2 min-h-[2.5rem] mb-3">
+                    {repo.description || "No description provided."}
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <span className="px-2 py-0.5 rounded bg-secondary text-[10px] font-medium border border-border">
+                      {repo.language || "Unknown"}
+                    </span>
+                    {repo.private && (
+                       <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                        🔒 Private
+                      </span>
+                    )}
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </section>
       </div>
+
+      {/* Start Chat Modal */}
+      <AnimatePresence>
+        {selectedRepo && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedRepo(null)}
+              className="absolute inset-0 bg-background/80 backdrop-blur-md"
+            />
+            <motion.div
+              layoutId={selectedRepo.id}
+              className="relative w-full max-w-lg bg-card border border-border rounded-2xl shadow-2xl overflow-hidden"
+            >
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-primary/10 text-primary rounded-lg">
+                      <MessageSquarePlus className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-lg">Start Engineering Session</h3>
+                      <p className="text-xs text-muted-foreground">{selectedRepo.full_name}</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setSelectedRepo(null)} className="p-2 hover:bg-secondary rounded-full transition-colors">
+                    <X className="w-5 h-5 text-muted-foreground" />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="text-sm text-muted-foreground mb-2">
+                    What should AgentForge do in this repository?
+                  </div>
+                  <textarea
+                    autoFocus
+                    value={initialPrompt}
+                    onChange={e => setInitialPrompt(e.target.value)}
+                    placeholder="e.g., Explain the core architecture and suggest improvements..."
+                    className="w-full h-32 bg-secondary/50 border border-border rounded-xl p-4 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                  />
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      disabled={loading}
+                      onClick={() => startNewChat(selectedRepo.id, initialPrompt)}
+                      className="flex-1 py-3 bg-primary text-primary-foreground rounded-xl font-medium flex items-center justify-center gap-2 hover:bg-primary/90 transition-all disabled:opacity-50"
+                    >
+                      {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Zap className="w-4 h-4" />}
+                      Initialize Agent
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div className="px-6 py-4 bg-secondary/30 border-t border-border flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Terminal className="w-3 h-3" />
+                  Isolated Workspace will be created
+                </div>
+                <div className="text-[10px] text-muted-foreground">
+                  Model: {model.split('/')[1]}
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
