@@ -1,13 +1,17 @@
 import { create } from 'zustand'
 
 export const MODELS = [
-  { id: 'groq/llama-3.3-70b',    name: 'Llama 3.3 70B',    provider: 'Groq' },
-  { id: 'groq/deepseek-r1-distill-llama-70b', name: 'DeepSeek R1 (Llama 70B)', provider: 'Groq' },
-  { id: 'openrouter/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet', provider: 'OpenRouter' },
-  { id: 'openrouter/gpt-4o',     name: 'GPT-4o',           provider: 'OpenRouter' },
-  { id: 'openrouter/deepseek-r1', name: 'DeepSeek R1',      provider: 'OpenRouter' },
-  { id: 'openrouter/qwen-32b',    name: 'Qwen 2.5 32B',      provider: 'OpenRouter' },
-  { id: 'xai/grok-2',            name: 'Grok 2',           provider: 'xAI' },
+  { id: "groq/llama-3.3-70b",    name: "Llama 3.3 70B",    provider: "Groq" },
+  { id: "groq/qwen-32b",         name: "Qwen 2.5 32B",      provider: "Groq" },
+  { id: "groq/compound-mini",    name: "Compound Mini",    provider: "Groq" },
+  { id: "groq/compound",         name: "Compound",         provider: "Groq" },
+  { id: "groq/deepseek-r1-distill-llama-70b", name: "DeepSeek R1 (Llama 70B)", provider: "Groq" },
+  { id: "openrouter/claude-3.5-sonnet", name: "Claude 3.5 Sonnet", provider: "OpenRouter" },
+  { id: "openrouter/gpt-4o",     name: "GPT-4o",           provider: "OpenRouter" },
+  { id: "openrouter/deepseek-r1", name: "DeepSeek R1",      provider: "OpenRouter" },
+  { id: "xai/grok-2",            name: "Grok 2",           provider: "xAI" },
+  { id: "xai/grok-latest",       name: "Grok Latest",      provider: "xAI" },
+  { id: "xai/grok-4.3",          name: "Grok 4.3",         provider: "xAI" },
 ]
 
 interface State {

@@ -2,11 +2,12 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
+import Header from '@/components/Header'
 import { useStore } from '@/lib/store'
 import { getMe, getRepos } from '@/lib/api'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { setUser, setRepos, sidebarOpen } = useStore()
+  const { setUser, setRepos } = useStore()
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
 
@@ -28,9 +29,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="flex h-screen overflow-hidden bg-background text-foreground selection:bg-primary selection:text-primary-foreground">
       <Sidebar />
-      <main className="flex-1 min-w-0 flex flex-col relative overflow-hidden">
-        {children}
-      </main>
+      <div className="flex-1 flex flex-col min-w-0 relative">
+        <Header />
+        <main className="flex-1 min-w-0 flex flex-col relative overflow-hidden">
+          {children}
+        </main>
+      </div>
     </div>
   )
 }
