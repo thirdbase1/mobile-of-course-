@@ -257,6 +257,7 @@ async def run_agent_loop(
 
     # Initialize workspace
     await init_workspace(session.id)
+    await websocket.send_json({"type": "info", "message": "Initializing high-capacity sandbox..."})
 
     # Tool execution context
     tool_ctx = {
@@ -271,7 +272,7 @@ async def run_agent_loop(
     if session.repo_id:
         repo = (await db.execute(select(Repo).where(Repo.id == session.repo_id))).scalar_one_or_none()
         if repo:
-            await websocket.send_json({"type": "status", "message": f"Initializing workspace and cloning {repo.full_name}..."})
+            await websocket.send_json({"type": "info", "message": f"Cloning repository {repo.full_name}..."})
             ok, msg = await clone_repo_to_workspace(session.id, repo.full_name, user.github_token, repo.default_branch)
             if not ok:
                 await websocket.send_json({"type": "error", "message": f"Failed to initialize workspace: {msg}"})
@@ -282,7 +283,7 @@ async def run_agent_loop(
 
     # Build conversation history
     hist = (await db.execute(select(Message).where(Message.session_id == session.id).order_by(Message.created_at))).scalars().all()
-    messages = [{"role": "system", "content": SYSTEM_PROMPT.format(session_id=session.id) + repo_info}]
+    messages = [{"role": "system", "content": SYSTEM_PROMPT.replace("{session_id}", session.id) + repo_info}]
 
     for m in hist:
         if m.role == "user": messages.append({"role": "user", "content": m.content})
