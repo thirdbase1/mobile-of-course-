@@ -217,7 +217,7 @@ PROVIDERS = {
             "grok-2-mini": "grok-2-vision-1212",
             "grok-beta":   "grok-beta",
             "grok-latest": "grok-latest",
-            "grok-4.3":    "grok-4.3",
+            "grok-3":    "grok-3",
         },
         "parallel_tool_calls": True,
     },

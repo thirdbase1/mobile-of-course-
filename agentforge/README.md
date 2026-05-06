@@ -7,7 +7,7 @@ AgentForge is a sophisticated autonomous engineering environment that goes beyon
 ## 🚀 Key Features
 
 - **Sandbox-First Architecture**: Every session gets a dedicated `/tmp/agentforge` workspace. The agent has full terminal access and awareness of the filesystem.
-- **Deep Intelligence**: Support for state-of-the-art models including **DeepSeek R1**, **Groq Compound**, **Qwen 2.5**, and **Grok 4.3**.
+- **Deep Intelligence**: Support for state-of-the-art models including **DeepSeek R1**, **Groq Compound**, **Qwen 2.5**, and **Grok 3**.
 - **Autonomous Development**: The agent doesn't just chat; it clones repos, runs build scripts, debugs errors, and manages Git branches.
 - **Mandatory Branching**: Protects your `main` branch by automatically creating feature branches (fix/, feat/, refactor/) for all work.
 - **Execution Transparency**: Real-time status updates and expandable execution logs with line-change tracking (+/-).
@@ -23,7 +23,7 @@ AgentForge is a sophisticated autonomous engineering environment that goes beyon
 ### xAI (State of the Art)
 - Grok 2
 - Grok Latest
-- Grok 4.3
+- Grok 3
 
 ### OpenRouter
 - Claude 3.5 Sonnet

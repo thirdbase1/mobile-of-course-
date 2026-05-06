@@ -11,7 +11,7 @@ export const MODELS = [
   { id: "openrouter/deepseek-r1", name: "DeepSeek R1",      provider: "OpenRouter" },
   { id: "xai/grok-2",            name: "Grok 2",           provider: "xAI" },
   { id: "xai/grok-latest",       name: "Grok Latest",      provider: "xAI" },
-  { id: "xai/grok-4.3",          name: "Grok 4.3",         provider: "xAI" },
+  { id: "xai/grok-4.3",          name: "Grok 3",         provider: "xAI" },
 ]
 
 interface State {
