@@ -2,11 +2,12 @@ import { create } from 'zustand'
 
 export const MODELS = [
   { id: 'groq/llama-3.3-70b',    name: 'Llama 3.3 70B',    provider: 'Groq' },
-  { id: 'groq/llama-3.1-70b',    name: 'Llama 3.1 70B',    provider: 'Groq' },
+  { id: 'groq/deepseek-r1-distill-llama-70b', name: 'DeepSeek R1 (Llama 70B)', provider: 'Groq' },
   { id: 'openrouter/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet', provider: 'OpenRouter' },
   { id: 'openrouter/gpt-4o',     name: 'GPT-4o',           provider: 'OpenRouter' },
+  { id: 'openrouter/deepseek-r1', name: 'DeepSeek R1',      provider: 'OpenRouter' },
+  { id: 'openrouter/qwen-32b',    name: 'Qwen 2.5 32B',      provider: 'OpenRouter' },
   { id: 'xai/grok-2',            name: 'Grok 2',           provider: 'xAI' },
-  { id: 'xai/grok-beta',         name: 'Grok Beta',        provider: 'xAI' },
 ]
 
 interface State {
@@ -30,7 +31,7 @@ export const useStore = create<State>((set) => ({
   repos:        [],
   setRepos:     (repos) => set({ repos }),
   sessions:     [],
-  setSessions:  (sessions) => set({ sessions: sessions.sort((a,b) => b.created_at.localeCompare(a.created_at)) }),
+  setSessions:  (sessions) => set({ sessions: sessions.sort((a,b) => (b.created_at || "").localeCompare(a.created_at || "")) }),
   upsertSession:(s) => set((state) => {
     const exists = state.sessions.find((ss) => ss.id === s.id)
     if (exists) return { sessions: state.sessions.map((ss) => (ss.id === s.id ? s : ss)) }
