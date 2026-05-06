@@ -1,4 +1,4 @@
-import os, json, base64, asyncio, re, logging, shutil
+import os, json, base64, asyncio, re, logging, shutil, difflib
 import httpx
 from pathlib import Path
 from database import Repo
@@ -27,7 +27,7 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "write_file",
-            "description": "Write or overwrite a file in the local workspace.",
+            "description": "Write or overwrite a file in the local workspace. Returns diff stats (+/-).",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -82,15 +82,42 @@ TOOL_DEFINITIONS = [
     {
         "type": "function",
         "function": {
-            "name": "github_commit_and_push",
-            "description": "Commit all current changes in the local workspace and push them to GitHub.",
+            "name": "search_files",
+            "description": "Search for keywords across project files.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "message": {"type": "string", "description": "Commit message"},
-                    "branch":  {"type": "string", "description": "Target branch", "default": "main"},
+                    "query": {"type": "string", "description": "Search query string"},
+                    "path": {"type": "string", "description": "Subdirectory to search in", "default": ""},
                 },
-                "required": ["message"],
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "analyze_codebase",
+            "description": "Get a high-level understanding of the project structure and frameworks.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Directory path to analyze", "default": ""},
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_diff",
+            "description": "Generate a diff of changes made to a file.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Path to the file relative to root"},
+                },
+                "required": ["path"],
             },
         },
     },
@@ -107,6 +134,37 @@ TOOL_DEFINITIONS = [
                     "description": {"type": "string", "description": "Repository description"},
                 },
                 "required": ["name"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "github_git_operation",
+            "description": "Perform advanced Git/GitHub operations: createBranch, checkoutBranch, listBranches, getCommitHistory.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "operation": {"type": "string", "enum": ["createBranch", "checkoutBranch", "listBranches", "getCommitHistory"]},
+                    "branchName": {"type": "string", "description": "Branch name for create/checkout"},
+                    "baseBranch": {"type": "string", "description": "Base branch for creating new branch", "default": "main"},
+                },
+                "required": ["operation"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "github_commit_and_push",
+            "description": "Commit all current changes in the local workspace and push them to GitHub.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "message": {"type": "string", "description": "Commit message"},
+                    "branch":  {"type": "string", "description": "Target branch", "default": "main"},
+                },
+                "required": ["message"],
             },
         },
     },
@@ -153,8 +211,12 @@ async def execute_tool(name: str, args: dict, ctx: dict) -> str:
         "list_files":     _list_files,
         "delete_file":    _delete_file,
         "run_bash":       _run_bash,
-        "github_commit_and_push": _gh_commit_push,
+        "search_files":   _search_files,
+        "analyze_codebase": _analyze_codebase,
+        "get_diff":       _get_diff,
         "github_create_repository": _gh_create_repo,
+        "github_git_operation": _gh_git_op,
+        "github_commit_and_push": _gh_commit_push,
         "github_create_pr": _gh_create_pr,
         "web_search":      _web_search,
     }.get(name)
@@ -182,9 +244,27 @@ async def _read_file(args: dict, ctx: dict) -> str:
 async def _write_file(args: dict, ctx: dict) -> str:
     ws = get_workspace_path(ctx["session_id"])
     path = _safe_path(ws, args["path"])
+
+    old_content = ""
+    if path.is_file():
+        old_content = path.read_text(errors='replace')
+
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(args["content"])
-    return f"✓ Wrote to {args['path']}"
+
+    # Calculate diff stats
+    added, removed = 0, 0
+    for line in difflib.unified_diff(old_content.splitlines(), args["content"].splitlines()):
+        if line.startswith("+") and not line.startswith("+++"): added += 1
+        elif line.startswith("-") and not line.startswith("---"): removed += 1
+
+    res = {
+        "status": "success",
+        "path": args["path"],
+        "added": added,
+        "removed": removed
+    }
+    return json.dumps(res)
 
 async def _list_files(args: dict, ctx: dict) -> str:
     ws = get_workspace_path(ctx["session_id"])
@@ -209,6 +289,71 @@ async def _run_bash(args: dict, ctx: dict) -> str:
     if stderr: out.append(f"STDERR:\n{stderr.decode(errors='replace')}")
     out.append(f"[Exit Code: {process.returncode}]")
     return "\n".join(out)
+
+async def _search_files(args: dict, ctx: dict) -> str:
+    ws = get_workspace_path(ctx["session_id"])
+    search_path = _safe_path(ws, args.get("path", ""))
+    query = args["query"]
+
+    # Simple grep-like search using python
+    results = []
+    for root, _, files in os.walk(search_path):
+        if ".git" in root: continue
+        for file in files:
+            p = Path(root) / file
+            try:
+                content = p.read_text(errors='replace')
+                if query in content:
+                    rel = p.relative_to(ws)
+                    results.append(f"📄 {rel}")
+            except: continue
+
+    return f"Search results for '{query}':\n" + ("\n".join(results[:50]) if results else "No results found.")
+
+async def _analyze_codebase(args: dict, ctx: dict) -> str:
+    ws = get_workspace_path(ctx["session_id"])
+    path = _safe_path(ws, args.get("path", ""))
+
+    # Identify frameworks
+    analysis = []
+    if (ws / "package.json").exists(): analysis.append("- Node.js project detected")
+    if (ws / "requirements.txt").exists() or (ws / "pyproject.toml").exists(): analysis.append("- Python project detected")
+    if (ws / "tsconfig.json").exists(): analysis.append("- TypeScript configured")
+    if (ws / "next.config.js").exists() or (ws / "next.config.mjs").exists(): analysis.append("- Next.js framework")
+
+    # Structure summary (top level)
+    items = [f"{'📁' if i.is_dir() else '📄'} {i.name}" for i in sorted(path.iterdir()) if not i.name.startswith(".git")]
+
+    return "Codebase Analysis:\n" + "\n".join(analysis) + "\n\nRoot Structure:\n" + "\n".join(items)
+
+async def _get_diff(args: dict, ctx: dict) -> str:
+    ws = get_workspace_path(ctx["session_id"])
+    # This tool works against Git if repo exists, or just returns a placeholder
+    if (ws / ".git").exists():
+        process = await asyncio.create_subprocess_exec("git", "diff", args["path"], cwd=str(ws), stdout=asyncio.subprocess.PIPE)
+        stdout, _ = await process.communicate()
+        return stdout.decode(errors='replace') or "No changes detected."
+    return "No git repository initialized in this workspace."
+
+async def _gh_git_op(args: dict, ctx: dict) -> str:
+    ws = get_workspace_path(ctx["session_id"])
+    op = args["operation"]
+
+    if op == "createBranch":
+        cmd = ["git", "checkout", "-b", args["branchName"], args.get("baseBranch", "main")]
+    elif op == "checkoutBranch":
+        cmd = ["git", "checkout", args["branchName"]]
+    elif op == "listBranches":
+        cmd = ["git", "branch", "-a"]
+    elif op == "getCommitHistory":
+        cmd = ["git", "log", "--oneline", "-n", "10"]
+    else: return "Unknown operation"
+
+    process = await asyncio.create_subprocess_exec(*cmd, cwd=str(ws), stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+    stdout, stderr = await process.communicate()
+
+    if process.returncode != 0: return f"Git Error: {stderr.decode()}"
+    return stdout.decode() or "Operation successful."
 
 async def _gh_commit_push(args: dict, ctx: dict) -> str:
     ws = get_workspace_path(ctx["session_id"])
