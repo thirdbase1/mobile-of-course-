@@ -13,7 +13,7 @@ export default function LandingPage() {
 
   const login = () => {
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || window.location.origin
-    window.location.href = `${backendUrl}/auth/login`
+    window.location.href = `${backendUrl}/auth/github`
   }
 
   return (
