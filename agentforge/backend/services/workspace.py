@@ -2,6 +2,7 @@ import os
 import shutil
 import asyncio
 import logging
+import subprocess
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -20,14 +21,30 @@ async def init_workspace(session_id: str):
 async def cleanup_workspace(session_id: str):
     path = get_workspace_path(session_id)
     if path.exists():
-        # Using run_in_executor because shutil.rmtree is blocking
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(None, shutil.rmtree, path)
 
 async def clone_repo_to_workspace(session_id: str, repo_full_name: str, github_token: str, branch: str = "main"):
     path = await init_workspace(session_id)
 
-    # Clean if exists
+    # Check if repo is already cloned and on the correct branch
+    git_dir = path / ".git"
+    if git_dir.exists():
+        try:
+            # Check current branch
+            res = subprocess.run(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=str(path), capture_output=True, text=True)
+            current_branch = res.stdout.strip()
+
+            # Check remote URL to ensure it matches the repo
+            res_remote = subprocess.run(["git", "remote", "get-url", "origin"], cwd=str(path), capture_output=True, text=True)
+
+            if repo_full_name in res_remote.stdout:
+                log.info(f"Workspace {session_id} already has {repo_full_name}. Skipping clone.")
+                return True, "Repository already initialized in workspace"
+        except Exception as e:
+            log.warning(f"Existing workspace at {path} is invalid: {e}. Re-cloning.")
+
+    # Clean if invalid or different
     if any(path.iterdir()):
         await cleanup_workspace(session_id)
         await init_workspace(session_id)
@@ -47,7 +64,4 @@ async def clone_repo_to_workspace(session_id: str, repo_full_name: str, github_t
         log.error(f"Failed to clone repo {repo_full_name}: {stderr.decode()}")
         return False, stderr.decode()
 
-    # Remove .git folder to prevent agent from messing with it directly via bash
-    # and to ensure tools are used instead.
-    # Actually, keep it for now but we might want to hide it.
     return True, "Successfully cloned repository"

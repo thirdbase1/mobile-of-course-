@@ -38,12 +38,30 @@ async def ws_agent_endpoint(
     api_settings = res.scalar_one_or_none()
 
     try:
-        # Update session status
+        # Wait for the first message to get model and initial prompt
+        data = await websocket.receive_json()
+        if data.get("type") != "start":
+            await websocket.send_json({"type": "error", "message": "Expected start message"})
+            await websocket.close()
+            return
+
+        requested_model = data.get("model") or session.model
+
+        # Update session status and model if different
         session.status = "running"
+        if requested_model != session.model:
+            session.model = requested_model
+
+        # Add the user message immediately if provided in start
+        if data.get("message"):
+            from database import Message as DBMessage
+            import uuid
+            db.add(DBMessage(id=str(uuid.uuid4()), session_id=session.id, role="user", content=data["message"]))
+
         await db.commit()
 
         # Run loop
-        await run_agent_loop(websocket, db, session, user, api_settings, session.model)
+        await run_agent_loop(websocket, db, session, user, api_settings, requested_model)
 
     except WebSocketDisconnect:
         log.info(f"WS disconnected for session {session_id}")
