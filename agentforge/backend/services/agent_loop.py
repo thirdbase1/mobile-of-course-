@@ -224,6 +224,15 @@ PROVIDERS = {
             "qwen-32b-reasoning": "qwen/qwen-2.5-72b-instruct", # Mapping reasoning
             "llama-4-scout":     "meta-llama/llama-3.1-405b", # Placeholder for latest
             "oss-120b":          "deepseek/deepseek-coder",
+            "nemotron-120b":     "nvidia/nemotron-3-super-120b-a12b:free",
+            "owl-alpha":         "openrouter/owl-alpha",
+            "qianfan-ocr":       "baidu/qianfan-ocr-fast:free",
+            "laguna-m1":         "poolside/laguna-m.1:free",
+            "laguna-xs2":        "poolside/laguna-xs.2:free",
+            "cobuddy":           "baidu/cobuddy:free",
+            "qwen3-coder":       "qwen/qwen3-coder:free",
+            "minimax-m25":       "minimax/minimax-m2.5:free",
+            "glm-45-air":        "z-ai/glm-4.5-air:free",
         },
         "parallel_tool_calls": True,
     },
