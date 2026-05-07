@@ -1,5 +1,5 @@
 import os, logging
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from database import init_db
 from routers import auth, sessions, repos, messages, execute, settings, ws_agent
@@ -16,6 +16,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    log.info(f"Request: {request.method} {request.url}")
+    response = await call_next(request)
+    log.info(f"Response status: {response.status_code}")
+    return response
 
 @app.on_event("startup")
 async def startup():
