@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { useStore, MODELS } from '@/lib/store'
 import { getSession, getMessages, openAgentSocket, api } from '@/lib/api'
 import MessageBubble from '@/components/MessageBubble'
+import ModelSelector from '@/components/ModelSelector'
 import {
   Send,
   Loader2,
@@ -32,7 +33,6 @@ export default function SessionPage() {
   const [sending, setSending] = useState(false)
   const [status, setStatus] = useState('Idle')
   const [loadingHistory, setLoadingHistory] = useState(true)
-  const [showModelPicker, setShowModelPicker] = useState(false)
   const [activeTab, setActiveTab] = useState<'chat' | 'code' | 'sandbox'>('chat')
   const [sandboxLogs, setSandboxLogs] = useState<any[]>([])
   const [loadingLogs, setLoadingLogs] = useState(false)
@@ -215,49 +215,9 @@ export default function SessionPage() {
           <div className="p-6 bg-gradient-to-t from-[#09090b] via-[#09090b]/95 to-transparent absolute bottom-0 left-0 right-0 z-10">
             <div className="max-w-3xl mx-auto relative">
                <div className="absolute -top-12 left-0 flex items-center gap-2 overflow-x-auto no-scrollbar pb-2">
-                    <div className="relative">
-                        <button
-                            type="button"
-                            onClick={() => setShowModelPicker(!showModelPicker)}
-                            className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:text-white transition-all backdrop-blur-md"
-                        >
-                            <Cpu className="w-3 h-3" />
-                            {MODELS.find(m => m.id === model)?.name || model}
-                            <ChevronDown className={clsx("w-3 h-3 transition-transform", showModelPicker && "rotate-180")} />
-                        </button>
+                    <ModelSelector model={model} onModelChange={setModel} />
 
-                        <AnimatePresence>
-                        {showModelPicker && (
-                            <motion.div
-                                initial={{ opacity: 0, y: 10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                                className="absolute bottom-full left-0 mb-3 w-96 bg-[#18181b] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-[100]"
-                            >
-                                <div className="sticky top-0 p-3 border-b border-white/5 bg-[#18181b] text-[9px] font-bold uppercase text-muted-foreground tracking-widest z-10">Select Model</div>
-                                <div className="max-h-96 overflow-y-auto py-1 pr-2">
-                                    {MODELS.map(m => (
-                                    <button
-                                        key={m.id}
-                                        type="button"
-                                        onClick={() => { setModel(m.id); setShowModelPicker(false) }}
-                                        className={clsx(
-                                            "w-full text-left px-4 py-3 text-[10px] font-bold uppercase tracking-widest hover:bg-white/5 transition-all flex items-center justify-between group rounded-lg mx-1",
-                                            model === m.id ? "text-white bg-white/10" : "text-muted-foreground/60"
-                                        )}
-                                    >
-                                        <div className="flex flex-col gap-0.5 min-w-0">
-                                            <span className="truncate">{m.name}</span>
-                                            <span className="text-[8px] opacity-40 font-mono tracking-tighter group-hover:opacity-60">{m.provider}</span>
-                                        </div>
-                                        {model === m.id && <div className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0 ml-2" />}
-                                    </button>
-                                    ))}
-                                </div>
-                            </motion.div>
-                        )}
-                        </AnimatePresence>
-                    </div>
-
-                    <button type="button" className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:text-white transition-all backdrop-blur-md">
+                    <button type="button" className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:text-white transition-all backdrop-blur-md hover:bg-white/10 hover:border-white/20">
                         <Plus className="w-3 h-3" />
                         Add Context
                     </button>
