@@ -39,7 +39,11 @@ export const MODELS = [
   { id: "openrouter/qwen3-coder",     name: "Qwen 3 Coder",             provider: "OpenRouter" },
   { id: "openrouter/minimax-m25",     name: "Minimax M2.5",             provider: "OpenRouter" },
   { id: "openrouter/glm-45-air",      name: "GLM 4.5 Air",              provider: "OpenRouter" },
-
+  { 
+  id: "openrouter/x-ai/grok-code-fast-1",
+  name: "Grok Code Fast 1",
+  provider: "OpenRouter"
+},
   // xAI Models
   { id: "xai/grok-3",            name: "Grok 3",           provider: "xAI" },
   { id: "xai/grok-2",            name: "Grok 2",           provider: "xAI" },
