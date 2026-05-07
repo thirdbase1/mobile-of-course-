@@ -230,25 +230,25 @@ export default function SessionPage() {
                         {showModelPicker && (
                             <motion.div
                                 initial={{ opacity: 0, y: 10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                                className="absolute bottom-full left-0 mb-3 w-72 bg-[#18181b] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-[100]"
+                                className="absolute bottom-full left-0 mb-3 w-96 bg-[#18181b] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-[100]"
                             >
-                                <div className="p-3 border-b border-white/5 bg-white/5 text-[9px] font-bold uppercase text-muted-foreground tracking-widest">Select Model</div>
-                                <div className="max-h-[350px] overflow-y-auto no-scrollbar py-1">
+                                <div className="sticky top-0 p-3 border-b border-white/5 bg-[#18181b] text-[9px] font-bold uppercase text-muted-foreground tracking-widest z-10">Select Model</div>
+                                <div className="max-h-96 overflow-y-auto py-1 pr-2">
                                     {MODELS.map(m => (
                                     <button
                                         key={m.id}
                                         type="button"
                                         onClick={() => { setModel(m.id); setShowModelPicker(false) }}
                                         className={clsx(
-                                            "w-full text-left px-4 py-3 text-[10px] font-bold uppercase tracking-widest hover:bg-white/5 transition-all flex items-center justify-between group",
-                                            model === m.id ? "text-white" : "text-muted-foreground/60"
+                                            "w-full text-left px-4 py-3 text-[10px] font-bold uppercase tracking-widest hover:bg-white/5 transition-all flex items-center justify-between group rounded-lg mx-1",
+                                            model === m.id ? "text-white bg-white/10" : "text-muted-foreground/60"
                                         )}
                                     >
-                                        <div className="flex flex-col gap-0.5">
-                                            <span>{m.name}</span>
+                                        <div className="flex flex-col gap-0.5 min-w-0">
+                                            <span className="truncate">{m.name}</span>
                                             <span className="text-[8px] opacity-40 font-mono tracking-tighter group-hover:opacity-60">{m.provider}</span>
                                         </div>
-                                        {model === m.id && <div className="w-1.5 h-1.5 rounded-full bg-primary" />}
+                                        {model === m.id && <div className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0 ml-2" />}
                                     </button>
                                     ))}
                                 </div>

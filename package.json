@@ -64,6 +64,7 @@
     "date-fns": "4.1.0",
     "embla-carousel-react": "8.5.1",
     "form-data": "^4.0.5",
+    "framer-motion": "^12.38.0",
     "html2canvas": "1.4.1",
     "html2pdf.js": "^0.14.0",
     "input-otp": "1.4.1",
@@ -83,7 +84,8 @@
     "tailwind-merge": "^3.3.1",
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^0.9.9",
-    "zod": "3.25.76"
+    "zod": "3.25.76",
+    "zustand": "^5.0.13"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.9",
