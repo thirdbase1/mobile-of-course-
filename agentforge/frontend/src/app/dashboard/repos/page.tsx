@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { getGithubRepos, importRepo, deleteRepo } from '@/lib/api'
+import { getGithubRepos, importRepo, deleteRepo, createSession } from '@/lib/api'
 import { useStore } from '@/lib/store'
 import {
   GitBranch,
@@ -12,14 +12,19 @@ import {
   Globe,
   Loader2,
   CheckCircle2,
-  ArrowLeft
+  ArrowLeft,
+  Terminal,
+  MessageSquare,
+  Sparkles
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import clsx from 'clsx'
 
 export default function ReposPage() {
-  const { repos, setRepos } = useStore()
+  const router = useRouter()
+  const { repos, setRepos, upsertSession, model } = useStore()
   const [ghRepos, setGhRepos] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -49,68 +54,79 @@ export default function ReposPage() {
     setRepos(repos.filter(r => r.id !== id))
   }
 
+  async function startChatWithRepo(repoId: string, repoName: string) {
+    const s = await createSession({
+        title: `Engineering: ${repoName}`,
+        model,
+        repo_id: repoId
+    })
+    upsertSession(s)
+    router.push(`/dashboard/session/${s.id}`)
+  }
+
   const filtered = ghRepos.filter(r =>
     r.full_name.toLowerCase().includes(search.toLowerCase())
   )
 
   return (
-    <div className="flex-1 overflow-y-auto">
+    <div className="flex-1 overflow-y-auto bg-[#09090b]">
       <div className="max-w-4xl mx-auto px-6 py-12">
-        <div className="mb-8 flex items-center justify-between">
+        <div className="mb-12 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight mb-2">Repositories</h1>
-            <p className="text-muted-foreground">Manage your connected GitHub repositories.</p>
+            <div className="flex items-center gap-2 text-primary font-bold text-[10px] uppercase tracking-[0.3em] mb-4">
+                <Terminal className="w-3 h-3" />
+                Infrastructure
+            </div>
+            <h1 className="text-4xl font-black tracking-tighter text-white mb-2">Repositories</h1>
+            <p className="text-muted-foreground text-sm">Connect and manage your GitHub projects for AI-driven engineering.</p>
           </div>
-          <Link href="/dashboard" className="p-2 hover:bg-secondary rounded-full transition-colors md:hidden">
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
         </div>
 
         {/* Import List */}
-        <div className="bg-card border border-border rounded-xl shadow-sm mb-12">
-          <div className="p-4 border-b border-border flex items-center gap-3">
+        <div className="bg-[#18181b] border border-white/5 rounded-2xl shadow-2xl mb-16 overflow-hidden">
+          <div className="p-5 border-b border-white/5 flex items-center gap-4 bg-white/[0.02]">
             <Search className="w-4 h-4 text-muted-foreground" />
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Search GitHub repositories..."
-              className="flex-1 bg-transparent text-sm focus:outline-none"
+              placeholder="Search your GitHub repositories..."
+              className="flex-1 bg-transparent text-sm focus:outline-none text-white placeholder:text-muted-foreground/30 font-medium"
             />
           </div>
 
-          <div className="divide-y divide-border max-h-[400px] overflow-y-auto no-scrollbar">
+          <div className="divide-y divide-white/5 max-h-[450px] overflow-y-auto no-scrollbar">
             {loading ? (
-              <div className="p-12 flex flex-col items-center justify-center text-muted-foreground">
-                <Loader2 className="w-8 h-8 animate-spin mb-4" />
-                <p className="text-sm">Fetching repositories from GitHub...</p>
+              <div className="p-16 flex flex-col items-center justify-center text-muted-foreground">
+                <Loader2 className="w-10 h-10 animate-spin mb-6 text-primary" />
+                <p className="text-[10px] font-bold uppercase tracking-widest opacity-40">Syncing with GitHub API...</p>
               </div>
             ) : filtered.length === 0 ? (
-              <div className="p-12 text-center text-muted-foreground text-sm">
-                No repositories found.
+              <div className="p-16 text-center text-muted-foreground text-xs font-bold uppercase tracking-widest opacity-30">
+                No matching repositories found.
               </div>
             ) : filtered.map(r => {
               const imported = repos.find(ir => ir.full_name === r.full_name)
               return (
-                <div key={r.id} className="p-4 flex items-center justify-between hover:bg-secondary/30 transition-colors">
-                  <div className="flex items-center gap-4 min-w-0">
-                    <div className="p-2 bg-secondary rounded-lg">
-                      <GitBranch className="w-4 h-4" />
+                <div key={r.id} className="p-5 flex items-center justify-between hover:bg-white/[0.03] transition-colors group">
+                  <div className="flex items-center gap-5 min-w-0">
+                    <div className="w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center border border-white/5 group-hover:border-white/10 transition-colors">
+                      <GitBranch className="w-5 h-5 text-muted-foreground group-hover:text-white transition-colors" />
                     </div>
                     <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm truncate">{r.full_name}</span>
-                        {r.private ? <Lock className="w-3 h-3 text-muted-foreground" /> : <Globe className="w-3 h-3 text-muted-foreground" />}
+                      <div className="flex items-center gap-2.5 mb-0.5">
+                        <span className="font-bold text-sm text-white truncate">{r.full_name}</span>
+                        {r.private ? <Lock className="w-3 h-3 text-muted-foreground/40" /> : <Globe className="w-3 h-3 text-muted-foreground/40" />}
                       </div>
-                      <div className="text-xs text-muted-foreground flex items-center gap-2">
+                      <div className="text-[10px] font-bold text-muted-foreground/50 flex items-center gap-2 uppercase tracking-widest">
                         <span>{r.language || 'Markdown'}</span>
-                        <span>•</span>
+                        <span className="opacity-20">•</span>
                         <span>Updated {new Date(r.updated_at).toLocaleDateString()}</span>
                       </div>
                     </div>
                   </div>
 
                   {imported ? (
-                    <div className="flex items-center gap-2 text-primary font-medium text-xs px-3 py-1.5 rounded-md bg-primary/10">
+                    <div className="flex items-center gap-2 text-primary font-bold text-[10px] uppercase tracking-widest px-4 py-2 rounded-lg bg-primary/5 border border-primary/10">
                       <CheckCircle2 className="w-3.5 h-3.5" />
                       Imported
                     </div>
@@ -118,7 +134,7 @@ export default function ReposPage() {
                     <button
                       disabled={importing === r.full_name}
                       onClick={() => handleImport(r.full_name)}
-                      className="px-4 py-1.5 bg-primary text-primary-foreground rounded-md text-xs font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-2"
+                      className="px-5 py-2 bg-white text-black rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-white/90 transition-all disabled:opacity-20 flex items-center gap-2 active:scale-95 shadow-lg shadow-white/5"
                     >
                       {importing === r.full_name ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
                       Import
@@ -132,31 +148,49 @@ export default function ReposPage() {
 
         {/* Imported Repos */}
         <section>
-          <h2 className="text-xl font-bold mb-6">Imported to AgentForge</h2>
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-xl font-bold text-white flex items-center gap-3">
+                <Sparkles className="w-5 h-5 text-primary" />
+                Active Engineering Projects
+            </h2>
+            <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 bg-white/5 px-3 py-1 rounded-full border border-white/5">
+                {repos.length} Connected
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 gap-4">
             {repos.length === 0 ? (
-              <div className="p-8 border border-dashed border-border rounded-xl text-center text-muted-foreground text-sm">
-                No repositories imported yet.
+              <div className="p-16 border border-dashed border-white/5 rounded-2xl text-center flex flex-col items-center justify-center opacity-30">
+                <GitBranch className="w-10 h-10 mb-6" />
+                <p className="text-[10px] font-bold uppercase tracking-widest">Select a repository from GitHub to get started.</p>
               </div>
             ) : repos.map(repo => (
-              <div key={repo.id} className="p-4 bg-card border border-border rounded-xl flex items-center justify-between shadow-sm">
-                <div className="min-w-0">
-                  <h3 className="font-semibold text-sm truncate mb-1">{repo.full_name}</h3>
-                  <p className="text-xs text-muted-foreground line-clamp-1">{repo.description}</p>
+              <div key={repo.id} className="p-6 bg-[#18181b] border border-white/5 rounded-2xl flex items-center justify-between shadow-xl hover:border-white/10 transition-all group">
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-black text-lg text-white truncate mb-1 tracking-tight group-hover:text-primary transition-colors">{repo.full_name}</h3>
+                  <p className="text-xs text-muted-foreground line-clamp-1 opacity-60 font-medium">{repo.description || 'No description provided.'}</p>
                 </div>
-                <div className="flex items-center gap-2 ml-4">
+                <div className="flex items-center gap-3 ml-6">
+                   <button
+                    onClick={() => startChatWithRepo(repo.id, repo.name)}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/10 border border-primary/20 text-primary text-[10px] font-bold uppercase tracking-widest hover:bg-primary hover:text-white transition-all shadow-lg shadow-primary/5 active:scale-95"
+                   >
+                     <MessageSquare className="w-3.5 h-3.5" />
+                     Engineer
+                   </button>
+                   <div className="w-[1px] h-6 bg-white/5" />
                    <a
                     href={`https://github.com/${repo.full_name}`}
                     target="_blank"
-                    className="p-2 hover:bg-secondary rounded-md text-muted-foreground hover:text-foreground transition-colors"
+                    className="p-2.5 hover:bg-white/5 rounded-xl text-muted-foreground hover:text-white transition-all border border-transparent hover:border-white/5"
                   >
-                    <ExternalLink className="w-4 h-4" />
+                    <ExternalLink className="w-4.5 h-4.5" />
                   </a>
                   <button
                     onClick={() => handleDelete(repo.id)}
-                    className="p-2 hover:bg-destructive/10 rounded-md text-muted-foreground hover:text-destructive transition-colors"
+                    className="p-2.5 hover:bg-red-500/10 rounded-xl text-muted-foreground hover:text-red-500 transition-all border border-transparent hover:border-red-500/20"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-4.5 h-4.5" />
                   </button>
                 </div>
               </div>

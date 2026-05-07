@@ -1,7 +1,7 @@
 'use client'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { User, Bot, Terminal, CheckCircle2, Info, ChevronDown, ChevronRight, Brain, FileText } from 'lucide-react'
+import { User, Bot, Terminal, CheckCircle2, Info, ChevronDown, ChevronRight, Brain, FileText, Sparkles } from 'lucide-react'
 import { useState } from 'react'
 import clsx from 'clsx'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -32,9 +32,9 @@ export default function MessageBubble({ msg }: MessageProps) {
 
   if (isInfo) {
     return (
-      <div className="flex justify-center my-4">
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-secondary/50 border border-border text-[11px] text-muted-foreground font-medium">
-          <Info className="w-3.5 h-3.5 text-blue-400" />
+      <div className="flex justify-center my-6">
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-[10px] text-muted-foreground font-bold uppercase tracking-widest">
+          <Info className="w-3 h-3 text-blue-400" />
           {msg.content}
         </div>
       </div>
@@ -43,35 +43,34 @@ export default function MessageBubble({ msg }: MessageProps) {
 
   if (isToolCall || isToolResult) {
     return (
-      <div className="my-2 px-4 md:px-0">
+      <div className="my-2 max-w-3xl mx-auto w-full px-4">
         <div
           onClick={() => setExpanded(!expanded)}
           className={clsx(
-            "flex items-center gap-3 p-3 rounded-xl border border-border bg-card/40 cursor-pointer hover:border-primary/30 transition-all",
+            "flex items-center gap-3 p-2.5 rounded-xl border border-white/5 bg-[#18181b]/50 cursor-pointer hover:bg-[#18181b] transition-all",
             expanded ? "rounded-b-none border-b-0" : ""
           )}
         >
-          {isToolCall ? (
-            <Terminal className="w-4 h-4 text-primary" />
-          ) : (
-            <CheckCircle2 className="w-4 h-4 text-green-500" />
-          )}
+          <div className="w-6 h-6 rounded-lg bg-white/5 flex items-center justify-center border border-white/5">
+            {isToolCall ? (
+                <Terminal className="w-3 h-3 text-primary" />
+            ) : (
+                <CheckCircle2 className="w-3 h-3 text-green-500" />
+            )}
+          </div>
           <div className="flex-1 min-w-0">
-             <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-0.5 opacity-60">
-               {isToolCall ? 'Executing Operation' : 'Execution Log'}
-             </div>
-             <div className="text-xs font-mono truncate text-foreground flex items-center gap-2">
-               {isToolCall ? `${msg.tool_name}` : 'Result received'}
+             <div className="text-[10px] font-mono text-muted-foreground flex items-center gap-2">
+               {isToolCall ? `exec: ${msg.tool_name}` : 'output: success'}
 
                {diffStats && (
                  <div className="flex items-center gap-1.5 ml-2">
-                    <span className="px-1.5 py-0.5 rounded bg-green-500/10 text-green-500 text-[10px] font-bold">+${diffStats.added}</span>
-                    <span className="px-1.5 py-0.5 rounded bg-red-500/10 text-red-500 text-[10px] font-bold">-${diffStats.removed}</span>
+                    <span className="text-green-500">+${diffStats.added}</span>
+                    <span className="text-red-500">-${diffStats.removed}</span>
                  </div>
                )}
              </div>
           </div>
-          {expanded ? <ChevronDown className="w-4 h-4 text-muted-foreground opacity-40" /> : <ChevronRight className="w-4 h-4 text-muted-foreground opacity-40" />}
+          <ChevronRight className={clsx("w-3 h-3 text-muted-foreground transition-transform", expanded && "rotate-90")} />
         </div>
 
         <AnimatePresence>
@@ -80,28 +79,10 @@ export default function MessageBubble({ msg }: MessageProps) {
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: "auto", opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              className="overflow-hidden bg-secondary/10 border border-t-0 border-border rounded-b-xl"
+              className="overflow-hidden bg-[#18181b]/30 border border-t-0 border-white/5 rounded-b-xl"
             >
-              <div className="p-4 font-mono text-[11px] whitespace-pre-wrap break-words max-h-[400px] overflow-y-auto no-scrollbar selection:bg-primary/20">
-                {isToolCall ? (
-                  <div>
-                    <div className="text-muted-foreground mb-2 opacity-50 uppercase tracking-widest text-[9px] font-bold">Input Arguments</div>
-                    {JSON.stringify(msg.tool_input, null, 2)}
-                  </div>
-                ) : (
-                  <div>
-                    <div className="text-muted-foreground mb-2 opacity-50 uppercase tracking-widest text-[9px] font-bold">Output Stream</div>
-                    {diffStats ? (
-                      <div className="flex flex-col gap-2">
-                         <div className="flex items-center gap-2 p-2 rounded bg-background border border-border">
-                            <FileText className="w-3.5 h-3.5" />
-                            <span className="font-bold text-primary">${diffStats.path}</span>
-                         </div>
-                         <div className="opacity-80 text-muted-foreground italic">File updated successfully. Diff tracking active.</div>
-                      </div>
-                    ) : msg.content}
-                  </div>
-                )}
+              <div className="p-4 font-mono text-[10px] whitespace-pre-wrap break-words max-h-[300px] overflow-y-auto no-scrollbar text-muted-foreground/80">
+                {isToolCall ? JSON.stringify(msg.tool_input, null, 2) : (diffStats ? `Updated ${diffStats.path}` : msg.content)}
               </div>
             </motion.div>
           )}
@@ -110,54 +91,57 @@ export default function MessageBubble({ msg }: MessageProps) {
     )
   }
 
-  const hasReasoning = msg.content?.includes('<thought>')
-  const displayContent = hasReasoning ? msg.content.split('</thought>')[1] : msg.content
-  const reasoningContent = hasReasoning ? msg.content.split('<thought>')[1].split('</thought>')[0] : null
+  const hasReasoning = msg.content?.includes('<thought>') || msg.reasoning
+  const displayContent = msg.content?.includes('<thought>') ? msg.content.split('</thought>')[1] : msg.content
+  const reasoningContent = msg.reasoning || (msg.content?.includes('<thought>') ? msg.content.split('<thought>')[1].split('</thought>')[0] : null)
 
   return (
     <div className={clsx(
-      "flex flex-col gap-3 py-10 px-4 md:px-0",
-      isUser ? "bg-background" : "bg-secondary/10 border-y border-border/30 shadow-inner"
+      "py-8 px-4",
+      isUser ? "" : ""
     )}>
-      <div className="max-w-3xl mx-auto w-full flex flex-col gap-6">
-        <div className="flex gap-6">
-          <div className={clsx(
-            "w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-sm border border-border",
-            isUser ? "bg-secondary text-foreground" : "bg-primary text-primary-foreground shadow-primary/20"
-          )}>
-            {isUser ? <User className="w-5.5 h-5.5" /> : <Bot className="w-5.5 h-5.5" />}
+      <div className="max-w-3xl mx-auto w-full">
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center gap-2 mb-1">
+             <div className={clsx(
+                "w-5 h-5 rounded-md flex items-center justify-center border border-white/10",
+                isUser ? "bg-white/5" : "bg-primary text-primary-foreground"
+             )}>
+                {isUser ? <User className="w-3 h-3" /> : <Sparkles className="w-3 h-3" />}
+             </div>
+             <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                {isUser ? 'User' : 'AgentForge'}
+             </span>
           </div>
 
-          <div className="flex-1 min-w-0 prose prose-invert prose-zinc prose-sm max-w-none leading-relaxed">
+          {reasoningContent && (
+            <div className="mb-4">
+                <button
+                  onClick={() => setShowReasoning(!showReasoning)}
+                  className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:text-white transition-colors"
+                >
+                  <Brain className={clsx("w-3 h-3", showReasoning && "text-primary")} />
+                  {showReasoning ? 'Hide Thought Process' : 'Show Thought Process'}
+                </button>
+                <AnimatePresence>
+                  {showReasoning && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+                      className="mt-3 pl-4 border-l border-white/10 text-xs text-muted-foreground/60 leading-relaxed overflow-hidden italic"
+                    >
+                      {reasoningContent}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+            </div>
+          )}
+
+          <div className="prose prose-invert prose-zinc prose-xs max-w-none leading-relaxed text-sm">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
               {displayContent || ''}
             </ReactMarkdown>
           </div>
         </div>
-
-        {reasoningContent && (
-          <div className="ml-15 border-l-2 border-border pl-6">
-            <button
-              onClick={() => setShowReasoning(!showReasoning)}
-              className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors group"
-            >
-              <Brain className="w-3.5 h-3.5 group-hover:animate-pulse" />
-              {showReasoning ? 'Collapse Reasoning' : 'Deep Thinking Analysis'}
-            </button>
-            <AnimatePresence>
-              {showReasoning && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  className="mt-3 p-5 bg-secondary/20 rounded-2xl border border-border/50 text-xs text-muted-foreground/80 leading-relaxed overflow-hidden font-medium"
-                >
-                  {reasoningContent}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        )}
       </div>
     </div>
   )

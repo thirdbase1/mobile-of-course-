@@ -210,6 +210,15 @@ PROVIDERS = {
         },
         "parallel_tool_calls": False,
     },
+    "openrouter": {
+        "url":    "https://openrouter.ai/api/v1/chat/completions",
+        "models": {
+            "claude-3.5-sonnet": "anthropic/claude-3.5-sonnet",
+            "gpt-4o":            "openai/gpt-4o",
+            "deepseek-r1":       "deepseek/deepseek-r1",
+        },
+        "parallel_tool_calls": True,
+    },
     "xai": {
         "url":    "https://api.x.ai/v1/chat/completions",
         "models": {
@@ -303,10 +312,12 @@ async def run_agent_loop(
 
         await websocket.send_json({"type": "message_start", "id": asst_id})
 
-        async for event in _stream_model(PROVIDERS[provider]["url"], api_key, provider, api_model, messages, TOOL_DEFINITIONS, cfg.get("parallel_tool_calls", False)):
-            if event["type"] == "token":
+        async for event in _stream_model(cfg["url"], api_key, provider, api_model, messages, TOOL_DEFINITIONS, cfg.get("parallel_tool_calls", False)):
+            if event["type"] == "reasoning":
+                await websocket.send_json({"type": "reasoning", "id": asst_id, "content": event["content"]})
+            elif event["type"] == "token":
                 full_content += event["content"]
-                await websocket.send_json({"type": "token", "content": event["content"]})
+                await websocket.send_json({"type": "token", "id": asst_id, "content": event["content"]})
             elif event["type"] == "tool_calls":
                 tool_calls = event["tool_calls"]
             elif event["type"] == "error":
@@ -353,6 +364,9 @@ async def run_agent_loop(
 async def _stream_model(url, api_key, provider, model, messages, tools, parallel):
     import httpx
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    if provider == "openrouter":
+        headers["HTTP-Referer"] = "https://agentforge-frontend-ambi.onrender.com"
+        headers["X-Title"] = "AgentForge"
     payload = {"model": model, "messages": messages, "tools": tools, "stream": True, "max_tokens": 4096}
     if parallel: payload["parallel_tool_calls"] = True
 
@@ -360,7 +374,8 @@ async def _stream_model(url, api_key, provider, model, messages, tools, parallel
     async with httpx.AsyncClient(timeout=120) as client:
         async with client.stream("POST", url, json=payload, headers=headers) as resp:
             if resp.status_code != 200:
-                yield {"type": "error", "message": f"API error {resp.status_code}"}
+                err_body = await resp.aread()
+                yield {"type": "error", "message": f"API error {resp.status_code}: {err_body.decode()}"}
                 return
             async for line in resp.aiter_lines():
                 if not line.startswith("data: "): continue
@@ -369,6 +384,10 @@ async def _stream_model(url, api_key, provider, model, messages, tools, parallel
                 try:
                     chunk = json.loads(raw)
                     delta = chunk["choices"][0]["delta"]
+                    # Extract reasoning (thinking)
+                    reasoning = delta.get("reasoning_content") or delta.get("reasoning")
+                    if reasoning: yield {"type": "reasoning", "content": reasoning}
+
                     if delta.get("content"): yield {"type": "token", "content": delta["content"]}
                     for tc in delta.get("tool_calls", []):
                         idx = tc.get("index", 0)
