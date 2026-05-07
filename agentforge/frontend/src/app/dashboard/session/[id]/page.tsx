@@ -212,47 +212,30 @@ export default function SessionPage() {
           </div>
 
           {/* Input Area */}
-          <div className="p-6 bg-gradient-to-t from-[#09090b] via-[#09090b]/95 to-transparent absolute bottom-0 left-0 right-0 z-10">
-            <div className="max-w-3xl mx-auto relative">
-               <div className="absolute -top-12 left-0 flex items-center gap-2 overflow-x-auto no-scrollbar pb-2">
-                    <ModelSelector model={model} onModelChange={setModel} />
-
-                    <button type="button" className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:text-white transition-all backdrop-blur-md hover:bg-white/10 hover:border-white/20">
-                        <Plus className="w-3 h-3" />
-                        Add Context
-                    </button>
-               </div>
-
+          <div className="p-4 bg-gradient-to-t from-[#09090b] via-[#09090b]/95 to-transparent absolute bottom-0 left-0 right-0 z-10">
+            <div className="max-w-2xl mx-auto relative">
                <form
                 onSubmit={e => { e.preventDefault(); startAgent(input) }}
-                className="relative bg-[#18181b]/80 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl focus-within:border-white/20 transition-all overflow-hidden"
+                className="relative bg-[#18181b]/80 backdrop-blur-2xl border border-white/10 rounded-xl shadow-2xl focus-within:border-white/20 transition-all overflow-hidden flex items-end gap-3 px-4 py-3"
               >
+                <ModelSelector model={model} onModelChange={setModel} />
+                
                 <textarea
                   value={input}
                   onChange={e => setInput(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); startAgent(input) } }}
                   placeholder="Ask anything..."
-                  className="w-full bg-transparent px-5 py-6 text-sm focus:outline-none resize-none min-h-[80px] text-white placeholder:text-muted-foreground/40"
+                  className="flex-1 bg-transparent text-sm focus:outline-none resize-none text-white placeholder:text-muted-foreground/40"
                   rows={1}
                 />
 
-                <div className="flex items-center justify-between px-5 pb-5">
-                   <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/30">
-                        <div className="flex items-center gap-1.5">
-                            <Command className="w-3 h-3" />
-                            <span>Return to send</span>
-                        </div>
-                   </div>
-
-                   <button
-                    type="submit"
-                    disabled={!input.trim() || sending}
-                    className="flex items-center gap-2 px-4 py-2 bg-white text-black rounded-lg font-bold text-[10px] uppercase tracking-widest hover:bg-white/90 transition-all disabled:opacity-20 active:scale-95 shadow-[0_0_20px_rgba(255,255,255,0.1)]"
-                  >
-                    {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                    {sending ? 'Sending' : 'Submit'}
-                  </button>
-                </div>
+                <button
+                  type="submit"
+                  disabled={!input.trim() || sending}
+                  className="flex items-center justify-center flex-shrink-0 w-8 h-8 bg-white text-black rounded-lg font-bold hover:bg-white/90 transition-all disabled:opacity-20 active:scale-95"
+                >
+                  {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                </button>
               </form>
             </div>
           </div>

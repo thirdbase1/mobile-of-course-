@@ -42,11 +42,12 @@ export default function ModelSelector({ model, onModelChange }: ModelSelectorPro
         ref={buttonRef}
         type="button"
         onClick={() => setShowModal(!showModal)}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:text-white transition-all backdrop-blur-md hover:bg-white/10 hover:border-white/20"
+        className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg bg-white/10 border border-white/20 text-[9px] font-bold uppercase tracking-widest text-white hover:bg-white/20 transition-all flex-shrink-0"
+        title={MODELS.find(m => m.id === model)?.name || model}
       >
         <Cpu className="w-3 h-3" />
-        {MODELS.find(m => m.id === model)?.name || model}
-        <ChevronDown className={clsx("w-3 h-3 transition-transform duration-200", showModal && "rotate-180")} />
+        <span className="hidden sm:inline truncate max-w-[100px]">{MODELS.find(m => m.id === model)?.name.split(' ')[0] || 'Model'}</span>
+        <ChevronDown className={clsx("w-2.5 h-2.5 transition-transform duration-200", showModal && "rotate-180")} />
       </button>
 
       <AnimatePresence>
