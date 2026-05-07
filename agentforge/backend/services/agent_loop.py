@@ -11,8 +11,8 @@ from services.workspace import clone_repo_to_workspace, init_workspace, get_work
 
 log = logging.getLogger(__name__)
 
-MAX_ITER   = 20
-MAX_HIST   = 60
+MAX_ITER   = 30
+MAX_HIST   = 100
 
 SYSTEM_PROMPT = """\
 You are Agent Forge, a highly capable autonomous software engineering agent.
@@ -121,12 +121,15 @@ Keep explanations concise but clear.
 
 8. REASONING
 
-For complex tasks:
-- Think step-by-step internally
-- Provide a structured explanation when necessary
+For models that do not natively output reasoning (like most Llama/GPT models), you MUST use a structured approach to think before answering.
 
-Do NOT expose unnecessary internal chain-of-thought unless explicitly requested.
-Instead, summarize reasoning clearly.
+Format your response as follows if the model doesn't handle it:
+<thought>
+I will first check the current directory structure to understand the project...
+I notice that package.json is missing, I should...
+</thought>
+
+Actual answer or tool call goes here.
 
 ---
 
@@ -216,6 +219,11 @@ PROVIDERS = {
             "claude-3.5-sonnet": "anthropic/claude-3.5-sonnet",
             "gpt-4o":            "openai/gpt-4o",
             "deepseek-r1":       "deepseek/deepseek-r1",
+            "grok-3":            "x-ai/grok-3",
+            "grok-2":            "x-ai/grok-2",
+            "qwen-32b-reasoning": "qwen/qwen-2.5-72b-instruct", # Mapping reasoning
+            "llama-4-scout":     "meta-llama/llama-3.1-405b", # Placeholder for latest
+            "oss-120b":          "deepseek/deepseek-coder",
         },
         "parallel_tool_calls": True,
     },
@@ -367,11 +375,11 @@ async def _stream_model(url, api_key, provider, model, messages, tools, parallel
     if provider == "openrouter":
         headers["HTTP-Referer"] = "https://agentforge-frontend-ambi.onrender.com"
         headers["X-Title"] = "AgentForge"
-    payload = {"model": model, "messages": messages, "tools": tools, "stream": True, "max_tokens": 4096}
+    payload = {"model": model, "messages": messages, "tools": tools, "stream": True, "max_tokens": 8192}
     if parallel: payload["parallel_tool_calls"] = True
 
     acc = {}
-    async with httpx.AsyncClient(timeout=120) as client:
+    async with httpx.AsyncClient(timeout=180) as client:
         async with client.stream("POST", url, json=payload, headers=headers) as resp:
             if resp.status_code != 200:
                 err_body = await resp.aread()
@@ -384,11 +392,16 @@ async def _stream_model(url, api_key, provider, model, messages, tools, parallel
                 try:
                     chunk = json.loads(raw)
                     delta = chunk["choices"][0]["delta"]
-                    # Extract reasoning (thinking)
-                    reasoning = delta.get("reasoning_content") or delta.get("reasoning")
-                    if reasoning: yield {"type": "reasoning", "content": reasoning}
 
-                    if delta.get("content"): yield {"type": "token", "content": delta["content"]}
+                    # Extract reasoning (native or simulated)
+                    reasoning = delta.get("reasoning_content") or delta.get("reasoning")
+                    if reasoning:
+                        yield {"type": "reasoning", "content": reasoning}
+
+                    content = delta.get("content")
+                    if content:
+                        yield {"type": "token", "content": content}
+
                     for tc in delta.get("tool_calls", []):
                         idx = tc.get("index", 0)
                         if idx not in acc: acc[idx] = {"id": "", "type": "function", "function": {"name": "", "arguments": ""}}

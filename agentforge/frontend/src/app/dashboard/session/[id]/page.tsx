@@ -2,7 +2,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useStore, MODELS } from '@/lib/store'
-import { getSession, getMessages, openAgentSocket } from '@/lib/api'
+import { getSession, getMessages, openAgentSocket, api } from '@/lib/api'
 import MessageBubble from '@/components/MessageBubble'
 import {
   Send,
@@ -13,7 +13,11 @@ import {
   MessageSquare,
   Sparkles,
   Command,
-  Plus
+  Plus,
+  Terminal as TerminalIcon,
+  X,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react'
 import clsx from 'clsx'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -29,7 +33,9 @@ export default function SessionPage() {
   const [status, setStatus] = useState('Idle')
   const [loadingHistory, setLoadingHistory] = useState(true)
   const [showModelPicker, setShowModelPicker] = useState(false)
-  const [activeTab, setActiveTab] = useState<'chat' | 'code'>('chat')
+  const [activeTab, setActiveTab] = useState<'chat' | 'code' | 'sandbox'>('chat')
+  const [sandboxLogs, setSandboxLogs] = useState<any[]>([])
+  const [loadingLogs, setLoadingLogs] = useState(false)
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const wsRef = useRef<WebSocket | null>(null)
@@ -44,8 +50,26 @@ export default function SessionPage() {
   }, [id])
 
   useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-  }, [messages])
+    if (scrollRef.current && activeTab === 'chat') scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+  }, [messages, activeTab])
+
+  useEffect(() => {
+    if (activeTab === 'sandbox' && id) {
+        fetchLogs()
+    }
+  }, [activeTab, id])
+
+  async function fetchLogs() {
+    setLoadingLogs(true)
+    try {
+        const res = await api.get(`/execute/logs/${id}`)
+        setSandboxLogs(res.data)
+    } catch (err) {
+        console.error(err)
+    } finally {
+        setLoadingLogs(false)
+    }
+  }
 
   async function startAgent(text: string) {
     if (!text.trim() || sending) return
@@ -67,7 +91,6 @@ export default function SessionPage() {
           if (last?.role === 'assistant' && last.id === data.id) {
             return [...prev.slice(0, -1), { ...last, reasoning: (last.reasoning || '') + data.content }]
           }
-          // If the last message isn't the assistant or has a different ID, start a new assistant message with reasoning
           return [...prev, { role: 'assistant', content: '', reasoning: data.content, id: data.id }]
         })
       } else if (data.type === 'token') {
@@ -80,10 +103,9 @@ export default function SessionPage() {
         })
       } else if (data.type === 'status') {
         setStatus(data.message)
-      } else if (data.type === 'message_start') {
-         // Optionally handle message start
       } else if (data.type === 'tool_call') {
         setMessages(prev => [...prev, { role: 'tool_call', ...data }])
+        if (activeTab === 'sandbox') fetchLogs()
       } else if (data.type === 'tool_result') {
         setMessages(prev => {
           const updated = prev.map(m => {
@@ -94,6 +116,7 @@ export default function SessionPage() {
           })
           return [...updated, { role: 'tool_result', content: data.output, tc_id: data.tc_id }]
         })
+        if (activeTab === 'sandbox') fetchLogs()
       } else if (data.type === 'info') {
         setMessages(prev => [...prev, { role: 'info', content: data.message, id: 'info-' + Date.now() }])
       } else if (data.type === 'done') {
@@ -115,8 +138,8 @@ export default function SessionPage() {
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-[#09090b]">
-      {/* Mobile Tab Switcher */}
-      <div className="md:hidden flex border-b border-white/5 bg-black/20">
+      {/* Tab Switcher */}
+      <div className="flex border-b border-white/5 bg-black/20">
         <button
           onClick={() => setActiveTab('chat')}
           className={clsx("flex-1 py-3 text-[10px] font-bold uppercase tracking-widest transition-colors", activeTab === 'chat' ? "text-white border-b border-white" : "text-muted-foreground")}
@@ -128,6 +151,13 @@ export default function SessionPage() {
           className={clsx("flex-1 py-3 text-[10px] font-bold uppercase tracking-widest transition-colors", activeTab === 'code' ? "text-white border-b border-white" : "text-muted-foreground")}
         >
           Explorer
+        </button>
+        <button
+          onClick={() => setActiveTab('sandbox')}
+          className={clsx("flex-1 py-3 text-[10px] font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2", activeTab === 'sandbox' ? "text-white border-b border-white" : "text-muted-foreground")}
+        >
+          <TerminalIcon className="w-3 h-3" />
+          SB
         </button>
       </div>
 
@@ -157,7 +187,7 @@ export default function SessionPage() {
         {/* Chat Interface */}
         <div className={clsx(
           "flex-1 flex flex-col min-w-0 bg-background relative",
-          activeTab === 'code' ? "opacity-0 pointer-events-none md:opacity-100 md:pointer-events-auto" : "opacity-100"
+          activeTab !== 'chat' ? "hidden md:flex" : "flex"
         )}>
           <div ref={scrollRef} className="flex-1 overflow-y-auto no-scrollbar scroll-smooth">
             {messages.length === 0 && !loadingHistory ? (
@@ -187,6 +217,7 @@ export default function SessionPage() {
                <div className="absolute -top-12 left-0 flex items-center gap-2 overflow-x-auto no-scrollbar pb-2">
                     <div className="relative">
                         <button
+                            type="button"
                             onClick={() => setShowModelPicker(!showModelPicker)}
                             className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:text-white transition-all backdrop-blur-md"
                         >
@@ -206,6 +237,7 @@ export default function SessionPage() {
                                     {MODELS.map(m => (
                                     <button
                                         key={m.id}
+                                        type="button"
                                         onClick={() => { setModel(m.id); setShowModelPicker(false) }}
                                         className={clsx(
                                             "w-full text-left px-4 py-3 text-[10px] font-bold uppercase tracking-widest hover:bg-white/5 transition-all flex items-center justify-between group",
@@ -216,7 +248,7 @@ export default function SessionPage() {
                                             <span>{m.name}</span>
                                             <span className="text-[8px] opacity-40 font-mono tracking-tighter group-hover:opacity-60">{m.provider}</span>
                                         </div>
-                                        {model === m.id && <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_rgba(var(--primary),0.5)]" />}
+                                        {model === m.id && <div className="w-1.5 h-1.5 rounded-full bg-primary" />}
                                     </button>
                                     ))}
                                 </div>
@@ -225,7 +257,7 @@ export default function SessionPage() {
                         </AnimatePresence>
                     </div>
 
-                    <button className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:text-white transition-all backdrop-blur-md">
+                    <button type="button" className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:text-white transition-all backdrop-blur-md">
                         <Plus className="w-3 h-3" />
                         Add Context
                     </button>
@@ -263,6 +295,69 @@ export default function SessionPage() {
                 </div>
               </form>
             </div>
+          </div>
+        </div>
+
+        {/* Sandbox View */}
+        <div className={clsx(
+          "flex-1 flex flex-col min-w-0 bg-[#09090b] relative border-l border-white/5",
+          activeTab === 'sandbox' ? "flex fixed inset-0 z-50 md:relative" : "hidden"
+        )}>
+          <div className="h-12 border-b border-white/5 flex items-center justify-between px-4 bg-white/[0.02]">
+            <div className="flex items-center gap-2">
+                <TerminalIcon className="w-4 h-4 text-primary" />
+                <span className="text-[10px] font-bold uppercase tracking-widest text-white">Sandbox Logs</span>
+            </div>
+            <div className="flex items-center gap-2">
+                <button onClick={fetchLogs} className="p-1.5 hover:bg-white/5 rounded-md">
+                    <Sparkles className={clsx("w-3.5 h-3.5 text-muted-foreground", loadingLogs && "animate-spin")} />
+                </button>
+                <button onClick={() => setActiveTab('chat')} className="md:hidden p-1.5 hover:bg-white/5 rounded-md">
+                    <X className="w-4 h-4 text-white" />
+                </button>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-6 font-mono text-xs text-muted-foreground/80 space-y-6 no-scrollbar">
+            {sandboxLogs.length === 0 && !loadingLogs ? (
+              <div className="h-full flex flex-col items-center justify-center opacity-20">
+                <TerminalIcon className="w-12 h-12 mb-4" />
+                <p>No execution logs yet.</p>
+              </div>
+            ) : (
+              sandboxLogs.map((log, i) => (
+                <div key={i} className="space-y-2 border-l-2 border-white/5 pl-4 hover:border-primary/30 transition-colors">
+                  {log.type === 'call' ? (
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2 text-primary/80 font-bold">
+                        <TerminalIcon className="w-3 h-3" />
+                        <span>{log.tool}</span>
+                        <span className="text-[8px] opacity-30 ml-auto">{new Date(log.timestamp).toLocaleTimeString()}</span>
+                      </div>
+                      <pre className="bg-white/5 p-3 rounded-lg overflow-x-auto border border-white/5 text-[10px]">
+                        {JSON.stringify(log.input, null, 2)}
+                      </pre>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2 text-green-500/80 font-bold">
+                        <CheckCircle2 className="w-3 h-3" />
+                        <span>output</span>
+                      </div>
+                      <pre className="bg-black/40 p-3 rounded-lg overflow-x-auto border border-white/5 text-[10px] whitespace-pre-wrap">
+                        {log.output}
+                      </pre>
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+            {loadingLogs && (
+                <div className="flex items-center gap-2 p-4 text-[10px] uppercase font-bold tracking-widest opacity-30">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    Syncing logs...
+                </div>
+            )}
           </div>
         </div>
       </div>
