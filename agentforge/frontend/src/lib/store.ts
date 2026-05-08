@@ -1,23 +1,31 @@
 import { create } from 'zustand'
 
 export const MODELS = [
+  // GROQ
   { id: "groq/llama-3.3-70b",    name: "Llama 3.3 70B",    provider: "Groq" },
-  { id: "groq/qwen-32b",         name: "Qwen 2.5 32B",      provider: "Groq" },
-  { id: "groq/compound-mini",    name: "Compound Mini",    provider: "Groq" },
-  { id: "groq/compound",         name: "Compound",         provider: "Groq" },
+  { id: "groq/llama-3.1-70b",    name: "Llama 3.1 70B",    provider: "Groq" },
+  { id: "groq/llama-3.1-8b",     name: "Llama 3.1 8B",     provider: "Groq" },
+  { id: "groq/mixtral-8x7b",     name: "Mixtral 8x7B",     provider: "Groq" },
   { id: "groq/deepseek-r1-distill-llama-70b", name: "DeepSeek R1 (Llama 70B)", provider: "Groq" },
+  { id: "groq/qwen-32b",         name: "Qwen 2.5 32B",      provider: "Groq" },
+  { id: "groq/compound-mini",    name: "Groq Compound Mini", provider: "Groq" },
+  { id: "groq/compound",         name: "Groq Compound",      provider: "Groq" },
 
+  // OPENROUTER
   { id: "openrouter/grok-3",     name: "Grok 3",           provider: "OpenRouter" },
   { id: "openrouter/grok-2",     name: "Grok 2",           provider: "OpenRouter" },
   { id: "openrouter/deepseek-r1", name: "DeepSeek R1",      provider: "OpenRouter" },
   { id: "openrouter/claude-3.5-sonnet", name: "Claude 3.5 Sonnet", provider: "OpenRouter" },
   { id: "openrouter/gpt-4o",     name: "GPT-4o",           provider: "OpenRouter" },
-  { id: "openrouter/qwen-32b-reasoning", name: "Qwen 2.5 72B (Reasoning)", provider: "OpenRouter" },
+  { id: "openrouter/qwen-32b-reasoning", name: "Qwen 3 32B (Reasoning)", provider: "OpenRouter" },
   { id: "openrouter/llama-4-scout", name: "Llama 4 Scout",   provider: "OpenRouter" },
   { id: "openrouter/oss-120b",   name: "GPT OSS 120B",     provider: "OpenRouter" },
+  { id: "openrouter/oss-20b",    name: "GPT OSS 20B",      provider: "OpenRouter" },
 
+  // xAI (Native)
   { id: "xai/grok-3",            name: "Grok 3",           provider: "xAI" },
   { id: "xai/grok-2",            name: "Grok 2",           provider: "xAI" },
+  { id: "xai/grok-2-mini",       name: "Grok 2 Mini",      provider: "xAI" },
   { id: "xai/grok-latest",       name: "Grok Latest",      provider: "xAI" },
 ]
 

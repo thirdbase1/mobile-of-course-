@@ -202,14 +202,14 @@ PROVIDERS = {
     "groq": {
         "url":     "https://api.groq.com/openai/v1/chat/completions",
         "models":  {
-            "llama-3.3-70b":  "llama-3.3-70b-versatile",
-            "llama-3.1-70b":  "llama-3.1-70b-versatile",
-            "mixtral-8x7b":   "mixtral-8x7b-32768",
-            "llama-3.1-8b":   "llama-3.1-8b-instant",
+            "llama-3.3-70b": "llama-3.3-70b-versatile",
+            "llama-3.1-70b": "llama-3.1-70b-versatile",
+            "llama-3.1-8b": "llama-3.1-8b-instant",
+            "mixtral-8x7b": "mixtral-8x7b-32768",
             "deepseek-r1-distill-llama-70b": "deepseek-r1-distill-llama-70b",
             "qwen-32b":       "qwen-2.5-32b",
-            "compound-mini":  "groq-compound-mini",
-            "compound":       "groq-compound",
+            "compound-mini": "groq-compound-mini",
+            "compound": "groq-compound",
         },
         "parallel_tool_calls": False,
     },
@@ -224,17 +224,18 @@ PROVIDERS = {
             "qwen-32b-reasoning": "qwen/qwen-2.5-72b-instruct",
             "llama-4-scout":     "meta-llama/llama-3.1-405b",
             "oss-120b":          "deepseek/deepseek-coder",
+            "oss-20b":           "meta-llama/llama-3.1-405b", # Placeholder
         },
         "parallel_tool_calls": True,
     },
     "xai": {
         "url":    "https://api.x.ai/v1/chat/completions",
         "models": {
+            "grok-3":      "grok-3",
             "grok-2":      "grok-2-latest",
             "grok-2-mini": "grok-2-vision-1212",
             "grok-beta":   "grok-beta",
             "grok-latest": "grok-latest",
-            "grok-3":    "grok-3",
         },
         "parallel_tool_calls": True,
     },
@@ -348,13 +349,11 @@ async def run_agent_loop(
             call_id = str(uuid.uuid4())
             await websocket.send_json({"type": "tool_call", "id": call_id, "tc_id": tc_id, "tool_name": fn_name, "tool_input": fn_args})
 
-            # Use local db session for this thread if needed, but for now we'll just await
             output = await execute_tool(fn_name, fn_args, tool_ctx)
 
             await websocket.send_json({"type": "tool_result", "id": call_id, "tc_id": tc_id, "output": output[:8000]})
             return tc_id, fn_name, fn_args, output
 
-        # Execute all tool calls in parallel
         results = await asyncio.gather(*(execute_and_log(tc) for tc in tool_calls))
 
         for tc_id, fn_name, fn_args, output in results:
