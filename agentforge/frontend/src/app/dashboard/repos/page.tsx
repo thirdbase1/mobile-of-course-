@@ -12,15 +12,11 @@ import {
   Globe,
   Loader2,
   CheckCircle2,
-  ArrowLeft,
   Terminal,
   MessageSquare,
   Sparkles
 } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import clsx from 'clsx'
 
 export default function ReposPage() {
   const router = useRouter()
@@ -41,6 +37,15 @@ export default function ReposPage() {
     try {
       const r = await importRepo({ full_name })
       setRepos([...repos, r])
+
+      // Auto-create chat session and redirect
+      const s = await createSession({
+          title: `Project: ${r.name}`,
+          model,
+          repo_id: r.id
+      })
+      upsertSession(s)
+      router.push(`/dashboard/session/${s.id}`)
     } catch (err) {
       console.error(err)
     } finally {

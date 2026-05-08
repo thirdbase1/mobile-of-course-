@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import Header from '@/components/Header'
 import { useStore } from '@/lib/store'
-import { getMe, getRepos } from '@/lib/api'
+import { getMe, getRepos, getKeys } from '@/lib/api'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { setUser, setRepos } = useStore()
@@ -17,11 +17,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
     setMounted(true)
 
-    getMe().then(setUser).catch(() => {
-      localStorage.removeItem('af_token');
-      router.replace('/')
+    // Core Init
+    Promise.all([
+        getMe().then(setUser),
+        getRepos().then(setRepos),
+        getKeys() // Ensure keys are in context/memory if needed, but the backend handles them.
+                 // However, we fetch to ensure session is valid.
+    ]).catch((err) => {
+        console.error("Initialization failed", err)
+        localStorage.removeItem('af_token');
+        router.replace('/')
     })
-    getRepos().then(setRepos).catch(() => {})
   }, [])
 
   if (!mounted) return null

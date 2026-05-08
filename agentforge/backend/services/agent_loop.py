@@ -208,17 +208,10 @@ PROVIDERS = {
             "llama-3.1-8b":   "llama-3.1-8b-instant",
             "deepseek-r1-distill-llama-70b": "deepseek-r1-distill-llama-70b",
             "qwen-32b":       "qwen-2.5-32b",
-            "groq/compound-mini":  "groq-compound-mini",
-            "groq/compound":       "groq-compound",
-            "gpt-oss-120b-reasoning": "gpt-oss-120b",
-            "gpt-oss-20b-reasoning": "gpt-oss-20b",
-            "qwen-3-32b-reasoning": "qwen-3-32b",
-            "gpt-oss-120b-tools": "gpt-oss-120b",
-            "gpt-oss-20b-tools": "gpt-oss-20b",
-            "llama-4-scout-tools": "llama-4-scout",
-            "qwen-3-32b-tools": "qwen-3-32b",
+            "compound-mini":  "groq-compound-mini",
+            "compound":       "groq-compound",
         },
-        "parallel_tool_calls": True,
+        "parallel_tool_calls": False,
     },
     "openrouter": {
         "url":    "https://openrouter.ai/api/v1/chat/completions",
@@ -228,18 +221,9 @@ PROVIDERS = {
             "deepseek-r1":       "deepseek/deepseek-r1",
             "grok-3":            "x-ai/grok-3",
             "grok-2":            "x-ai/grok-2",
-            "qwen-32b-reasoning": "qwen/qwen-2.5-72b-instruct", # Mapping reasoning
-            "llama-4-scout":     "meta-llama/llama-3.1-405b", # Placeholder for latest
+            "qwen-32b-reasoning": "qwen/qwen-2.5-72b-instruct",
+            "llama-4-scout":     "meta-llama/llama-3.1-405b",
             "oss-120b":          "deepseek/deepseek-coder",
-            "nemotron-120b":     "nvidia/nemotron-3-super-120b-a12b:free",
-            "owl-alpha":         "openrouter/owl-alpha",
-            "qianfan-ocr":       "baidu/qianfan-ocr-fast:free",
-            "laguna-m1":         "poolside/laguna-m.1:free",
-            "laguna-xs2":        "poolside/laguna-xs.2:free",
-            "cobuddy":           "baidu/cobuddy:free",
-            "qwen3-coder":       "qwen/qwen3-coder:free",
-            "minimax-m25":       "minimax/minimax-m2.5:free",
-            "glm-45-air":        "z-ai/glm-4.5-air:free",
         },
         "parallel_tool_calls": True,
     },
@@ -290,7 +274,6 @@ async def run_agent_loop(
 
     # Initialize workspace
     await init_workspace(session.id)
-    await websocket.send_json({"type": "info", "message": "Initializing high-capacity sandbox..."})
 
     # Tool execution context
     tool_ctx = {
@@ -298,6 +281,7 @@ async def run_agent_loop(
         "session_id":   session.id,
         "db":           db,
         "user":         user,
+        "websocket":    websocket,
     }
 
     # Load repo info if session has one
@@ -305,8 +289,7 @@ async def run_agent_loop(
     if session.repo_id:
         repo = (await db.execute(select(Repo).where(Repo.id == session.repo_id))).scalar_one_or_none()
         if repo:
-            await websocket.send_json({"type": "info", "message": f"Cloning repository {repo.full_name}..."})
-            ok, msg = await clone_repo_to_workspace(session.id, repo.full_name, user.github_token, repo.default_branch)
+            ok, msg = await clone_repo_to_workspace(session.id, repo.full_name, user.github_token, repo.default_branch, websocket=websocket)
             if not ok:
                 await websocket.send_json({"type": "error", "message": f"Failed to initialize workspace: {msg}"})
                 return
@@ -356,34 +339,30 @@ async def run_agent_loop(
             await websocket.send_json({"type": "done"})
             return
 
-        for tc in tool_calls:
+        # Parallel tool execution
+        async def execute_and_log(tc):
             fn_name = tc["function"]["name"]
             fn_args = json.loads(tc["function"]["arguments"] or "{}")
             tc_id   = tc.get("id", str(uuid.uuid4()))
 
-            status_map = {
-                "run_bash": "Running command...",
-                "write_file": "Editing file...",
-                "read_file": "Reading file...",
-                "list_files": "Scanning workspace...",
-                "search_files": "Searching...",
-                "analyze_codebase": "Analyzing project...",
-                "github_commit_and_push": "Pushing to GitHub...",
-                "github_create_repository": "Creating repository...",
-                "web_search": "Searching the web...",
-            }
-            await websocket.send_json({"type": "status", "message": status_map.get(fn_name, "Thinking...")})
-
             call_id = str(uuid.uuid4())
             await websocket.send_json({"type": "tool_call", "id": call_id, "tc_id": tc_id, "tool_name": fn_name, "tool_input": fn_args})
-            db.add(Message(id=call_id, session_id=session.id, role="tool_call", tool_name=fn_name, tool_call_id=tc_id, tool_input=fn_args))
-            await db.commit()
 
+            # Use local db session for this thread if needed, but for now we'll just await
             output = await execute_tool(fn_name, fn_args, tool_ctx)
+
             await websocket.send_json({"type": "tool_result", "id": call_id, "tc_id": tc_id, "output": output[:8000]})
+            return tc_id, fn_name, fn_args, output
+
+        # Execute all tool calls in parallel
+        results = await asyncio.gather(*(execute_and_log(tc) for tc in tool_calls))
+
+        for tc_id, fn_name, fn_args, output in results:
+            db.add(Message(id=str(uuid.uuid4()), session_id=session.id, role="tool_call", tool_name=fn_name, tool_call_id=tc_id, tool_input=fn_args))
             db.add(Message(session_id=session.id, role="tool_result", tool_call_id=tc_id, tool_output=output[:16000]))
-            await db.commit()
             messages.append({"role": "tool", "tool_call_id": tc_id, "content": output[:10000]})
+
+        await db.commit()
 
 async def _stream_model(url, api_key, provider, model, messages, tools, parallel):
     import httpx
@@ -409,14 +388,11 @@ async def _stream_model(url, api_key, provider, model, messages, tools, parallel
                     chunk = json.loads(raw)
                     delta = chunk["choices"][0]["delta"]
 
-                    # Extract reasoning (native or simulated)
                     reasoning = delta.get("reasoning_content") or delta.get("reasoning")
-                    if reasoning:
-                        yield {"type": "reasoning", "content": reasoning}
+                    if reasoning: yield {"type": "reasoning", "content": reasoning}
 
                     content = delta.get("content")
-                    if content:
-                        yield {"type": "token", "content": content}
+                    if content: yield {"type": "token", "content": content}
 
                     for tc in delta.get("tool_calls", []):
                         idx = tc.get("index", 0)
