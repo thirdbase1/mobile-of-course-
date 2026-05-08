@@ -121,12 +121,9 @@ Keep explanations concise but clear.
 
 8. REASONING
 
-For models that do not natively output reasoning (like most Llama/GPT models), you MUST use a structured approach to think before answering.
-
-Format your response as follows if the model doesn't handle it:
+For models that do not natively output reasoning, format your response as follows:
 <thought>
-I will first check the current directory structure to understand the project...
-I notice that package.json is missing, I should...
+Step-by-step thinking...
 </thought>
 
 Actual answer or tool call goes here.
@@ -206,12 +203,12 @@ PROVIDERS = {
             "llama-3.1-70b":  "llama-3.1-70b-versatile",
             "llama-3.1-8b":   "llama-3.1-8b-instant",
             "mixtral-8x7b":   "mixtral-8x7b-32768",
-            "deepseek-r1-distill-llama-70b": "deepseek-r1-distill-llama-70b",
-            "qwen-2.5-32b":    "qwen-2.5-32b",
-            "qwen-3-32b":      "qwen-2.5-32b", # Aliasing as requested
-            "gpt-oss-120b":    "deepseek-r1-distill-llama-70b", # Best match for Reasoning on Groq
-            "gpt-oss-20b":     "llama-3.1-8b", # Placeholder
-            "llama-4-scout":   "llama-3.3-70b-versatile", # Placeholder
+            "deepseek-r1":    "deepseek-r1-distill-llama-70b",
+            "qwen-2.5-32b":   "qwen-2.5-32b",
+            "gpt-oss-120b":   "deepseek-r1-distill-llama-70b", # Closest match
+            "gpt-oss-20b":    "llama-3.1-8b",
+            "qwen-3-32b":     "qwen-2.5-32b",
+            "llama-4-scout":  "llama-3.3-70b-versatile",
             "compound-mini":  "groq-compound-mini",
             "compound":       "groq-compound",
         },
@@ -224,15 +221,15 @@ PROVIDERS = {
             "gpt-4o":            "openai/gpt-4o",
             "deepseek-r1":       "deepseek/deepseek-r1",
             "grok-3":            "x-ai/grok-3",
-            "nemotron-3-super":  "nvidia/nemotron-3-super-120b-a12b:free",
+            "nemotron-3-super":  "nvidia/nemotron-3-super-120b-a12b",
             "owl-alpha":         "openrouter/owl-alpha",
-            "qianfan-ocr":       "baidu/qianfan-ocr-fast:free",
-            "laguna-m1":         "poolside/laguna-m.1:free",
-            "laguna-xs2":        "poolside/laguna-xs.2:free",
-            "cobuddy":           "baidu/cobuddy:free",
-            "qwen3-coder":       "qwen/qwen-2.5-coder-32b-instruct:free", # Corrected name
-            "minimax-m2.5":      "minimax/minimax-m2.5:free",
-            "glm-4.5-air":       "z-ai/glm-4.5-air:free",
+            "qianfan-ocr":       "baidu/qianfan-ocr-fast",
+            "laguna-m1":         "poolside/laguna-m.1",
+            "laguna-xs2":        "poolside/laguna-xs.2",
+            "cobuddy":           "baidu/cobuddy",
+            "qwen3-coder":       "qwen/qwen-2.5-coder-32b-instruct",
+            "minimax-m2.5":      "minimax/minimax-01",
+            "glm-4.5-air":       "z-ai/glm-4.5-air",
         },
         "parallel_tool_calls": True,
     },
@@ -279,19 +276,9 @@ async def run_agent_loop(
         await websocket.send_json({"type": "error", "message": f"No API key for {provider}."})
         return
 
-    # Initialize workspace
     await init_workspace(session.id)
+    tool_ctx = {"github_token": user.github_token, "session_id": session.id, "db": db, "user": user, "websocket": websocket}
 
-    # Tool execution context
-    tool_ctx = {
-        "github_token": user.github_token,
-        "session_id":   session.id,
-        "db":           db,
-        "user":         user,
-        "websocket":    websocket,
-    }
-
-    # Load repo info if session has one
     repo_info = ""
     if session.repo_id:
         repo = (await db.execute(select(Repo).where(Repo.id == session.repo_id))).scalar_one_or_none()
@@ -304,17 +291,13 @@ async def run_agent_loop(
             tool_ctx["default_repo"]   = repo.full_name
             tool_ctx["default_branch"] = repo.default_branch
 
-    # Build conversation history
     hist = (await db.execute(select(Message).where(Message.session_id == session.id).order_by(Message.created_at))).scalars().all()
     messages = [{"role": "system", "content": SYSTEM_PROMPT.replace("{session_id}", session.id) + repo_info}]
-
     for m in hist:
         if m.role == "user": messages.append({"role": "user", "content": m.content})
         elif m.role == "assistant" and m.content: messages.append({"role": "assistant", "content": m.content})
-        elif m.role == "tool_call":
-            messages.append({"role": "assistant", "content": None, "tool_calls": [{"id": m.tool_call_id, "type": "function", "function": {"name": m.tool_name, "arguments": json.dumps(m.tool_input)}}]})
-        elif m.role == "tool_result":
-            messages.append({"role": "tool", "tool_call_id": m.tool_call_id, "content": m.tool_output})
+        elif m.role == "tool_call": messages.append({"role": "assistant", "content": None, "tool_calls": [{"id": m.tool_call_id, "type": "function", "function": {"name": m.tool_name, "arguments": json.dumps(m.tool_input)}}]})
+        elif m.role == "tool_result": messages.append({"role": "tool", "tool_call_id": m.tool_call_id, "content": m.tool_output})
 
     if len(messages) > MAX_HIST + 1: messages = [messages[0]] + messages[-(MAX_HIST):]
 
@@ -323,40 +306,29 @@ async def run_agent_loop(
         iteration += 1
         asst_id = str(uuid.uuid4())
         full_content, tool_calls = "", []
-
         await websocket.send_json({"type": "message_start", "id": asst_id})
-
         async for event in _stream_model(cfg["url"], api_key, provider, api_model, messages, TOOL_DEFINITIONS, cfg.get("parallel_tool_calls", False)):
-            if event["type"] == "reasoning":
-                await websocket.send_json({"type": "reasoning", "id": asst_id, "content": event["content"]})
+            if event["type"] == "reasoning": await websocket.send_json({"type": "reasoning", "id": asst_id, "content": event["content"]})
             elif event["type"] == "token":
                 full_content += event["content"]
                 await websocket.send_json({"type": "token", "id": asst_id, "content": event["content"]})
-            elif event["type"] == "tool_calls":
-                tool_calls = event["tool_calls"]
+            elif event["type"] == "tool_calls": tool_calls = event["tool_calls"]
             elif event["type"] == "error":
                 await websocket.send_json({"type": "error", "message": event["message"]})
                 return
-
         db.add(Message(id=asst_id, session_id=session.id, role="assistant", content=full_content or None))
         await db.commit()
         messages.append({"role": "assistant", "content": full_content or None, "tool_calls": tool_calls or None})
-
         if not tool_calls:
             await websocket.send_json({"type": "done"})
             return
-
-        # Parallel tool execution
         async def execute_and_log(tc):
-            fn_name = tc["function"]["name"]
-            fn_args = json.loads(tc["function"]["arguments"] or "{}")
-            tc_id   = tc.get("id", str(uuid.uuid4()))
+            fn_name, fn_args, tc_id = tc["function"]["name"], json.loads(tc["function"]["arguments"] or "{}"), tc.get("id", str(uuid.uuid4()))
             call_id = str(uuid.uuid4())
             await websocket.send_json({"type": "tool_call", "id": call_id, "tc_id": tc_id, "tool_name": fn_name, "tool_input": fn_args})
             output = await execute_tool(fn_name, fn_args, tool_ctx)
             await websocket.send_json({"type": "tool_result", "id": call_id, "tc_id": tc_id, "output": output[:8000]})
             return tc_id, fn_name, fn_args, output
-
         results = await asyncio.gather(*(execute_and_log(tc) for tc in tool_calls))
         for tc_id, fn_name, fn_args, output in results:
             db.add(Message(id=str(uuid.uuid4()), session_id=session.id, role="tool_call", tool_name=fn_name, tool_call_id=tc_id, tool_input=fn_args))
@@ -367,30 +339,22 @@ async def run_agent_loop(
 async def _stream_model(url, api_key, provider, model, messages, tools, parallel):
     import httpx
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-    if provider == "openrouter":
-        headers["HTTP-Referer"] = "https://agentforge-frontend-ambi.onrender.com"
-        headers["X-Title"] = "AgentForge"
+    if provider == "openrouter": headers["HTTP-Referer"], headers["X-Title"] = "https://agentforge-frontend-ambi.onrender.com", "AgentForge"
     payload = {"model": model, "messages": messages, "tools": tools, "stream": True, "max_tokens": 8192}
     if parallel: payload["parallel_tool_calls"] = True
-
     acc = {}
     async with httpx.AsyncClient(timeout=180) as client:
         async with client.stream("POST", url, json=payload, headers=headers) as resp:
-            if resp.status_code != 200:
-                err_body = await resp.aread()
-                yield {"type": "error", "message": f"API error {resp.status_code}: {err_body.decode()}"}
-                return
+            if resp.status_code != 200: yield {"type": "error", "message": f"API error {resp.status_code}: {(await resp.aread()).decode()}"}; return
             async for line in resp.aiter_lines():
                 if not line.startswith("data: "): continue
                 raw = line[6:].strip()
                 if raw == "[DONE]": break
                 try:
-                    chunk = json.loads(raw)
-                    delta = chunk["choices"][0]["delta"]
+                    chunk = json.loads(raw); delta = chunk["choices"][0]["delta"]
                     reasoning = delta.get("reasoning_content") or delta.get("reasoning")
                     if reasoning: yield {"type": "reasoning", "content": reasoning}
-                    content = delta.get("content")
-                    if content: yield {"type": "token", "content": content}
+                    if delta.get("content"): yield {"type": "token", "content": delta["content"]}
                     for tc in delta.get("tool_calls", []):
                         idx = tc.get("index", 0)
                         if idx not in acc: acc[idx] = {"id": "", "type": "function", "function": {"name": "", "arguments": ""}}
