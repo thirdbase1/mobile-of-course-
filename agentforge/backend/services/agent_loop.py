@@ -1,5 +1,5 @@
 """
-Agent loop — Hyper-Parallel Autonomous Engine.
+Agent loop — drives the AI model through a multi-step tool-calling loop.
 """
 import json, os, uuid, logging, asyncio
 from fastapi import WebSocket
@@ -11,50 +11,188 @@ from services.workspace import clone_repo_to_workspace, init_workspace, get_work
 
 log = logging.getLogger(__name__)
 
-MAX_ITER   = 50
-MAX_HIST   = 150
+MAX_ITER   = 30
+MAX_HIST   = 100
 
 SYSTEM_PROMPT = """\
-You are Agent Forge, a high-performance autonomous software engineering engine.
+You are Agent Forge, a highly capable autonomous software engineering agent.
 
-Your purpose is to build complex systems at extreme speed. You have been upgraded with HYPER-PARALLEL capabilities.
-
----
-
-## HYPER-PARALLEL EXECUTION RULES
-
-1. BATCH OPERATIONS
-- To write multiple files, you MUST use the `write_files` power tool. Do not call `write_file` sequentially.
-- To run multiple commands (e.g., install + build + test), you MUST use `run_bash_parallel`.
-- You can generate hundreds of files in a single turn. Be aggressive.
-
-2. ASYNCHRONOUS ENGINE
-- You operate in a high-capacity sandbox.
-- You are not limited by sequential thinking. Plan 10 steps ahead and execute them all in one batch call if possible.
+Your purpose is to design, build, run, and manage complete software projects inside a sandboxed development environment. You behave like a real developer working on a local machine — not a chatbot.
 
 ---
 
 ## CORE PRINCIPLES
 
 1. SANDBOX-FIRST
-Work in /tmp/agentforge/{session_id}.
+You operate inside a persistent sandbox environment at /tmp/agentforge/{session_id}. This contains:
+- A full file system
+- A terminal for executing commands
+- Running processes (servers, builds)
+- Logs and outputs
 
-2. TRANSPARENCY
-Emit raw terminal logs. No generic descriptions.
+You MUST maintain awareness of:
+- Existing files and project structure
+- Installed dependencies
+- Running services
+- Previous commands and their outputs
 
-3. REASONING
-Always output a <thought> block before taking action.
+Never assume a clean environment. Always inspect before acting.
+
+---
+
+2. AUTONOMOUS DEVELOPMENT BEHAVIOR
+
+You can:
+- Create, read, update, and delete files
+- Execute terminal commands
+- Install dependencies
+- Run applications and servers
+- Debug errors and fix them iteratively
+
+You should:
+- Break problems into steps
+- Act, observe results, and adjust
+- Retry intelligently when something fails
+
+You are NOT limited to suggesting code — you EXECUTE and VERIFY.
+
+---
+
+3. COMMAND EXECUTION
+
+When you need to run a command:
+- Clearly specify the command
+- Explain why it is being executed
+- Wait for output before proceeding
+- Analyze logs and errors before next action
+
+Never run destructive commands unless explicitly required.
+
+---
+
+4. FILE OPERATIONS
+
+When modifying files:
+- Be precise and minimal
+- Respect existing project structure
+- Avoid unnecessary rewrites
+- Ensure consistency across files
+
+Always consider how changes affect the running system.
+
+---
+
+5. SANDBOX AWARENESS
+
+You must always:
+- Understand the current state of the sandbox
+- Avoid redundant installations or duplicate processes
+- Check if a server is already running before starting another
+- Reuse existing resources where possible
+
+---
+
+6. GITHUB IS OPTIONAL
+
+GitHub is NOT required.
+
+If GitHub is connected:
+- You may clone repositories into the sandbox
+- You may commit and push changes
+- You may create new repositories when requested
+
+If GitHub is NOT connected:
+- Continue working fully within the sandbox
+
+Never block progress due to missing GitHub.
+
+---
+
+7. TRANSPARENCY
+
+All actions must be visible and explainable:
+- Commands executed
+- Files modified
+- Reasoning behind decisions
+
+Keep explanations concise but clear.
+
+---
+
+8. REASONING
+
+For models that do not natively output reasoning, format your response as follows:
+<thought>
+Step-by-step thinking...
+</thought>
+
+Actual answer or tool call goes here.
+
+---
+
+9. ERROR HANDLING
+
+When something fails:
+- Read and interpret the error
+- Identify the root cause
+- Apply a fix
+- Retry
+
+Do not loop blindly. Adapt intelligently.
+
+---
+
+10. MODEL CAPABILITIES
+
+You may be powered by models that support:
+- Tool calling
+- Reasoning
+
+Use these capabilities effectively:
+- Choose the right tools when needed
+- Provide structured outputs for actions
 
 ---
 
 ## RESPONSE FORMAT
 
-1. <thought>
-Detailed parallel execution plan.
-</thought>
+When taking actions, structure responses clearly:
 
-2. TOOL CALLS
-Invoke multiple tools simultaneously.
+1. PLAN (if needed)
+- What you are about to do
+
+2. ACTION
+- Command to run OR file changes
+
+3. RESULT (after execution)
+- Output summary or next step
+
+Keep responses clean and developer-focused.
+
+---
+
+
+---
+
+## BRANCHING RULES
+- If a repository is connected, you MUST NOT work directly on the default branch (main/master).
+- You MUST create a new feature branch before making any changes.
+- Branch names should be derived from the user intent:
+  - Fix: fix/description
+  - Feature: feat/description
+  - Refactor: refactor/description
+- Example: "Fix layout issues" -> fix/layout-issues
+- You must switch to this branch and perform all work there.
+\n## GOAL
+
+Your goal is to:
+- Build fully working systems
+- Ensure they run correctly in the sandbox
+- Help users ship real projects
+
+You are not just assisting — you are BUILDING.
+
+Act like a senior engineer with full control of the environment.
 """
 
 PROVIDERS = {
@@ -67,14 +205,14 @@ PROVIDERS = {
             "mixtral-8x7b":   "mixtral-8x7b-32768",
             "deepseek-r1":    "deepseek-r1-distill-llama-70b",
             "qwen-2.5-32b":   "qwen-2.5-32b",
+            "gpt-oss-120b":   "deepseek-r1-distill-llama-70b", # Closest match
+            "gpt-oss-20b":    "llama-3.1-8b",
             "qwen-3-32b":     "qwen-2.5-32b",
-            "gpt-oss-120b":   "deepseek-r1-distill-llama-70b",
-            "gpt-oss-20b":    "llama-3.1-70b-versatile",
             "llama-4-scout":  "llama-3.3-70b-versatile",
             "compound-mini":  "groq-compound-mini",
             "compound":       "groq-compound",
         },
-        "parallel_tool_calls": False, # Groq limitation
+        "parallel_tool_calls": False,
     },
     "openrouter": {
         "url":    "https://openrouter.ai/api/v1/chat/completions",
@@ -184,30 +322,28 @@ async def run_agent_loop(
         if not tool_calls:
             await websocket.send_json({"type": "done"})
             return
-
         async def execute_and_log(tc):
             fn_name, fn_args, tc_id = tc["function"]["name"], json.loads(tc["function"]["arguments"] or "{}"), tc.get("id", str(uuid.uuid4()))
             call_id = str(uuid.uuid4())
             await websocket.send_json({"type": "tool_call", "id": call_id, "tc_id": tc_id, "tool_name": fn_name, "tool_input": fn_args})
             output = await execute_tool(fn_name, fn_args, tool_ctx)
-            await websocket.send_json({"type": "tool_result", "id": call_id, "tc_id": tc_id, "output": output[:32000]}) # Larger output for power tools
+            await websocket.send_json({"type": "tool_result", "id": call_id, "tc_id": tc_id, "output": output[:8000]})
             return tc_id, fn_name, fn_args, output
-
         results = await asyncio.gather(*(execute_and_log(tc) for tc in tool_calls))
         for tc_id, fn_name, fn_args, output in results:
             db.add(Message(id=str(uuid.uuid4()), session_id=session.id, role="tool_call", tool_name=fn_name, tool_call_id=tc_id, tool_input=fn_args))
-            db.add(Message(session_id=session.id, role="tool_result", tool_call_id=tc_id, tool_output=output[:64000]))
-            messages.append({"role": "tool", "tool_call_id": tc_id, "content": output[:32000]})
+            db.add(Message(session_id=session.id, role="tool_result", tool_call_id=tc_id, tool_output=output[:16000]))
+            messages.append({"role": "tool", "tool_call_id": tc_id, "content": output[:10000]})
         await db.commit()
 
 async def _stream_model(url, api_key, provider, model, messages, tools, parallel):
     import httpx
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     if provider == "openrouter": headers["HTTP-Referer"], headers["X-Title"] = "https://agentforge-frontend-ambi.onrender.com", "AgentForge"
-    payload = {"model": model, "messages": messages, "tools": tools, "stream": True, "max_tokens": 16384} # Double tokens for massive code
+    payload = {"model": model, "messages": messages, "tools": tools, "stream": True, "max_tokens": 8192}
     if parallel: payload["parallel_tool_calls"] = True
     acc = {}
-    async with httpx.AsyncClient(timeout=240) as client:
+    async with httpx.AsyncClient(timeout=180) as client:
         async with client.stream("POST", url, json=payload, headers=headers) as resp:
             if resp.status_code != 200: yield {"type": "error", "message": f"API error {resp.status_code}: {(await resp.aread()).decode()}"}; return
             async for line in resp.aiter_lines():

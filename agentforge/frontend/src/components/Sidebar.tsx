@@ -109,13 +109,13 @@ export default function Sidebar() {
                 initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
                 className="absolute top-full left-3 right-3 mt-1 bg-[#18181b] border border-border/50 rounded-lg shadow-xl z-20 overflow-hidden"
               >
-                <button onClick={() => newSession('blank')} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-white/5 transition-colors text-left text-white">
+                <button onClick={() => newSession('blank')} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-white/5 transition-colors text-white text-left">
                   <Plus className="w-4 h-4" /> Blank Chat
                 </button>
-                <button onClick={() => newSession('github')} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-white/5 transition-colors text-left text-white">
+                <button onClick={() => newSession('github')} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-white/5 transition-colors text-white text-left">
                   <GitPullRequest className="w-4 h-4" /> Import from GitHub
                 </button>
-                <button onClick={() => newSession('template')} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-white/5 transition-colors text-left text-white">
+                <button onClick={() => newSession('template')} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-white/5 transition-colors text-white text-left">
                   <LayoutGrid className="w-4 h-4" /> Start from Template
                 </button>
               </motion.div>

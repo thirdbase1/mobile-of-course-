@@ -45,30 +45,6 @@ TOOL_DEFINITIONS = [
     {
         "type": "function",
         "function": {
-            "name": "write_files",
-            "description": "POWER TOOL: Write multiple files in a single batch. Use this for high-speed parallel development.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "files": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "path": {"type": "string"},
-                                "content": {"type": "string"}
-                            },
-                            "required": ["path", "content"]
-                        }
-                    }
-                },
-                "required": ["files"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
             "name": "list_files",
             "description": "List files in a directory.",
             "parameters": {
@@ -106,23 +82,6 @@ TOOL_DEFINITIONS = [
                 "required": ["command"],
             },
         },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "run_bash_parallel",
-            "description": "POWER TOOL: Run multiple bash commands in parallel inside the sandbox.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "commands": {
-                        "type": "array",
-                        "items": {"type": "string"}
-                    }
-                },
-                "required": ["commands"]
-            }
-        }
     },
     {
         "type": "function",
@@ -252,11 +211,9 @@ async def execute_tool(name: str, args: dict, ctx: dict) -> str:
     fn = {
         "read_file":      _read_file,
         "write_file":     _write_file,
-        "write_files":    _write_files_batch,
         "list_files":     _list_files,
         "delete_file":    _delete_file,
         "run_bash":       _run_bash,
-        "run_bash_parallel": _run_bash_parallel,
         "search_files":   _search_files,
         "analyze_codebase": _analyze_codebase,
         "get_diff":       _get_diff,
@@ -298,6 +255,7 @@ async def _write_file(args: dict, ctx: dict) -> str:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(args["content"])
 
+    # Broadcast file change to frontend
     if "websocket" in ctx:
         await ctx["websocket"].send_json({
             "type": "file_changed",
@@ -305,20 +263,19 @@ async def _write_file(args: dict, ctx: dict) -> str:
             "operation": "write"
         })
 
+    # Calculate diff stats
     added, removed = 0, 0
     for line in difflib.unified_diff(old_content.splitlines(), args["content"].splitlines()):
         if line.startswith("+") and not line.startswith("+++"): added += 1
         elif line.startswith("-") and not line.startswith("---"): removed += 1
 
-    res = {"status": "success", "path": args["path"], "added": added, "removed": removed}
+    res = {
+        "status": "success",
+        "path": args["path"],
+        "added": added,
+        "removed": removed
+    }
     return json.dumps(res)
-
-async def _write_files_batch(args: dict, ctx: dict) -> str:
-    results = []
-    for f in args["files"]:
-        res_str = await _write_file(f, ctx)
-        results.append(json.loads(res_str))
-    return json.dumps(results)
 
 async def _list_files(args: dict, ctx: dict) -> str:
     ws = get_workspace_path(ctx["session_id"])
@@ -353,6 +310,7 @@ async def _run_bash(args: dict, ctx: dict) -> str:
         stderr=asyncio.subprocess.PIPE
     )
 
+    # Stream output logic
     full_stdout = b""
     full_stderr = b""
 
@@ -383,12 +341,6 @@ async def _run_bash(args: dict, ctx: dict) -> str:
     if full_stderr: out.append(f"STDERR:\n{full_stderr.decode(errors='replace')}")
     out.append(f"[Exit Code: {process.returncode}]")
     return "\n".join(out)
-
-async def _run_bash_parallel(args: dict, ctx: dict) -> str:
-    results = await asyncio.gather(*(
-        _run_bash({"command": cmd}, ctx) for cmd in args["commands"]
-    ))
-    return "\n---\n".join(results)
 
 async def _search_files(args: dict, ctx: dict) -> str:
     ws = get_workspace_path(ctx["session_id"])
