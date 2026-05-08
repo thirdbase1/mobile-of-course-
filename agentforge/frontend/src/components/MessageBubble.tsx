@@ -1,21 +1,7 @@
 'use client'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import {
-  User,
-  Terminal,
-  CheckCircle2,
-  Info,
-  ChevronRight,
-  Brain,
-  FileText,
-  Search,
-  Code2,
-  GitBranch,
-  Globe,
-  Eye,
-  Cpu
-} from 'lucide-react'
+import { User, Bot, Terminal, CheckCircle2, Info, ChevronDown, ChevronRight, Brain, FileText } from 'lucide-react'
 import { useState } from 'react'
 import clsx from 'clsx'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -33,57 +19,54 @@ export default function MessageBubble({ msg }: MessageProps) {
   const [expanded, setExpanded] = useState(false)
   const [showReasoning, setShowReasoning] = useState(false)
 
-  const toolIcons: Record<string, any> = {
-    'run_bash': Terminal,
-    'write_file': Code2,
-    'read_file': FileText,
-    'list_files': Search,
-    'search_files': Search,
-    'analyze_codebase': Brain,
-    'github_commit_and_push': GitBranch,
-    'web_search': Globe,
-  }
-
-  const ToolIcon = msg.tool_name ? (toolIcons[msg.tool_name] || Terminal) : Terminal
-
-  if (isInfo) return null // Suppress info slop
+  if (isInfo) return null
 
   if (isToolCall || isToolResult) {
     return (
-      <div className={clsx(
-          "my-1 max-w-3xl w-full px-4",
-          "ml-auto" // Tools are agent-side (right)
-      )}>
+      <div className="my-2 px-4 md:px-0">
         <div
           onClick={() => setExpanded(!expanded)}
           className={clsx(
-            "flex items-center gap-3 py-2 px-3 rounded-lg border border-white/[0.03] bg-[#121214]/50 cursor-pointer hover:bg-[#18181b] transition-all group ml-auto max-w-[90%]",
+            "flex items-center gap-3 p-3 rounded-xl border border-border bg-card/40 cursor-pointer hover:border-primary/30 transition-all",
             expanded ? "rounded-b-none border-b-0" : ""
           )}
         >
-          <div className="w-5 h-5 rounded bg-white/5 flex items-center justify-center border border-white/5 group-hover:border-primary/20">
-            {isToolCall ? (
-                <ToolIcon className="w-2.5 h-2.5 text-primary" />
-            ) : (
-                <CheckCircle2 className="w-2.5 h-2.5 text-green-500" />
-            )}
-          </div>
+          {isToolCall ? (
+            <Terminal className="w-4 h-4 text-primary" />
+          ) : (
+            <CheckCircle2 className="w-4 h-4 text-green-500" />
+          )}
           <div className="flex-1 min-w-0">
-             <div className="text-[10px] font-mono text-muted-foreground/60 flex items-center gap-2 uppercase tracking-tight">
-               {isToolCall ? `step: ${msg.tool_name}` : 'output: captured'}
+             <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-0.5 opacity-60">
+               {isToolCall ? 'Executing Operation' : 'Execution Log'}
+             </div>
+             <div className="text-xs font-mono truncate text-foreground flex items-center gap-2">
+               {isToolCall ? `${msg.tool_name}` : 'Result received'}
              </div>
           </div>
-          <ChevronRight className={clsx("w-3 h-3 text-muted-foreground/20 transition-transform", expanded && "rotate-90")} />
+          {expanded ? <ChevronDown className="w-4 h-4 text-muted-foreground opacity-40" /> : <ChevronRight className="w-4 h-4 text-muted-foreground opacity-40" />}
         </div>
 
         <AnimatePresence>
           {expanded && (
             <motion.div
-              initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
-              className="overflow-hidden bg-[#09090b] border border-t-0 border-white/[0.03] rounded-b-lg ml-auto max-w-[90%]"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="overflow-hidden bg-secondary/10 border border-t-0 border-border rounded-b-xl"
             >
-              <div className="p-4 font-mono text-[10px] whitespace-pre-wrap break-words text-muted-foreground/80 leading-relaxed">
-                {isToolCall ? JSON.stringify(msg.tool_input, null, 2) : msg.content}
+              <div className="p-4 font-mono text-[11px] whitespace-pre-wrap break-words max-h-[400px] overflow-y-auto no-scrollbar selection:bg-primary/20">
+                {isToolCall ? (
+                  <div>
+                    <div className="text-muted-foreground mb-2 opacity-50 uppercase tracking-widest text-[9px] font-bold">Input Arguments</div>
+                    {JSON.stringify(msg.tool_input, null, 2)}
+                  </div>
+                ) : (
+                  <div>
+                    <div className="text-muted-foreground mb-2 opacity-50 uppercase tracking-widest text-[9px] font-bold">Output Stream</div>
+                    {msg.content}
+                  </div>
+                )}
               </div>
             </motion.div>
           )}
@@ -92,59 +75,54 @@ export default function MessageBubble({ msg }: MessageProps) {
     )
   }
 
-  const hasSimulatedReasoning = msg.content?.includes('<thought>')
-  const reasoningContent = msg.reasoning || (hasSimulatedReasoning ? msg.content.split('<thought>')[1].split('</thought>')[0] : null)
-  const displayContent = hasSimulatedReasoning ? msg.content.split('</thought>')[1] : msg.content
+  const hasReasoning = msg.content?.includes('<thought>') || msg.reasoning
+  const displayContent = msg.content?.includes('<thought>') ? msg.content.split('</thought>')[1] : msg.content
+  const reasoningContent = msg.reasoning || (msg.content?.includes('<thought>') ? msg.content.split('<thought>')[1].split('</thought>')[0] : null)
 
   return (
     <div className={clsx(
-      "py-6 px-4 w-full flex",
-      isUser ? "justify-start" : "justify-end"
+      "flex flex-col gap-3 py-10 px-4 md:px-0",
+      isUser ? "bg-background" : "bg-secondary/10 border-y border-border/30 shadow-inner"
     )}>
-      <div className={clsx(
-          "max-w-2xl w-full flex flex-col gap-3",
-          isUser ? "items-start" : "items-end text-right"
-      )}>
-        <div className={clsx("flex items-center gap-2 mb-1", isUser ? "flex-row" : "flex-row-reverse")}>
-           <div className={clsx(
-              "w-6 h-6 rounded flex items-center justify-center border border-white/10 shadow-lg",
-              isUser ? "bg-white text-black" : "bg-primary text-primary-foreground"
-           )}>
-              {isUser ? <User className="w-3.5 h-3.5" /> : <Cpu className="w-3.5 h-3.5" />}
-           </div>
-           <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/80">
-              {isUser ? 'Commander' : 'Executor'}
-           </span>
-           {!isUser && reasoningContent && (
-                 <button
-                  onClick={() => setShowReasoning(!showReasoning)}
-                  className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-white/5 text-[9px] font-bold text-muted-foreground hover:text-white transition-colors"
-                 >
-                   <Eye className="w-2.5 h-2.5" />
-                   {showReasoning ? 'Hide Reasoning' : 'View Reasoning'}
-                 </button>
-             )}
+      <div className="max-w-3xl mx-auto w-full flex flex-col gap-6">
+        <div className="flex gap-6">
+          <div className={clsx(
+            "w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-sm border border-border",
+            isUser ? "bg-secondary text-foreground" : "bg-primary text-primary-foreground shadow-primary/20"
+          )}>
+            {isUser ? <User className="w-5.5 h-5.5" /> : <Bot className="w-5.5 h-5.5" />}
+          </div>
+
+          <div className="flex-1 min-w-0 prose prose-invert prose-zinc prose-sm max-w-none leading-relaxed">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {displayContent || ''}
+            </ReactMarkdown>
+          </div>
         </div>
 
-        <AnimatePresence>
-          {showReasoning && reasoningContent && (
-              <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-                  className="w-full p-4 bg-white/[0.02] border border-white/5 rounded-xl text-xs text-muted-foreground/60 leading-relaxed italic text-left"
-              >
+        {reasoningContent && (
+          <div className="ml-15 border-l-2 border-border pl-6">
+            <button
+              onClick={() => setShowReasoning(!showReasoning)}
+              className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors group"
+            >
+              <Brain className="w-3.5 h-3.5 group-hover:animate-pulse" />
+              {showReasoning ? 'Collapse Reasoning' : 'Deep Thinking Analysis'}
+            </button>
+            <AnimatePresence>
+              {showReasoning && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="mt-3 p-5 bg-secondary/20 rounded-2xl border border-border/50 text-xs text-muted-foreground/80 leading-relaxed overflow-hidden font-medium"
+                >
                   {reasoningContent}
-              </motion.div>
-          )}
-        </AnimatePresence>
-
-        <div className={clsx(
-            "prose prose-invert prose-zinc prose-sm max-w-none leading-relaxed p-4 rounded-2xl shadow-2xl",
-            isUser ? "bg-white/[0.03] border border-white/5 rounded-tl-none text-left" : "bg-primary/5 border border-primary/10 rounded-tr-none text-left"
-        )}>
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-            {displayContent || ''}
-          </ReactMarkdown>
-        </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
       </div>
     </div>
   )

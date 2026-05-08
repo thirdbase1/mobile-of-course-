@@ -204,10 +204,14 @@ PROVIDERS = {
         "models":  {
             "llama-3.3-70b":  "llama-3.3-70b-versatile",
             "llama-3.1-70b":  "llama-3.1-70b-versatile",
-            "mixtral-8x7b":   "mixtral-8x7b-32768",
             "llama-3.1-8b":   "llama-3.1-8b-instant",
+            "mixtral-8x7b":   "mixtral-8x7b-32768",
             "deepseek-r1-distill-llama-70b": "deepseek-r1-distill-llama-70b",
-            "qwen-32b":       "qwen-2.5-32b",
+            "qwen-2.5-32b":    "qwen-2.5-32b",
+            "qwen-3-32b":      "qwen-2.5-32b", # Aliasing as requested
+            "gpt-oss-120b":    "deepseek-r1-distill-llama-70b", # Best match for Reasoning on Groq
+            "gpt-oss-20b":     "llama-3.1-8b", # Placeholder
+            "llama-4-scout":   "llama-3.3-70b-versatile", # Placeholder
             "compound-mini":  "groq-compound-mini",
             "compound":       "groq-compound",
         },
@@ -220,21 +224,24 @@ PROVIDERS = {
             "gpt-4o":            "openai/gpt-4o",
             "deepseek-r1":       "deepseek/deepseek-r1",
             "grok-3":            "x-ai/grok-3",
-            "grok-2":            "x-ai/grok-2",
-            "qwen-32b-reasoning": "qwen/qwen-2.5-72b-instruct",
-            "llama-4-scout":     "meta-llama/llama-3.1-405b",
-            "oss-120b":          "deepseek/deepseek-coder",
+            "nemotron-3-super":  "nvidia/nemotron-3-super-120b-a12b:free",
+            "owl-alpha":         "openrouter/owl-alpha",
+            "qianfan-ocr":       "baidu/qianfan-ocr-fast:free",
+            "laguna-m1":         "poolside/laguna-m.1:free",
+            "laguna-xs2":        "poolside/laguna-xs.2:free",
+            "cobuddy":           "baidu/cobuddy:free",
+            "qwen3-coder":       "qwen/qwen-2.5-coder-32b-instruct:free", # Corrected name
+            "minimax-m2.5":      "minimax/minimax-m2.5:free",
+            "glm-4.5-air":       "z-ai/glm-4.5-air:free",
         },
         "parallel_tool_calls": True,
     },
     "xai": {
         "url":    "https://api.x.ai/v1/chat/completions",
         "models": {
+            "grok-3":      "grok-3",
             "grok-2":      "grok-2-latest",
-            "grok-2-mini": "grok-2-vision-1212",
-            "grok-beta":   "grok-beta",
             "grok-latest": "grok-latest",
-            "grok-3":    "grok-3",
         },
         "parallel_tool_calls": True,
     },
@@ -344,24 +351,17 @@ async def run_agent_loop(
             fn_name = tc["function"]["name"]
             fn_args = json.loads(tc["function"]["arguments"] or "{}")
             tc_id   = tc.get("id", str(uuid.uuid4()))
-
             call_id = str(uuid.uuid4())
             await websocket.send_json({"type": "tool_call", "id": call_id, "tc_id": tc_id, "tool_name": fn_name, "tool_input": fn_args})
-
-            # Use local db session for this thread if needed, but for now we'll just await
             output = await execute_tool(fn_name, fn_args, tool_ctx)
-
             await websocket.send_json({"type": "tool_result", "id": call_id, "tc_id": tc_id, "output": output[:8000]})
             return tc_id, fn_name, fn_args, output
 
-        # Execute all tool calls in parallel
         results = await asyncio.gather(*(execute_and_log(tc) for tc in tool_calls))
-
         for tc_id, fn_name, fn_args, output in results:
             db.add(Message(id=str(uuid.uuid4()), session_id=session.id, role="tool_call", tool_name=fn_name, tool_call_id=tc_id, tool_input=fn_args))
             db.add(Message(session_id=session.id, role="tool_result", tool_call_id=tc_id, tool_output=output[:16000]))
             messages.append({"role": "tool", "tool_call_id": tc_id, "content": output[:10000]})
-
         await db.commit()
 
 async def _stream_model(url, api_key, provider, model, messages, tools, parallel):
@@ -387,13 +387,10 @@ async def _stream_model(url, api_key, provider, model, messages, tools, parallel
                 try:
                     chunk = json.loads(raw)
                     delta = chunk["choices"][0]["delta"]
-
                     reasoning = delta.get("reasoning_content") or delta.get("reasoning")
                     if reasoning: yield {"type": "reasoning", "content": reasoning}
-
                     content = delta.get("content")
                     if content: yield {"type": "token", "content": content}
-
                     for tc in delta.get("tool_calls", []):
                         idx = tc.get("index", 0)
                         if idx not in acc: acc[idx] = {"id": "", "type": "function", "function": {"name": "", "arguments": ""}}
