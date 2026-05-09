@@ -36,6 +36,7 @@ class User(Base):
     sessions      : Mapped[list["Session"]]     = relationship(back_populates="user", cascade="all, delete-orphan")
     repos         : Mapped[list["Repo"]]        = relationship(back_populates="user", cascade="all, delete-orphan")
     api_settings  : Mapped["ApiSettings | None"]= relationship(back_populates="user", uselist=False, cascade="all, delete-orphan")
+    permissions   : Mapped[list["Permission"]]  = relationship(back_populates="user", cascade="all, delete-orphan")
 
 
 class Session(Base):
@@ -46,6 +47,9 @@ class Session(Base):
     model       : Mapped[str]       = mapped_column(String(100), default="groq/llama-3.3-70b")
     repo_id     : Mapped[str | None]= mapped_column(ForeignKey("repos.id"), nullable=True)
     status      : Mapped[str]       = mapped_column(String(20), default="idle")
+    # Multi-agent config
+    agent_config: Mapped[dict | None]= mapped_column(JSON) # Map of role -> model_id
+
     created_at  : Mapped[datetime]  = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at  : Mapped[datetime]  = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
     user        : Mapped["User"]            = relationship(back_populates="sessions")
@@ -57,14 +61,30 @@ class Message(Base):
     __tablename__ = "messages"
     id          : Mapped[str]       = mapped_column(String, primary_key=True, default=new_id)
     session_id  : Mapped[str]       = mapped_column(ForeignKey("sessions.id"))
-    role        : Mapped[str]       = mapped_column(String(20))
+    role        : Mapped[str]       = mapped_column(String(20)) # user, assistant, tool_call, tool_result, info
+    agent_role  : Mapped[str | None]= mapped_column(String(50)) # planner, coder, etc.
     content     : Mapped[str | None]= mapped_column(Text)
     tool_name   : Mapped[str | None]= mapped_column(String(100))
     tool_call_id: Mapped[str | None]= mapped_column(String(100))
     tool_input  : Mapped[dict | None]= mapped_column(JSON)
     tool_output : Mapped[str | None]= mapped_column(Text)
+
+    # State for approvals
+    approval_status: Mapped[str | None]= mapped_column(String(20)) # pending, approved, rejected
+
     created_at  : Mapped[datetime]  = mapped_column(DateTime(timezone=True), default=utcnow)
     session     : Mapped["Session"] = relationship(back_populates="messages")
+
+
+class Permission(Base):
+    __tablename__ = "permissions"
+    id          : Mapped[str]       = mapped_column(String, primary_key=True, default=new_id)
+    user_id     : Mapped[str]       = mapped_column(ForeignKey("users.id"))
+    workspace_id: Mapped[str | None]= mapped_column(String(100))
+    repo_id     : Mapped[str | None]= mapped_column(String(100))
+    tool_name   : Mapped[str]       = mapped_column(String(100))
+    allowed     : Mapped[bool]      = mapped_column(Boolean, default=True)
+    user        : Mapped["User"]    = relationship(back_populates="permissions")
 
 
 class Repo(Base):
@@ -88,7 +108,6 @@ class ApiSettings(Base):
     groq_api_key        : Mapped[str | None]= mapped_column(Text)
     openrouter_api_key  : Mapped[str | None]= mapped_column(Text)
     xai_api_key         : Mapped[str | None]= mapped_column(Text)
-    judge0_api_key      : Mapped[str | None]= mapped_column(Text)
     user                : Mapped["User"]    = relationship(back_populates="api_settings")
 
 

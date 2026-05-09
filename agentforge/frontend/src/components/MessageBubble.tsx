@@ -13,24 +13,31 @@ import {
   FileText,
   Search,
   GitBranch,
-  Globe
+  Globe,
+  ShieldAlert,
+  Check,
+  X
 } from 'lucide-react'
 import { useState } from 'react'
 import clsx from 'clsx'
 import { motion, AnimatePresence } from 'framer-motion'
 
 interface MessageProps {
-  msg: any
+  msg: any;
+  onApprove?: (tool: string, always: boolean) => void;
+  onReject?: (tool: string) => void;
 }
 
-export default function MessageBubble({ msg }: MessageProps) {
+export default function MessageBubble({ msg, onApprove, onReject }: MessageProps) {
   const isUser = msg.role === 'user'
   const isToolCall = msg.role === 'tool_call'
   const isToolResult = msg.role === 'tool_result'
+  const isApprovalRequest = msg.role === 'approval_request'
   const isInfo = msg.role === 'info'
 
   const [expanded, setExpanded] = useState(false)
   const [showReasoning, setShowReasoning] = useState(false)
+  const [alwaysAllow, setAlwaysAllow] = useState(false)
 
   const toolIcons: Record<string, any> = {
     'run_bash': Terminal,
@@ -48,6 +55,61 @@ export default function MessageBubble({ msg }: MessageProps) {
   const ToolIcon = msg.tool_name ? (toolIcons[msg.tool_name] || Terminal) : Terminal
 
   if (isInfo) return null
+
+  if (isApprovalRequest) {
+    return (
+      <div className="my-6 max-w-2xl w-full px-4 mx-auto">
+        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-[#121214] border-2 border-primary/20 rounded-3xl overflow-hidden shadow-[0_20px_50px_rgba(var(--primary-rgb),0.1)]">
+          <div className="p-6 bg-primary/5 border-b border-white/5 flex items-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center border border-primary/30">
+              <ShieldAlert className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+               <h3 className="text-xs font-black uppercase tracking-[0.2em] text-white">Security Gate: Approval Required</h3>
+               <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">Dangerous operation detected</p>
+            </div>
+          </div>
+          <div className="p-6 space-y-6">
+             <div className="space-y-3">
+                <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Target Tool</div>
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/5">
+                   <ToolIcon className="w-4 h-4 text-primary" />
+                   <span className="text-xs font-mono font-bold text-white tracking-tight">{msg.tool}</span>
+                </div>
+             </div>
+             <div className="space-y-3">
+                <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Input Parameters</div>
+                <div className="p-4 rounded-xl bg-black/40 font-mono text-[10px] text-muted-foreground leading-relaxed whitespace-pre overflow-x-auto no-scrollbar border border-white/5">
+                   {JSON.stringify(msg.args, null, 2)}
+                </div>
+             </div>
+
+             <div className="flex items-center gap-3 py-2 cursor-pointer group" onClick={() => setAlwaysAllow(!alwaysAllow)}>
+                <div className={clsx("w-4 h-4 rounded border transition-all flex items-center justify-center", alwaysAllow ? "bg-primary border-primary" : "border-white/20 group-hover:border-primary/50")}>
+                   {alwaysAllow && <Check className="w-3 h-3 text-white" />}
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground group-hover:text-white transition-colors">Always allow {msg.tool}</span>
+             </div>
+
+             <div className="flex gap-3">
+                <button
+                  onClick={() => onApprove?.(msg.tool, alwaysAllow)}
+                  className="flex-1 py-4 bg-primary text-primary-foreground rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-3 shadow-xl"
+                >
+                  <Check className="w-4 h-4" /> Approve Execution
+                </button>
+                <button
+                  onClick={() => onReject?.(msg.tool)}
+                  className="px-8 py-4 bg-white/5 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-white/10 active:scale-[0.98] transition-all flex items-center justify-center gap-3 border border-white/5"
+                >
+                  <X className="w-4 h-4" /> Deny
+                </button>
+             </div>
+          </div>
+        </motion.div>
+      </div>
+    )
+  }
 
   if (isToolCall || isToolResult) {
     return (
