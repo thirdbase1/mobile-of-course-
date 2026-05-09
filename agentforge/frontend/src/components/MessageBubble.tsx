@@ -1,149 +1,180 @@
 'use client'
-import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { ChatMessage } from '@/lib/store'
+import {
+  User,
+  Terminal,
+  CheckCircle2,
+  ChevronRight,
+  Brain,
+  Eye,
+  Cpu,
+  Code2,
+  FileText,
+  Search,
+  GitBranch,
+  Globe,
+  ShieldAlert,
+  Check,
+  X
+} from 'lucide-react'
+import { useState } from 'react'
 import clsx from 'clsx'
+import { motion, AnimatePresence } from 'framer-motion'
 
-interface Props { msg: ChatMessage }
-
-// ── Thinking indicator ──────────────────────────────────────────────────────
-function ThinkingDots() {
-  return (
-    <div className="flex items-center gap-2 px-4 py-3">
-      <div className="w-6 h-6 rounded-full bg-brand/15 border border-brand/25 flex items-center justify-center shrink-0">
-        <span className="text-brand text-[10px]">A</span>
-      </div>
-      <div className="flex items-center gap-1 pl-1">
-        {[0,1,2].map(i => (
-          <span key={i} className="thinking-dot w-1.5 h-1.5 rounded-full bg-brand/50 inline-block" />
-        ))}
-      </div>
-    </div>
-  )
+interface MessageProps {
+  msg: any;
+  onApprove?: (tool: string, always: boolean) => void;
+  onReject?: (tool: string) => void;
 }
 
-// ── Tool call card ──────────────────────────────────────────────────────────
-function ToolCard({ msg }: { msg: ChatMessage }) {
-  const [open, setOpen] = useState(false)
-  const hasOutput = !!msg.tool_output
-  const isError   = msg.tool_output?.toLowerCase().includes('error') || msg.tool_output?.toLowerCase().includes('failed')
-  const statusColor = !hasOutput ? 'text-text-muted' : isError ? 'text-red' : 'text-green'
+export default function MessageBubble({ msg, onApprove, onReject }: MessageProps) {
+  const isUser = msg.role === 'user'
+  const isToolCall = msg.role === 'tool_call'
+  const isToolResult = msg.role === 'tool_result'
+  const isApprovalRequest = msg.role === 'approval_request'
+  const isInfo = msg.role === 'info'
 
-  // Tool icon map
-  const icons: Record<string, string> = {
-    execute_code:       '⚙',
-    github_read_file:   '📄',
-    github_write_file:  '✏',
-    github_list_files:  '📁',
-    github_delete_file: '🗑',
-    github_search_code: '🔍',
-    github_create_branch: '⎇',
-    github_create_pr:   '↑',
-    github_list_commits:'📋',
-    web_search:         '🌐',
-    fetch_url:          '🔗',
+  const [expanded, setExpanded] = useState(false)
+  const [showReasoning, setShowReasoning] = useState(false)
+  const [alwaysAllow, setAlwaysAllow] = useState(false)
+
+  const toolIcons: Record<string, any> = {
+    'run_bash': Terminal,
+    'run_bash_parallel': Terminal,
+    'write_file': Code2,
+    'write_files': Code2,
+    'read_file': FileText,
+    'list_files': Search,
+    'search_files': Search,
+    'analyze_codebase': Brain,
+    'github_commit_and_push': GitBranch,
+    'web_search': Globe,
   }
 
-  const icon = icons[msg.tool_name || ''] || '🛠'
+  const ToolIcon = msg.tool_name ? (toolIcons[msg.tool_name] || Terminal) : Terminal
 
-  return (
-    <div className="mx-4 my-1.5">
-      <button
-        onClick={() => setOpen(!open)}
-        className={clsx(
-          'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg border text-xs transition-colors text-left',
-          open
-            ? 'bg-surface-3 border-border'
-            : 'bg-surface-2 border-border hover:border-border-strong'
-        )}
-      >
-        <span className="text-sm shrink-0">{icon}</span>
-        <span className="font-mono font-medium text-text-secondary flex-1 truncate">{msg.tool_name}</span>
-        {hasOutput ? (
-          <span className={clsx('shrink-0 text-[10px] font-medium', statusColor)}>
-            {isError ? '✕ error' : '✓ done'}
-          </span>
-        ) : (
-          <span className="w-3 h-3 border border-brand/50 border-t-brand rounded-full animate-spin shrink-0" />
-        )}
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
-          className={clsx('text-text-muted shrink-0 transition-transform', open && 'rotate-180')}>
-          <path d="M6 9l6 6 6-6"/>
-        </svg>
-      </button>
+  if (isInfo) return null
 
-      {open && (
-        <div className="mt-1 rounded-lg border border-border overflow-hidden text-xs font-mono">
-          {msg.tool_input && Object.keys(msg.tool_input).length > 0 && (
-            <div className="bg-surface-1 border-b border-border">
-              <div className="px-3 py-1.5 text-text-muted text-[10px] uppercase tracking-wider font-sans font-semibold">Input</div>
-              <div className="px-3 pb-2.5 overflow-x-auto">
-                {msg.tool_name === 'execute_code' && msg.tool_input.code ? (
-                  <div>
-                    {msg.tool_input.language && (
-                      <span className="text-brand text-[10px] font-sans font-medium">{msg.tool_input.language}</span>
-                    )}
-                    <pre className="text-text-secondary leading-relaxed mt-1 text-[11.5px]">{msg.tool_input.code}</pre>
-                  </div>
-                ) : (
-                  <pre className="text-text-secondary leading-relaxed text-[11.5px]">
-                    {JSON.stringify(msg.tool_input, null, 2)}
-                  </pre>
-                )}
-              </div>
-            </div>
-          )}
-          {hasOutput && (
-            <div className="bg-surface-0">
-              <div className="px-3 py-1.5 text-text-muted text-[10px] uppercase tracking-wider font-sans font-semibold">Output</div>
-              <div className="px-3 pb-2.5 overflow-x-auto max-h-64">
-                <pre className={clsx('leading-relaxed text-[11.5px] whitespace-pre-wrap', isError ? 'text-red/90' : 'text-green/90')}>
-                  {msg.tool_output}
-                </pre>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── Main component ──────────────────────────────────────────────────────────
-export default function MessageBubble({ msg }: Props) {
-  if (msg.thinking)     return <ThinkingDots />
-  if (msg.role === 'tool_call' || msg.role === 'tool_result') return <ToolCard msg={msg} />
-
-  if (msg.role === 'user') {
+  if (isApprovalRequest) {
     return (
-      <div className="flex justify-end px-4 py-2">
-        <div className="max-w-[78%] bg-brand/10 border border-brand/20 rounded-2xl rounded-tr-sm px-4 py-2.5">
-          <p className="text-sm text-text-primary leading-relaxed whitespace-pre-wrap">{msg.content}</p>
-        </div>
+      <div className="my-6 max-w-2xl w-full px-4 mx-auto">
+        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-[#121214] border-2 border-primary/20 rounded-3xl overflow-hidden shadow-[0_20px_50px_rgba(var(--primary-rgb),0.1)]">
+          <div className="p-6 bg-primary/5 border-b border-white/5 flex items-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center border border-primary/30">
+              <ShieldAlert className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+               <h3 className="text-xs font-black uppercase tracking-[0.2em] text-white">Security Gate: Approval Required</h3>
+               <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">Dangerous operation detected</p>
+            </div>
+          </div>
+          <div className="p-6 space-y-6">
+             <div className="space-y-3">
+                <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Target Tool</div>
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/5">
+                   <ToolIcon className="w-4 h-4 text-primary" />
+                   <span className="text-xs font-mono font-bold text-white tracking-tight">{msg.tool}</span>
+                </div>
+             </div>
+             <div className="space-y-3">
+                <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Input Parameters</div>
+                <div className="p-4 rounded-xl bg-black/40 font-mono text-[10px] text-muted-foreground leading-relaxed whitespace-pre overflow-x-auto no-scrollbar border border-white/5">
+                   {JSON.stringify(msg.args, null, 2)}
+                </div>
+             </div>
+
+             <div className="flex items-center gap-3 py-2 cursor-pointer group" onClick={() => setAlwaysAllow(!alwaysAllow)}>
+                <div className={clsx("w-4 h-4 rounded border transition-all flex items-center justify-center", alwaysAllow ? "bg-primary border-primary" : "border-white/20 group-hover:border-primary/50")}>
+                   {alwaysAllow && <Check className="w-3 h-3 text-white" />}
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground group-hover:text-white transition-colors">Always allow {msg.tool}</span>
+             </div>
+
+             <div className="flex gap-3">
+                <button
+                  onClick={() => onApprove?.(msg.tool, alwaysAllow)}
+                  className="flex-1 py-4 bg-primary text-primary-foreground rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-3 shadow-xl"
+                >
+                  <Check className="w-4 h-4" /> Approve Execution
+                </button>
+                <button
+                  onClick={() => onReject?.(msg.tool)}
+                  className="px-8 py-4 bg-white/5 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-white/10 active:scale-[0.98] transition-all flex items-center justify-center gap-3 border border-white/5"
+                >
+                  <X className="w-4 h-4" /> Deny
+                </button>
+             </div>
+          </div>
+        </motion.div>
       </div>
     )
   }
 
-  // Assistant message
-  return (
-    <div className="flex gap-2.5 px-4 py-2 animate-fade-up">
-      <div className="w-6 h-6 rounded-full bg-brand/15 border border-brand/25 flex items-center justify-center shrink-0 mt-0.5">
-        <span className="text-brand text-[10px] font-bold">A</span>
-      </div>
-      <div className="flex-1 min-w-0 pt-0.5">
-        <div className={clsx('prose-agent text-sm text-text-primary', msg.streaming && 'stream-cursor')}>
-          {msg.content ? (
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
-          ) : (
-            !msg.streaming && <span className="text-text-muted italic text-xs">…</span>
+  if (isToolCall || isToolResult) {
+    return (
+      <div className="my-1 max-w-3xl w-full px-4 ml-auto">
+        <div
+          onClick={() => setExpanded(!expanded)}
+          className={clsx(
+            "flex items-center gap-3 py-2 px-3 rounded-lg border border-white/[0.03] bg-[#121214]/50 cursor-pointer hover:bg-[#18181b] transition-all group ml-auto max-w-[90%]",
+            expanded ? "rounded-b-none border-b-0" : ""
           )}
-        </div>
-        {msg.error && (
-          <div className="mt-2 text-xs text-red bg-red/10 border border-red/20 rounded-lg px-3 py-2">
-            {msg.error}
+        >
+          <div className="w-5 h-5 rounded bg-white/5 flex items-center justify-center border border-white/5 group-hover:border-primary/20">
+            {isToolCall ? <ToolIcon className="w-2.5 h-2.5 text-primary" /> : <CheckCircle2 className="w-2.5 h-2.5 text-green-500" />}
           </div>
-        )}
+          <div className="flex-1 min-w-0">
+             <div className="text-[10px] font-mono text-muted-foreground/60 flex items-center gap-2 uppercase tracking-tight">
+               {isToolCall ? `process: ${msg.tool_name}` : 'telemetry: captured'}
+             </div>
+          </div>
+          <ChevronRight className={clsx("w-3 h-3 text-muted-foreground/20 transition-transform", expanded && "rotate-90")} />
+        </div>
+        <AnimatePresence>
+          {expanded && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+              className="overflow-hidden bg-[#09090b] border border-t-0 border-white/[0.03] rounded-b-lg ml-auto max-w-[90%]"
+            >
+              <div className="p-4 font-mono text-[10px] whitespace-pre-wrap break-words text-muted-foreground/80 leading-relaxed max-h-[400px] overflow-y-auto no-scrollbar">
+                {isToolCall ? JSON.stringify(msg.tool_input, null, 2) : (typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content, null, 2))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    )
+  }
+
+  const reasoningContent = msg.reasoning || (msg.content?.includes('<thought>') ? msg.content.split('<thought>')[1].split('</thought>')[0] : null)
+  const displayContent = msg.content?.includes('<thought>') ? msg.content.split('</thought>')[1] : msg.content
+
+  return (
+    <div className={clsx("py-8 px-4 w-full flex", isUser ? "justify-start" : "justify-end")}>
+      <div className={clsx("max-w-2xl w-full flex flex-col gap-4", isUser ? "items-start" : "items-end text-right")}>
+        <div className={clsx("flex items-center gap-2 mb-1", isUser ? "flex-row" : "flex-row-reverse")}>
+           <div className={clsx("w-6 h-6 rounded flex items-center justify-center border border-white/10 shadow-lg", isUser ? "bg-white text-black" : "bg-primary text-primary-foreground")}>
+              {isUser ? <User className="w-3.5 h-3.5" /> : <Cpu className="w-3.5 h-3.5" />}
+           </div>
+           <span className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground/60">{isUser ? 'Commander' : 'Executor'}</span>
+           {!isUser && reasoningContent && (
+                 <button onClick={() => setShowReasoning(!showReasoning)} className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-white/5 text-[9px] font-bold text-muted-foreground hover:text-white transition-colors">
+                   <Eye className="w-2.5 h-2.5" /> {showReasoning ? 'Hide Intelligence' : 'View Reasoning'}
+                 </button>
+           )}
+        </div>
+        <AnimatePresence>
+          {showReasoning && reasoningContent && (
+              <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="w-full p-5 bg-white/[0.01] border border-white/5 rounded-2xl text-xs text-muted-foreground/50 leading-relaxed italic text-left shadow-inner">
+                  <div className="flex items-center gap-2 mb-3 text-[8px] font-black uppercase tracking-[0.4em] not-italic opacity-40"><Brain className="w-3 h-3" /> Core Logic Path</div>
+                  {reasoningContent}
+              </motion.div>
+          )}
+        </AnimatePresence>
+        <div className={clsx("prose prose-invert prose-zinc prose-sm max-w-none leading-relaxed p-6 rounded-3xl shadow-2xl transition-all", isUser ? "bg-white/[0.02] border border-white/5 rounded-tl-none text-left" : "bg-primary/[0.03] border border-primary/10 rounded-tr-none text-left")}>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{displayContent || ''}</ReactMarkdown>
+        </div>
       </div>
     </div>
   )

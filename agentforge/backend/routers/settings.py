@@ -4,7 +4,7 @@ from sqlalchemy import select
 from database import get_db, ApiSettings, User
 from auth_utils import current_user
 
-router = APIRouter()
+router = APIRouter(prefix="/settings", tags=["settings"])
 
 FIELDS = ["groq_api_key", "openrouter_api_key", "xai_api_key", "judge0_api_key"]
 

@@ -1,354 +1,248 @@
 'use client'
-import { useEffect, useRef, useState, useCallback } from 'react'
-import { useParams, useSearchParams } from 'next/navigation'
-import { useStore, ChatMessage, MODELS } from '@/lib/store'
-import { getMessages, getSession, patchSession, openAgentSocket } from '@/lib/api'
-import MessageBubble from '@/components/MessageBubble'
-import ModelPicker from '@/components/ModelPicker'
-import RepoSelector from '@/components/RepoSelector'
-import CodeEditor from '@/components/CodeEditor'
-import GitBar from '@/components/GitBar'
+import { useState, useEffect, useRef } from 'react'
+import { useParams } from 'next/navigation'
+import {
+  Terminal as TerminalIcon,
+  Code2,
+  Cpu,
+  Plus,
+  Loader2,
+  Command,
+  Search,
+  ChevronDown,
+  RefreshCcw,
+  ShieldCheck,
+  ShieldAlert
+} from 'lucide-react'
 import clsx from 'clsx'
+import { motion, AnimatePresence } from 'framer-motion'
+import MessageBubble from '@/components/MessageBubble'
+import FileTree from '@/components/FileTree'
+import CodeEditor from '@/components/CodeEditor'
+
+const MODELS = [
+  { id: 'groq/gpt-oss-120b', name: 'GPT-OSS 120B (Reasoning)', provider: 'Groq' },
+  { id: 'groq/gpt-oss-20b', name: 'GPT-OSS 20B (Balanced)', provider: 'Groq' },
+  { id: 'groq/qwen-3-32b', name: 'Qwen 3 32B (Tool Use)', provider: 'Groq' },
+  { id: 'groq/llama-4-scout', name: 'Llama 4 Scout', provider: 'Groq' },
+  { id: 'groq/compound', name: 'Groq Compound', provider: 'Groq' },
+  { id: 'groq/compound-mini', name: 'Groq Compound Mini', provider: 'Groq' },
+  { id: 'openrouter/nemotron-3-super', name: 'Nemotron-3 Super', provider: 'OpenRouter' },
+  { id: 'openrouter/owl-alpha', name: 'Owl Alpha', provider: 'OpenRouter' },
+  { id: 'openrouter/qianfan-ocr', name: 'Qianfan OCR', provider: 'OpenRouter' },
+  { id: 'openrouter/laguna-m1', name: 'Laguna M.1', provider: 'OpenRouter' },
+  { id: 'openrouter/laguna-xs2', name: 'Laguna XS.2', provider: 'OpenRouter' },
+  { id: 'openrouter/cobuddy', name: 'Cobuddy', provider: 'OpenRouter' },
+  { id: 'openrouter/qwen3-coder', name: 'Qwen3 Coder', provider: 'OpenRouter' },
+  { id: 'openrouter/minimax-m2.5', name: 'Minimax M2.5', provider: 'OpenRouter' },
+  { id: 'openrouter/glm-4.5-air', name: 'GLM 4.5 Air', provider: 'OpenRouter' },
+  { id: 'openrouter/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet', provider: 'OpenRouter' },
+  { id: 'openrouter/deepseek-r1', name: 'DeepSeek R1', provider: 'OpenRouter' },
+  { id: 'xai/grok-3', name: 'Grok 3 (Beta)', provider: 'xAI' },
+]
 
 export default function SessionPage() {
-  const { id } = useParams<{ id: string }>()
-  const searchParams = useSearchParams()
+  const { id } = useParams()
+  const [messages, setMessages] = useState<any[]>([])
+  const [input, setInput] = useState('')
+  const [sending, setSending] = useState(false)
+  const [status, setStatus] = useState('Idle')
+  const [activeTab, setActiveTab] = useState('chat')
+  const [files, setFiles] = useState<any[]>([])
+  const [selectedFile, setSelectedFile] = useState<any>(null)
+  const [sandboxLogs, setSandboxLogs] = useState<any[]>([])
+  const [model, setModel] = useState('groq/gpt-oss-120b')
+  const [showModelPicker, setShowModelPicker] = useState(false)
+  const [modelSearch, setModelSearch] = useState('')
+  const [loadingHistory, setLoadingHistory] = useState(true)
+  const [loadingFiles, setLoadingFiles] = useState(false)
+  const [loadingLogs, setLoadingLogs] = useState(false)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const logScrollRef = useRef<HTMLDivElement>(null)
+  const wsRef = useRef<WebSocket | null>(null)
 
-  const {
-    messages, setMessages, appendMessage, updateMessage, removeMessage,
-    sessions, updateSession,
-    model, setModel,
-    editorOpen, setEditorOpen,
-    repos,
-  } = useStore()
-
-  const [input,     setInput]     = useState('')
-  const [running,   setRunning]   = useState(false)
-  const [session,   setSession]   = useState<any>(null)
-  const [repoId,    setRepoId]    = useState<string | undefined>()
-  const [titleEdit, setTitleEdit] = useState(false)
-  const [titleVal,  setTitleVal]  = useState('')
-
-  const bottomRef    = useRef<HTMLDivElement>(null)
-  const textareaRef  = useRef<HTMLTextAreaElement>(null)
-  const wsRef        = useRef<WebSocket | null>(null)
-  const didAutoSend  = useRef(false)
-  const thinkingId   = useRef<string>('')
-  const streamingId  = useRef<string>('')
-  const toolCallIds  = useRef<Set<string>>(new Set())
-
-  // Load session + messages
   useEffect(() => {
-    setMessages([])
-    getSession(id).then(s => {
-      setSession(s)
-      setTitleVal(s.title)
-      setRepoId(s.repo_id || undefined)
-      setModel(s.model)
-    }).catch(() => {})
-
-    getMessages(id).then(rawMsgs => {
-      const out: ChatMessage[] = []
-      for (const m of rawMsgs) {
-        if (m.role === 'user' || m.role === 'assistant') {
-          out.push({ id: m.id, role: m.role, content: m.content || '', created_at: m.created_at })
-        } else if (m.role === 'tool_call') {
-          out.push({
-            id: m.id, role: 'tool_call', tool_name: m.tool_name,
-            tool_call_id: m.tool_call_id, tool_input: m.tool_input,
-            created_at: m.created_at,
-          })
-        } else if (m.role === 'tool_result') {
-          // Attach output to matching tool_call bubble
-          const call = out.find(x => x.tool_call_id === m.tool_call_id || x.id === m.tool_call_id)
-          if (call) call.tool_output = m.tool_output || ''
-        }
-      }
-      setMessages(out)
-    }).catch(() => {})
+    fetchHistory()
+    refreshFiles()
+    fetchLogs()
   }, [id])
 
-  // Scroll to bottom
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages.length])
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+  }, [messages, sending])
 
-  // Auto-send ?q= param
   useEffect(() => {
-    const q = searchParams.get('q')
-    if (q && !didAutoSend.current && messages.length === 0) {
-      didAutoSend.current = true
-      setTimeout(() => send(q), 400)
-    }
-  }, [messages])
+    if (logScrollRef.current) logScrollRef.current.scrollTop = logScrollRef.current.scrollHeight
+  }, [sandboxLogs])
 
-  function stop() {
-    wsRef.current?.close()
-    wsRef.current = null
-    setRunning(false)
-    // Clean up any dangling thinking indicator
-    if (thinkingId.current) {
-      removeMessage(thinkingId.current)
-      thinkingId.current = ''
-    }
-    updateSession(id, { status: 'idle' })
+  const fetchHistory = async () => {
+    try {
+      const res = await fetch(`/api/sessions/${id}/messages`)
+      const data = await res.json()
+      setMessages(data)
+    } catch (e) { console.error(e) } finally { setLoadingHistory(false) }
   }
 
-  const send = useCallback(async (text?: string) => {
-    const content = (text ?? input).trim()
-    if (!content || running) return
+  const refreshFiles = async () => {
+    setLoadingFiles(true)
+    try {
+      const res = await fetch(`/api/workspace/${id}/files`)
+      const data = await res.json()
+      setFiles(data)
+    } catch (e) { console.error(e) } finally { setLoadingFiles(false) }
+  }
+
+  const fetchFile = async (path: string) => {
+    try {
+      const res = await fetch(`/api/workspace/${id}/file?path=${encodeURIComponent(path)}`)
+      const data = await res.json()
+      setSelectedFile({ path, content: data.content, name: path.split('/').pop() })
+      setActiveTab('code')
+    } catch (e) { console.error(e) }
+  }
+
+  const fetchLogs = async () => {
+    setLoadingLogs(true)
+    try {
+      const res = await fetch(`/api/sessions/${id}/logs`)
+      const data = await res.json()
+      setSandboxLogs(data)
+    } catch (e) { console.error(e) } finally { setLoadingLogs(false) }
+  }
+
+  const startAgent = (text: string) => {
+    if (!text.trim() || sending) return
+    setSending(true); setStatus('Thinking')
     setInput('')
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto'
-    }
 
-    // Reset tool tracking
-    toolCallIds.current.clear()
-    streamingId.current = ''
-
-    // Optimistic user message
-    const userMsgId = 'user_' + Date.now()
-    appendMessage({ id: userMsgId, role: 'user', content, created_at: new Date().toISOString() })
-    setRunning(true)
-    updateSession(id, { status: 'running' })
-
-    // Show thinking
-    thinkingId.current = 'think_' + Date.now()
-    appendMessage({ id: thinkingId.current, role: 'assistant', content: '', thinking: true, created_at: new Date().toISOString() })
-
-    const ws = openAgentSocket(id)
+    const ws = new WebSocket(`${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws/agent/${id}?token=${localStorage.getItem('token')}`)
     wsRef.current = ws
-
-    ws.onopen = () => {
-      ws.send(JSON.stringify({ type: 'message', content, model, repo_id: repoId || null }))
-    }
-
     ws.onmessage = (e) => {
       const data = JSON.parse(e.data)
-
-      if (data.type === 'message_start') {
-        // Replace thinking dot with real streaming message
-        if (thinkingId.current) {
-          updateMessage(thinkingId.current, { thinking: false, id: data.id, streaming: true, content: '' })
-          thinkingId.current = ''
-        }
-        streamingId.current = data.id
-
-      } else if (data.type === 'token') {
-        if (streamingId.current) {
-          updateMessage(streamingId.current, { streaming: true })
-          // Append token using functional form to avoid stale closure
-          useStore.setState(st => ({
-            messages: st.messages.map(m =>
-              m.id === streamingId.current
-                ? { ...m, content: (m.content || '') + data.content, streaming: true }
-                : m
-            )
-          }))
-        }
-
-      } else if (data.type === 'tool_call') {
-        // Finalize streaming assistant message
-        if (streamingId.current) {
-          updateMessage(streamingId.current, { streaming: false })
-          streamingId.current = ''
-        }
-        // Remove stale thinking dot if any
-        if (thinkingId.current) {
-          removeMessage(thinkingId.current)
-          thinkingId.current = ''
-        }
-        // Add tool call bubble
-        toolCallIds.current.add(data.id)
-        appendMessage({
-          id:          data.id,
-          role:        'tool_call',
-          tool_name:   data.tool_name,
-          tool_call_id: data.tc_id,
-          tool_input:  data.tool_input,
-          created_at:  new Date().toISOString(),
+      if (data.type === 'reasoning') {
+        setMessages(prev => {
+          const last = prev[prev.length - 1]
+          if (last?.role === 'assistant' && last.id === data.id) return [...prev.slice(0, -1), { ...last, reasoning: (last.reasoning || '') + data.content }]
+          return [...prev, { role: 'assistant', content: '', reasoning: data.content, id: data.id }]
         })
-        // Show new thinking for agent's next response
-        thinkingId.current = 'think_' + Date.now()
-        appendMessage({ id: thinkingId.current, role: 'assistant', content: '', thinking: true, created_at: new Date().toISOString() })
-
+      } else if (data.type === 'token') {
+        setMessages(prev => {
+          const last = prev[prev.length - 1]
+          if (last?.role === 'assistant' && last.id === data.id) return [...prev.slice(0, -1), { ...last, content: (last.content || '') + data.content }]
+          return [...prev, { role: 'assistant', content: data.content, id: data.id }]
+        })
+      } else if (data.type === 'status') {
+        setStatus(data.message)
+      } else if (data.type === 'file_changed') {
+          refreshFiles(); if (selectedFile && selectedFile.path === data.path) fetchFile(data.path)
+      } else if (data.type === 'terminal_log') {
+          setSandboxLogs(prev => [...prev, { type: 'result', output: data.content, stream: data.stream, timestamp: new Date().toISOString() }])
+      } else if (data.type === 'tool_call') {
+        setMessages(prev => [...prev, { role: 'tool_call', ...data }])
       } else if (data.type === 'tool_result') {
-        updateMessage(data.id, { tool_output: data.output })
-
+        setMessages(prev => {
+          const updated = prev.map(m => (m.role === 'tool_call' && m.tc_id === data.tc_id) ? { ...m, result: data.output } : m)
+          return [...updated, { role: 'tool_result', content: data.output, tc_id: data.tc_id }]
+        })
+      } else if (data.type === 'approval_required') {
+        setStatus('Awaiting Approval')
+        setMessages(prev => [...prev, { role: 'approval_request', ...data }])
       } else if (data.type === 'done') {
-        if (streamingId.current) updateMessage(streamingId.current, { streaming: false })
-        if (thinkingId.current) { removeMessage(thinkingId.current); thinkingId.current = '' }
-        streamingId.current = ''
-        ws.close()
-        setRunning(false)
-        updateSession(id, { status: 'idle' })
-
+        setSending(false); setStatus('Idle'); ws.close()
       } else if (data.type === 'error') {
-        if (streamingId.current) {
-          updateMessage(streamingId.current, { streaming: false, error: data.message })
-        } else if (thinkingId.current) {
-          updateMessage(thinkingId.current, { thinking: false, error: data.message })
-          thinkingId.current = ''
-        } else {
-          appendMessage({ id: 'err_' + Date.now(), role: 'assistant', content: '', error: data.message, created_at: new Date().toISOString() })
-        }
-        streamingId.current = ''
-        ws.close()
-        setRunning(false)
-        updateSession(id, { status: 'error' })
+        setMessages(prev => [...prev, { role: 'assistant', content: '⚠️ ' + data.message, id: 'err-' + Date.now() }])
+        setSending(false); setStatus('Error'); ws.close()
       }
     }
-
-    ws.onerror = () => {
-      if (thinkingId.current) { removeMessage(thinkingId.current); thinkingId.current = '' }
-      if (streamingId.current) updateMessage(streamingId.current, { streaming: false, error: 'Connection error' })
-      setRunning(false)
-      updateSession(id, { status: 'error' })
-    }
-
-    ws.onclose = () => {
-      if (thinkingId.current) { removeMessage(thinkingId.current); thinkingId.current = '' }
-      if (streamingId.current) updateMessage(streamingId.current, { streaming: false })
-      streamingId.current = ''
-    }
-  }, [input, running, model, repoId, id])
-
-  async function saveTitle() {
-    setTitleEdit(false)
-    if (!titleVal.trim() || titleVal === session?.title) return
-    await patchSession(id, { title: titleVal }).catch(() => {})
-    updateSession(id, { title: titleVal })
-    setSession((s: any) => s ? { ...s, title: titleVal } : s)
+    ws.onopen = () => ws.send(JSON.stringify({ type: 'start', message: text, model }))
+    ws.onerror = () => { setSending(false); setStatus('Error') }
+    ws.onclose = () => { setSending(false); if (status !== 'Error') setStatus('Idle') }
   }
 
-  async function changeRepo(rid: string | undefined) {
-    setRepoId(rid)
-    await patchSession(id, { repo_id: rid || null }).catch(() => {})
+  const handleApproval = (decision: 'approve' | 'reject', tool: string, always: boolean = false) => {
+    if (wsRef.current) {
+        wsRef.current.send(JSON.stringify({ type: 'approval_response', decision, tool, always }))
+        setMessages(prev => prev.filter(m => m.role !== 'approval_request'))
+        setStatus('Thinking')
+    }
   }
 
-  const activeRepo = repos.find(r => r.id === repoId)
+  const filteredModels = MODELS.filter(m => m.name.toLowerCase().includes(modelSearch.toLowerCase()) || m.provider.toLowerCase().includes(modelSearch.toLowerCase()))
+  const providers = Array.from(new Set(filteredModels.map(m => m.provider)))
 
   return (
-    <div className="flex flex-1 h-full min-h-0 overflow-hidden">
-      {/* Chat column */}
-      <div className="flex flex-col flex-1 min-w-0 min-h-0">
-        {/* Top bar */}
-        <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border bg-surface-1 shrink-0 flex-wrap gap-y-2">
-          {/* Session title */}
-          {titleEdit ? (
-            <input
-              autoFocus
-              value={titleVal}
-              onChange={e => setTitleVal(e.target.value)}
-              onBlur={saveTitle}
-              onKeyDown={e => { if (e.key === 'Enter') saveTitle() }}
-              className="bg-surface-0 border border-brand/40 rounded px-2 py-1 text-sm font-medium outline-none flex-1 min-w-0 max-w-xs"
-            />
-          ) : (
-            <button
-              onClick={() => setTitleEdit(true)}
-              className="text-sm font-medium text-text-primary hover:text-brand transition-colors truncate max-w-xs"
-              title="Click to rename"
-            >
-              {session?.title || 'Session'}
-            </button>
-          )}
-
-          <div className="flex items-center gap-2 ml-auto flex-wrap">
-            <ModelPicker />
-            <RepoSelector value={repoId} onChange={changeRepo} compact />
-
-            {activeRepo && (
-              <GitBar repoId={activeRepo.id} repoFull={activeRepo.full_name} branch={activeRepo.default_branch} />
-            )}
-
-            <button
-              onClick={() => setEditorOpen(!editorOpen)}
-              className={clsx(
-                'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors border',
-                editorOpen
-                  ? 'bg-brand/15 border-brand/35 text-brand'
-                  : 'bg-surface-3 border-border text-text-muted hover:text-text-primary hover:border-border-strong'
-              )}
-              title="Toggle code editor"
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
-              </svg>
-              Editor
-            </button>
-          </div>
-        </div>
-
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto py-4 min-h-0">
-          {messages.length === 0 && (
-            <div className="flex flex-col items-center justify-center h-full text-text-muted text-sm gap-2">
-              <span className="text-2xl opacity-30">⚡</span>
-              <p>Send a message to start the agent</p>
-            </div>
-          )}
-          {messages.map(msg => (
-            <MessageBubble key={msg.id} msg={msg} />
-          ))}
-          <div ref={bottomRef} className="h-4" />
-        </div>
-
-        {/* Input */}
-        <div className="shrink-0 border-t border-border bg-surface-1 px-4 py-3">
-          <div className={clsx(
-            'flex gap-2 bg-surface-0 border rounded-xl p-2 transition-colors',
-            running ? 'border-brand/40' : 'border-border focus-within:border-brand/40'
-          )}>
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={e => {
-                setInput(e.target.value)
-                e.target.style.height = 'auto'
-                e.target.style.height = Math.min(e.target.scrollHeight, 160) + 'px'
-              }}
-              onKeyDown={e => {
-                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() }
-              }}
-              placeholder={running ? 'Agent is working…' : 'Message the agent… (Enter to send, Shift+Enter for newline)'}
-              disabled={running}
-              rows={1}
-              className="flex-1 bg-transparent px-3 py-2 text-sm text-text-primary placeholder-text-muted outline-none resize-none max-h-40 disabled:opacity-50 leading-relaxed"
-            />
-            {running ? (
-              <button
-                onClick={stop}
-                className="self-end flex items-center gap-1.5 bg-red/10 hover:bg-red/15 text-red border border-red/25 px-3 py-2 rounded-lg text-xs font-medium transition-colors shrink-0"
-              >
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
-                Stop
-              </button>
-            ) : (
-              <button
-                onClick={() => send()}
-                disabled={!input.trim()}
-                className="self-end flex items-center gap-1.5 bg-brand hover:opacity-90 disabled:opacity-35 disabled:cursor-not-allowed text-white px-3 py-2 rounded-lg text-xs font-semibold transition-opacity shrink-0"
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
-                </svg>
-                Send
-              </button>
-            )}
-          </div>
-          <p className="text-text-muted text-[10px] mt-1.5 text-center">
-            Agent can run code, read/write GitHub files, and create PRs
-          </p>
-        </div>
+    <div className="flex-1 flex flex-col overflow-hidden bg-[#09090b]">
+      <div className="flex border-b border-white/5 bg-[#09090b]/80 backdrop-blur-md sticky top-0 z-20">
+        <button onClick={() => setActiveTab('chat')} className={clsx("flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] transition-all", activeTab === 'chat' ? "text-primary border-b border-primary bg-primary/5" : "text-muted-foreground/60 hover:text-white")}>Chat</button>
+        <button onClick={() => setActiveTab('code')} className={clsx("flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] transition-all", activeTab === 'code' ? "text-primary border-b border-primary bg-primary/5" : "text-muted-foreground/60 hover:text-white")}>Explorer</button>
+        <button onClick={() => setActiveTab('sandbox')} className={clsx("flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2", activeTab === 'sandbox' ? "text-primary border-b border-primary bg-primary/5" : "text-muted-foreground/60 hover:text-white")}><TerminalIcon className="w-3 h-3" /> Sandbox</button>
       </div>
 
-      {/* Code editor panel */}
-      {editorOpen && (
-        <div className="flex-shrink-0 border-l border-border" style={{ width: 460 }}>
-          <CodeEditor />
+      <div className="flex-1 flex overflow-hidden">
+        <div className={clsx("flex-1 flex overflow-hidden", activeTab === 'code' ? "flex" : "hidden")}>
+           <div className="w-64 border-r border-white/5 bg-black/40 flex flex-col">
+              <div className="p-4 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
+                <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Workspace</span>
+                <button onClick={refreshFiles} className="p-1 hover:bg-white/5 rounded"><RefreshCcw className={clsx("w-3 h-3 text-muted-foreground", loadingFiles && "animate-spin")} /></button>
+              </div>
+              <div className="flex-1 overflow-y-auto no-scrollbar"><FileTree files={files} onSelect={fetchFile} activePath={selectedFile?.path} /></div>
+           </div>
+           <div className="flex-1 bg-[#09090b] flex flex-col min-w-0">
+              {selectedFile ? (
+                  <><div className="h-10 border-b border-white/5 bg-white/[0.02] flex items-center px-4 gap-2"><div className="w-1.5 h-1.5 rounded-full bg-green-500" /><span className="text-[10px] font-bold font-mono text-white opacity-60 truncate">{selectedFile.path}</span></div><div className="flex-1 overflow-hidden"><CodeEditor content={selectedFile.content} language={selectedFile.name.split('.').pop()} /></div></>
+              ) : (
+                  <div className="flex-1 flex flex-col items-center justify-center opacity-10"><Code2 className="w-20 h-20 mb-6" /><p className="text-[10px] font-black uppercase tracking-[0.4em]">Sandbox FS Idle</p></div>
+              )}
+           </div>
         </div>
-      )}
+
+        <div className={clsx("flex-1 flex flex-col min-w-0 bg-background relative", activeTab === 'chat' ? "flex" : "hidden md:flex")}>
+          <div ref={scrollRef} className="flex-1 overflow-y-auto no-scrollbar scroll-smooth">
+            {messages.length === 0 && !loadingHistory ? (
+              <div className="h-full flex flex-col items-center justify-center p-8 text-center opacity-30 max-w-md mx-auto"><TerminalIcon className="w-10 h-10 mb-8 text-primary" /><h2 className="text-xl font-black text-white mb-3 tracking-tighter">System Ready</h2><p className="text-xs text-muted-foreground font-medium leading-relaxed">Issue commands to the engine.</p></div>
+            ) : (
+              <div className="pb-40">
+                {messages.map((m, i) => <MessageBubble key={m.id || i} msg={m} onApprove={(tool, always) => handleApproval('approve', tool, always)} onReject={(tool) => handleApproval('reject', tool)} />)}
+                {sending && <div className="py-10 px-4 w-full flex justify-end"><div className="max-w-2xl w-full flex flex-col items-end gap-3 opacity-50"><div className="flex items-center gap-2"><Loader2 className="w-3.5 h-3.5 animate-spin text-primary" /><span className="text-[10px] font-black uppercase tracking-widest text-primary">{status}</span></div></div></div>}
+              </div>
+            )}
+          </div>
+
+          <div className="p-6 bg-gradient-to-t from-[#09090b] via-[#09090b]/95 to-transparent absolute bottom-0 left-0 right-0 z-[60]">
+            <div className="max-w-4xl mx-auto relative">
+               <div className="absolute -top-12 left-0 flex items-center gap-2">
+                    <div className="relative">
+                        <button type="button" onClick={() => setShowModelPicker(!showModelPicker)} className="flex items-center gap-3 px-4 py-2 rounded-xl bg-[#18181b] border border-white/5 text-[10px] font-black uppercase tracking-widest text-white hover:border-primary/40 transition-all shadow-2xl"><Cpu className="w-3.5 h-3.5 text-primary" />{MODELS.find(m => m.id === model)?.name || model}<ChevronDown className={clsx("w-3 h-3 opacity-40 transition-transform", showModelPicker && "rotate-180")} /></button>
+                        <AnimatePresence>
+                        {showModelPicker && (
+                            <><div className="fixed inset-0 z-[70]" onClick={() => setShowModelPicker(false)} /><motion.div initial={{ opacity: 0, y: 20, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 20, scale: 0.95 }} className="absolute bottom-full left-0 mb-4 w-[320px] bg-[#0c0c0e] border border-white/10 rounded-2xl shadow-[0_30px_100px_rgba(0,0,0,0.8)] overflow-hidden z-[80]"><div className="p-4 border-b border-white/5 bg-white/[0.02]"><div className="flex items-center gap-3 bg-white/5 rounded-xl px-3 py-2 border border-white/5"><Search className="w-3.5 h-3.5 text-muted-foreground" /><input autoFocus value={modelSearch} onChange={e => setModelSearch(e.target.value)} placeholder="Search engines..." className="bg-transparent text-[10px] font-bold uppercase tracking-widest text-white focus:outline-none w-full" /></div></div><div className="max-h-[400px] overflow-y-auto no-scrollbar py-2">{providers.map(p => (<div key={p}><div className="px-5 py-2 text-[8px] font-black text-muted-foreground/40 uppercase tracking-[0.3em] bg-white/[0.01]">{p}</div>{filteredModels.filter(m => m.provider === p).map(m => (<button key={m.id} type="button" onClick={() => { setModel(m.id); setShowModelPicker(false) }} className={clsx("w-full text-left px-5 py-3 text-[10px] font-bold uppercase tracking-widest hover:bg-primary transition-all flex items-center justify-between group", model === m.id ? "bg-white/5 text-primary" : "text-muted-foreground/60 hover:text-white")}><div className="flex flex-col gap-0.5"><span className={clsx(model === m.id && "text-white")}>{m.name}</span><span className="text-[8px] opacity-30 font-mono tracking-tighter group-hover:text-white/60">{m.id}</span></div>{model === m.id && <div className="w-1.5 h-1.5 rounded-full bg-primary" />}</button>))}</div>))}</div></motion.div></>
+                        )}
+                        </AnimatePresence>
+                    </div>
+               </div>
+
+               <form onSubmit={e => { e.preventDefault(); startAgent(input) }} className="relative bg-[#121214] border border-white/5 rounded-2xl shadow-2xl focus-within:border-primary/30 transition-all overflow-hidden">
+                <textarea value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); startAgent(input) } }} placeholder="Input parameters..." className="w-full bg-transparent px-6 py-7 text-sm focus:outline-none resize-none min-h-[90px] text-white placeholder:text-muted-foreground/20 font-medium" rows={1} />
+                <div className="flex items-center justify-between px-6 pb-6"><div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground/20"><div className="flex items-center gap-2"><Command className="w-3 h-3" /><span>System active</span></div></div><button type="submit" disabled={!input.trim() || sending} className="flex items-center gap-3 px-6 py-3 bg-white text-black rounded-xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-primary hover:text-white transition-all disabled:opacity-10 active:scale-95 shadow-2xl">{sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}{sending ? 'Processing' : 'Execute'}</button></div>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <div className={clsx("flex-1 flex flex-col min-w-0 bg-[#09090b] relative border-l border-white/5", activeTab === 'sandbox' ? "flex" : "hidden")}>
+          <div className="h-12 border-b border-white/5 flex items-center justify-between px-4 bg-white/[0.02]"><div className="flex items-center gap-2"><TerminalIcon className="w-4 h-4 text-primary" /><span className="text-[10px] font-black uppercase tracking-[0.2em] text-white">Telemetry</span></div><button onClick={fetchLogs} className="p-1.5 hover:bg-white/5 rounded-md"><RefreshCcw className={clsx("w-3.5 h-3.5 text-muted-foreground", loadingLogs && "animate-spin")} /></button></div>
+          <div ref={logScrollRef} className="flex-1 overflow-y-auto p-8 font-mono text-[11px] space-y-2 no-scrollbar bg-black/40">
+            {sandboxLogs.length === 0 ? (<div className="h-full flex flex-col items-center justify-center opacity-5"><TerminalIcon className="w-20 h-20 mb-6" /><p className="text-[10px] font-black uppercase tracking-[0.4em]">No data</p></div>) : (sandboxLogs.map((log, i) => (
+                <div key={i} className={clsx(
+                    "whitespace-pre-wrap break-words border-l pl-4 py-0.5 transition-colors",
+                    log.stream === 'stderr' ? "text-red-400/80 border-red-500/30" : "text-muted-foreground/60 border-white/10 hover:border-primary"
+                )}>
+                    {log.output}
+                </div>
+            )))}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

@@ -1,43 +1,41 @@
-import type { Config } from 'tailwindcss'
+import type { Config } from "tailwindcss";
 
 const config: Config = {
-  content: ['./src/**/*.{ts,tsx}'],
+  content: [
+    "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
+  ],
   theme: {
     extend: {
       colors: {
-        surface: {
-          0: '#0a0b0f',
-          1: '#0f1117',
-          2: '#14161e',
-          3: '#1a1d27',
-          4: '#20232f',
-        },
-        border: {
-          DEFAULT: 'rgba(255,255,255,0.07)',
-          strong:  'rgba(255,255,255,0.12)',
-        },
-        brand: {
-          DEFAULT: '#7c5cfc',
-          dim:     'rgba(124,92,252,0.15)',
-          border:  'rgba(124,92,252,0.35)',
-        },
-        text: {
-          primary:   '#d4d8e1',
-          secondary: '#8b929e',
-          muted:     '#5a6070',
-        },
-        green:  '#22c55e',
-        red:    '#f43f5e',
-        yellow: '#eab308',
-        blue:   '#38bdf8',
-        orange: '#f97316',
+        background: "hsl(var(--background))",
+        foreground: "hsl(var(--foreground))",
+        card: "hsl(var(--card))",
+        "card-foreground": "hsl(var(--card-foreground))",
+        popover: "hsl(var(--popover))",
+        "popover-foreground": "hsl(var(--popover-foreground))",
+        primary: "hsl(var(--primary))",
+        "primary-foreground": "hsl(var(--primary-foreground))",
+        secondary: "hsl(var(--secondary))",
+        "secondary-foreground": "hsl(var(--secondary-foreground))",
+        muted: "hsl(var(--muted))",
+        "muted-foreground": "hsl(var(--muted-foreground))",
+        accent: "hsl(var(--accent))",
+        "accent-foreground": "hsl(var(--accent-foreground))",
+        destructive: "hsl(var(--destructive))",
+        "destructive-foreground": "hsl(var(--destructive-foreground))",
+        border: "hsl(var(--border))",
+        input: "hsl(var(--input))",
+        ring: "hsl(var(--ring))",
       },
-      fontFamily: {
-        mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+      borderRadius: {
+        lg: "var(--radius)",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
       },
     },
   },
   plugins: [],
-}
-export default config
+};
+export default config;

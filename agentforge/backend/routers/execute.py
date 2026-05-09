@@ -1,70 +1,66 @@
-import os, httpx, asyncio, logging
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+import httpx
+from database import get_db, Message, Session
 from auth_utils import current_user
-from database import User, get_db, ApiSettings
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-router = APIRouter()
-log = logging.getLogger(__name__)
+router = APIRouter(prefix="/execute", tags=["execute"])
 
-# Using Wandbox API (Free, no key required)
+class ExecuteRequest(BaseModel):
+    language: str
+    code: str
+    stdin: str = ""
+
 WANDBOX_URL = "https://wandbox.org/api/compile.json"
-
-# Mapping for Wandbox
 WANDBOX_COMPILERS = {
-    "python": "cpython-3.12.7", "python3": "cpython-3.12.7",
-    "javascript": "nodejs-20.17.0", "js": "nodejs-20.17.0", "node": "nodejs-20.17.0",
-    "bash": "bash", "shell": "bash", "sh": "bash",
-    "cpp": "gcc-13.2.0", "c++": "gcc-13.2.0", "c": "gcc-13.2.0-c",
-    "java": "openjdk-head",
-    "ruby": "ruby-3.3.5",
-    "rust": "rust-1.82.0",
-    "typescript": "typescript-5.6.2", "ts": "typescript-5.6.2",
-    "go": "go-1.23.2",
-    "php": "php-8.3.11",
+    "python": "cpython-3.12.7", "javascript": "nodejs-20.17.0",
+    "bash": "bash", "cpp": "gcc-13.2.0", "ruby": "ruby-3.3.5",
+    "rust": "rust-1.82.0", "go": "go-1.23.2",
 }
 
-class ExecReq(BaseModel):
-    language: str
-    code:     str
-    stdin:    str = ""
-
 @router.post("")
-async def execute_code(body: ExecReq, user: User = Depends(current_user), db: AsyncSession = Depends(get_db)):
-    lang = body.language.lower().strip()
-    compiler = WANDBOX_COMPILERS.get(lang)
+async def execute_code(req: ExecuteRequest):
+    compiler = WANDBOX_COMPILERS.get(req.language.lower(), "cpython-3.12.7")
+    async with httpx.AsyncClient(timeout=30) as client:
+        r = await client.post(WANDBOX_URL, json={
+            "compiler": compiler,
+            "code": req.code,
+            "stdin": req.stdin
+        })
+    return r.json()
 
-    if not compiler:
-        raise HTTPException(400, f"Unsupported language '{lang}'.")
+@router.get("/logs/{session_id}")
+async def get_sandbox_logs(session_id: str, db: AsyncSession = Depends(get_db), user = Depends(current_user)):
+    # Verify session belongs to user
+    res = await db.execute(select(Session).where(Session.id == session_id, Session.user_id == user.id))
+    if not res.scalar_one_or_none():
+        raise HTTPException(404, "Session not found")
 
-    pay = {
-        "compiler": compiler,
-        "code": body.code,
-        "stdin": body.stdin,
-        "save": False
-    }
+    # Get all tool calls and results for this session to reconstruct logs
+    res = await db.execute(
+        select(Message)
+        .where(Message.session_id == session_id)
+        .where(Message.role.in_(["tool_call", "tool_result"]))
+        .order_by(Message.created_at.asc())
+    )
+    messages = res.scalars().all()
 
-    async with httpx.AsyncClient(timeout=45) as client:
-        try:
-            r = await client.post(WANDBOX_URL, json=pay)
-            if r.status_code != 200:
-                return {"stdout": "", "stderr": f"Sandbox error ({r.status_code}): {r.text[:200]}", "exit_code": 1, "status": "error"}
+    logs = []
+    for m in messages:
+        if m.role == "tool_call":
+            logs.append({
+                "type": "call",
+                "tool": m.tool_name,
+                "input": m.tool_input,
+                "timestamp": m.created_at
+            })
+        else:
+            logs.append({
+                "type": "result",
+                "output": m.tool_output,
+                "timestamp": m.created_at
+            })
 
-            data = r.json()
-            # Wandbox returns status "0" for success (string)
-            status_code = data.get("status", "1")
-
-            stdout = data.get("program_output", "")
-            stderr = data.get("program_error", "") or data.get("compiler_error", "")
-
-            return {
-                "stdout":    stdout,
-                "stderr":    stderr,
-                "exit_code": 0 if status_code == "0" else 1,
-                "status":    "success" if status_code == "0" else "failed"
-            }
-        except Exception as e:
-            log.exception("Wandbox execution failed")
-            return {"stdout": "", "stderr": f"Sandbox connection failed: {str(e)}", "exit_code": 1, "status": "error"}
+    return logs

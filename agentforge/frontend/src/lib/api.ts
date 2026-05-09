@@ -4,7 +4,7 @@ const BASE = '/api/backend'
 
 function getToken() {
   if (typeof window === 'undefined') return null
-  return localStorage.getItem('af_token')
+  return localStorage.getItem('token')
 }
 
 export const api = axios.create({ baseURL: BASE })
@@ -17,7 +17,7 @@ api.interceptors.request.use(cfg => {
 
 api.interceptors.response.use(r => r, err => {
   if (err.response?.status === 401 && typeof window !== 'undefined') {
-    localStorage.removeItem('af_token')
+    localStorage.removeItem('token')
     window.location.href = '/'
   }
   return Promise.reject(err)

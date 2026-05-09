@@ -1,10 +1,7 @@
 /** @type {import('next').NextConfig} */
-const BACKEND = 'https://8zgnjk.wormhole.bar'
+const BACKEND = process.env.BACKEND_URL || 'http://localhost:8000'
 
 const nextConfig = {
-  experimental: {
-    allowedHosts: ['all'],
-  },
   async rewrites() {
     return [
       {

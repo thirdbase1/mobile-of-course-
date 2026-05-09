@@ -1,154 +1,93 @@
 'use client'
+import { File, Folder, ChevronRight, ChevronDown, FileText, Code2, Database, Settings, Terminal, Hash, Image } from 'lucide-react'
 import { useState, useEffect } from 'react'
-import { listFiles, getFile } from '@/lib/api'
-import { useStore } from '@/lib/store'
 import clsx from 'clsx'
 
-interface TreeNode {
-  name:    string
-  path:    string
-  type:    'file' | 'dir'
-  size?:   number
+interface FileNode {
+  name: string
+  path: string
+  type: 'file' | 'dir'
+  children?: FileNode[]
 }
 
-const LANG_EXT: Record<string, string> = {
-  ts:'typescript', tsx:'typescript', js:'javascript', jsx:'javascript',
-  py:'python', rb:'ruby', go:'go', rs:'rust', java:'java', cpp:'cpp', c:'c',
-  sh:'bash', bash:'bash', md:'markdown', json:'json', yaml:'yaml', yml:'yaml',
-  html:'html', css:'css', scss:'css', toml:'toml', env:'bash',
-}
+export default function FileTree({ files, onSelect, activePath }: { files: FileNode[], onSelect: (path: string) => void, activePath?: string }) {
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({})
 
-function FileIcon({ name }: { name: string }) {
-  const ext = name.split('.').pop()?.toLowerCase() || ''
-  const icons: Record<string, string> = {
-    py:'🐍', ts:'🔷', tsx:'⚛', js:'📜', jsx:'⚛', json:'{}',
-    md:'📝', html:'🌐', css:'🎨', go:'🐹', rs:'🦀', rb:'💎',
-    sh:'$', bash:'$', yaml:'⚙', yml:'⚙', toml:'⚙', env:'🔒',
-    gitignore:'🚫', dockerfile:'🐳',
+  const toggle = (path: string) => {
+    setExpanded(prev => ({ ...prev, [path]: !prev[path] }))
   }
-  return <span className="text-[11px] w-4 text-center shrink-0">{icons[ext] || icons[name.toLowerCase()] || '📄'}</span>
-}
 
-interface Props {
-  repoId:     string
-  repoFull:   string
-  branch:     string
-}
-
-export default function FileTree({ repoId, repoFull, branch }: Props) {
-  const { openTab } = useStore()
-  const [tree,    setTree]    = useState<TreeNode[]>([])
-  const [loading, setLoading] = useState(true)
-  const [expanded,setExpanded]= useState<Set<string>>(new Set())
-  const [subtrees,setSubtrees]= useState<Record<string, TreeNode[]>>({})
-  const [loadingSubs, setLoadingSubs] = useState<Set<string>>(new Set())
-  const [openPath, setOpenPath] = useState<string | null>(null)
-
+  // Auto-expand parents of active file
   useEffect(() => {
-    setLoading(true)
-    listFiles(repoId, '', branch)
-      .then(data => setTree(normalize(data)))
-      .catch(() => {})
-      .finally(() => setLoading(false))
-  }, [repoId, branch])
-
-  function normalize(items: any[]): TreeNode[] {
-    return (Array.isArray(items) ? items : []).map(i => ({
-      name: i.name,
-      path: i.path,
-      type: (i.type === 'dir' ? 'dir' : 'file') as 'dir' | 'file',
-      size: i.size,
-    })).sort((a, b) => {
-      if (a.type !== b.type) return a.type === 'dir' ? -1 : 1
-      return a.name.localeCompare(b.name)
-    })
-  }
-
-  async function toggleDir(path: string) {
-    if (expanded.has(path)) {
-      setExpanded(s => { const n = new Set(s); n.delete(path); return n })
-      return
+    if (activePath) {
+        const parts = activePath.split('/')
+        let current = ''
+        const nextExpanded = { ...expanded }
+        parts.forEach(p => {
+            current = current ? `${current}/${p}` : p
+            nextExpanded[current] = true
+        })
+        // setExpanded(nextExpanded)
     }
-    setExpanded(s => new Set([...s, path]))
-    if (subtrees[path]) return
-    setLoadingSubs(s => new Set([...s, path]))
-    try {
-      const data = await listFiles(repoId, path, branch)
-      setSubtrees(s => ({ ...s, [path]: normalize(data) }))
-    } catch {}
-    setLoadingSubs(s => { const n = new Set(s); n.delete(path); return n })
+  }, [activePath])
+
+  const getIcon = (node: FileNode) => {
+    if (node.type === 'dir') return <Folder className="w-3.5 h-3.5 text-blue-400/80 fill-blue-400/10" />
+
+    const ext = node.name.split('.').pop()?.toLowerCase()
+    if (['ts', 'tsx', 'js', 'jsx'].includes(ext || '')) return <Code2 className="w-3.5 h-3.5 text-blue-300" />
+    if (['json', 'yaml', 'yml'].includes(ext || '')) return <Settings className="w-3.5 h-3.5 text-orange-300" />
+    if (['md', 'txt'].includes(ext || '')) return <FileText className="w-3.5 h-3.5 text-zinc-400" />
+    if (['sql', 'db'].includes(ext || '')) return <Database className="w-3.5 h-3.5 text-purple-300" />
+    if (['sh', 'bash'].includes(ext || '')) return <Terminal className="w-3.5 h-3.5 text-green-300" />
+    if (['png', 'jpg', 'svg'].includes(ext || '')) return <Image className="w-3.5 h-3.5 text-pink-300" />
+    return <File className="w-3.5 h-3.5 text-zinc-500" />
   }
 
-  async function openFile(node: TreeNode) {
-    setOpenPath(node.path)
-    try {
-      const data = await getFile(repoId, node.path, branch)
-      const ext  = node.name.split('.').pop()?.toLowerCase() || ''
-      openTab({
-        repoId,
-        repoFull,
-        path:    node.path,
-        content: data.content,
-        sha:     data.sha,
-        branch,
-      })
-    } catch (e: any) {
-      alert('Failed to open file: ' + (e?.response?.data?.detail || e.message))
-    } finally {
-      setOpenPath(null)
-    }
-  }
+  const renderNode = (node: FileNode, depth = 0) => {
+    const isExpanded = expanded[node.path]
+    const isActive = activePath === node.path
 
-  function renderNodes(nodes: TreeNode[], depth = 0) {
-    return nodes.map(node => (
+    return (
       <div key={node.path}>
-        {node.type === 'dir' ? (
-          <button
-            onClick={() => toggleDir(node.path)}
-            className="w-full flex items-center gap-1.5 px-2 py-1 hover:bg-surface-3 rounded transition-colors text-left"
-            style={{ paddingLeft: `${8 + depth * 12}px` }}
-          >
-            <span className="text-[10px] text-text-muted w-3 shrink-0">
-              {loadingSubs.has(node.path) ? '⟳' : expanded.has(node.path) ? '▾' : '▸'}
-            </span>
-            <span className="text-yellow text-[11px] shrink-0">📁</span>
-            <span className="text-text-secondary text-[11.5px] truncate">{node.name}</span>
-          </button>
-        ) : (
-          <button
-            onClick={() => openFile(node)}
-            className="w-full flex items-center gap-1.5 px-2 py-1 hover:bg-surface-3 rounded transition-colors text-left group"
-            style={{ paddingLeft: `${20 + depth * 12}px` }}
-          >
-            <FileIcon name={node.name} />
-            <span className={clsx(
-              'text-[11.5px] truncate flex-1',
-              openPath === node.path ? 'text-brand' : 'text-text-secondary group-hover:text-text-primary'
-            )}>
-              {node.name}
-            </span>
-            {openPath === node.path && (
-              <span className="w-2.5 h-2.5 border border-brand/50 border-t-brand rounded-full animate-spin shrink-0" />
+        <div
+          onClick={() => node.type === 'dir' ? toggle(node.path) : onSelect(node.path)}
+          style={{ paddingLeft: `${depth * 12 + 8}px` }}
+          className={clsx(
+            "flex items-center gap-2 py-1 cursor-pointer transition-colors group relative",
+            isActive ? "bg-white/10 text-white" : "hover:bg-white/5 text-zinc-400 hover:text-zinc-200"
+          )}
+        >
+          {isActive && <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-primary" />}
+
+          <div className="w-4 h-4 flex items-center justify-center">
+            {node.type === 'dir' && (
+                isExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />
             )}
-          </button>
-        )}
-        {node.type === 'dir' && expanded.has(node.path) && subtrees[node.path] && (
-          renderNodes(subtrees[node.path], depth + 1)
+          </div>
+
+          {getIcon(node)}
+          <span className="text-xs font-medium truncate py-0.5">{node.name}</span>
+        </div>
+
+        {node.type === 'dir' && isExpanded && node.children && (
+          <div>
+            {node.children.sort((a,b) => {
+                if (a.type !== b.type) return a.type === 'dir' ? -1 : 1
+                return a.name.localeCompare(b.name)
+            }).map(child => renderNode(child, depth + 1))}
+          </div>
         )}
       </div>
-    ))
+    )
   }
 
-  if (loading) return (
-    <div className="flex items-center justify-center py-8 text-text-muted text-xs gap-2">
-      <span className="w-3 h-3 border border-brand/50 border-t-brand rounded-full animate-spin" />
-      Loading files…
+  return (
+    <div className="py-2">
+      {files.sort((a,b) => {
+          if (a.type !== b.type) return a.type === 'dir' ? -1 : 1
+          return a.name.localeCompare(b.name)
+      }).map(node => renderNode(node))}
     </div>
   )
-
-  if (tree.length === 0) return (
-    <div className="py-8 text-text-muted text-xs text-center">Empty repository</div>
-  )
-
-  return <div className="py-1">{renderNodes(tree)}</div>
 }

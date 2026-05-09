@@ -5,7 +5,7 @@ from database import get_db, Session, Message
 from auth_utils import current_user
 from database import User
 
-router = APIRouter()
+router = APIRouter(prefix="/messages", tags=["messages"])
 
 
 def _out(m: Message):

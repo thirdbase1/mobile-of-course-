@@ -1,24 +1,50 @@
 'use client'
-import { useEffect, useRef } from 'react'
-import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { useState } from 'react'
+import {
+  Plus,
+  MessageSquare,
+  Settings,
+  LogOut,
+  Trash2,
+  ChevronDown,
+  GitPullRequest,
+  LayoutGrid,
+  Menu,
+  ChevronUp,
+  Box,
+  Terminal,
+  Activity,
+  Layers,
+  Search,
+  Code2,
+  FolderKanban
+} from 'lucide-react'
 import { useStore } from '@/lib/store'
-import { getSessions, createSession, deleteSession } from '@/lib/api'
+import { useRouter, usePathname } from 'next/navigation'
+import { createSession, deleteSession } from '@/lib/api'
 import clsx from 'clsx'
+import { motion, AnimatePresence } from 'framer-motion'
+import Link from 'next/link'
 
 export default function Sidebar() {
-  const { sessions, setSessions, upsertSession, removeSession, sidebarOpen, setSidebar, model } = useStore()
+  const router = useRouter()
   const pathname = usePathname()
-  const router   = useRouter()
+  const { user, sessions, upsertSession, removeSession, model } = useStore()
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const [newChatOpen, setNewChatOpen] = useState(false)
 
-  useEffect(() => {
-    getSessions().then(setSessions).catch(() => {})
-  }, [])
-
-  async function newSession() {
-    const s = await createSession({ title: 'New session', model })
+  async function newSession(type: 'blank' | 'github' | 'template') {
+    if (type === 'github') {
+        router.push('/dashboard/repos')
+        setMobileOpen(false)
+        setNewChatOpen(false)
+        return;
+    }
+    const s = await createSession({ title: 'New operational session', model })
     upsertSession(s)
     router.push(`/dashboard/session/${s.id}`)
+    setMobileOpen(false)
+    setNewChatOpen(false)
   }
 
   async function del(e: React.MouseEvent, id: string) {
@@ -28,90 +54,154 @@ export default function Sidebar() {
     if (pathname === `/dashboard/session/${id}`) router.push('/dashboard')
   }
 
-  if (!sidebarOpen) return (
-    <button
-      onClick={() => setSidebar(true)}
-      className="w-10 shrink-0 flex flex-col items-center pt-4 gap-3 border-r border-border bg-surface-1"
-    >
-      <div className="w-7 h-7 bg-brand rounded-lg flex items-center justify-center text-white text-xs font-bold">A</div>
-      <span className="text-text-muted text-[10px] writing-mode-vertical" style={{writingMode:'vertical-lr',transform:'rotate(180deg)'}}>Sessions</span>
-    </button>
+  const navItems = [
+    { icon: Search, label: 'Global Search' },
+    { icon: Activity, label: 'Active Sessions', active: pathname === '/dashboard', href: '/dashboard' },
+    { icon: FolderKanban, label: 'Workspaces', active: pathname === '/dashboard/repos', href: '/dashboard/repos' },
+    { icon: Layers, label: 'Architecture Logs' },
+    { icon: Terminal, label: 'Sandbox Cluster' },
+  ]
+
+  const SidebarContent = () => (
+    <div className="flex flex-col h-full bg-[#0c0c0e] text-[#a1a1aa] w-full border-r border-white/[0.05]">
+      {/* Product Branding */}
+      <div className="px-5 py-6 flex items-center gap-3 font-black text-lg tracking-tighter text-white uppercase border-b border-white/[0.02]">
+        <div className="w-8 h-8 bg-white text-black rounded-lg flex items-center justify-center">
+            <Box className="w-5 h-5" />
+        </div>
+        GITCODE
+      </div>
+
+      {/* New Session Trigger */}
+      <div className="px-4 pt-6 mb-4 relative">
+        <div className="flex items-stretch rounded-xl overflow-hidden border border-white/5 bg-white/[0.03] hover:border-white/20 transition-all group">
+          <button
+            onClick={() => newSession('blank')}
+            className="flex-1 flex items-center justify-center py-3 text-[10px] font-black uppercase tracking-[0.2em] text-white/80 hover:text-white transition-colors"
+          >
+            New Session
+          </button>
+          <div className="w-[1px] bg-white/[0.05]" />
+          <button
+            onClick={() => setNewChatOpen(!newChatOpen)}
+            className="px-3 hover:bg-white/10 transition-colors"
+          >
+            <ChevronDown className={clsx("w-4 h-4 transition-transform", newChatOpen && "rotate-180")} />
+          </button>
+        </div>
+
+        <AnimatePresence>
+          {newChatOpen && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setNewChatOpen(false)} />
+              <motion.div
+                initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+                className="absolute top-full left-4 right-4 mt-2 bg-[#121214] border border-white/10 rounded-xl shadow-2xl z-20 overflow-hidden"
+              >
+                <button onClick={() => newSession('blank')} className="w-full flex items-center gap-4 px-5 py-3 text-[10px] font-black uppercase tracking-widest hover:bg-white/5 transition-colors text-left text-white/60 hover:text-white">
+                  <Plus className="w-4 h-4" /> Blank Operational State
+                </button>
+                <button onClick={() => newSession('github')} className="w-full flex items-center gap-4 px-5 py-3 text-[10px] font-black uppercase tracking-widest hover:bg-white/5 transition-colors text-left text-white/60 hover:text-white">
+                  <GitPullRequest className="w-4 h-4" /> Sync GitHub Repository
+                </button>
+                <button onClick={() => newSession('template')} className="w-full flex items-center gap-4 px-5 py-3 text-[10px] font-black uppercase tracking-widest hover:bg-white/5 transition-colors text-left text-white/60 hover:text-white">
+                  <Code2 className="w-4 h-4" /> Deployment Template
+                </button>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Main OS Navigation */}
+      <nav className="flex-1 overflow-y-auto px-4 space-y-1 no-scrollbar">
+        {navItems.map((item, idx) => (
+          <Link
+            key={idx}
+            href={item.href || '#'}
+            className={clsx(
+              "w-full flex items-center gap-4 px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all",
+              item.active ? "bg-white/10 text-white shadow-xl" : "text-white/40 hover:bg-white/[0.02] hover:text-white"
+            )}
+          >
+            <item.icon className="w-4 h-4" />
+            {item.label}
+          </Link>
+        ))}
+
+        <div className="pt-8 pb-3 px-4 text-[9px] font-black uppercase tracking-[0.4em] text-white/10">Active Execution Chains</div>
+        <div className="space-y-1">
+          {sessions.slice(0, 15).map(s => {
+            const active = pathname === `/dashboard/session/${s.id}`
+            return (
+              <Link
+                key={s.id}
+                href={`/dashboard/session/${s.id}`}
+                className={clsx(
+                  "group flex items-center gap-4 px-4 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all relative",
+                  active ? "bg-white/5 text-white border border-white/5" : "text-white/30 hover:text-white"
+                )}
+              >
+                <div className={clsx("w-1.5 h-1.5 rounded-full", active ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" : "bg-white/10")} />
+                <span className="truncate flex-1">{s.title}</span>
+                <button
+                  onClick={e => del(e, s.id)}
+                  className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-500 transition-opacity"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </Link>
+            )
+          })}
+        </div>
+      </nav>
+
+      {/* OS Footer */}
+      <div className="p-4 border-t border-white/[0.02]">
+         <Link href="/dashboard/settings" className="w-full flex items-center gap-4 p-3 rounded-xl bg-white/[0.02] hover:bg-white/5 transition-all border border-white/[0.02] hover:border-white/10">
+            <img src={user?.avatar_url} className="w-7 h-7 rounded-lg border border-white/10" />
+            <div className="flex-1 text-left">
+                <div className="text-[10px] font-black text-white uppercase tracking-widest">{user?.name || user?.login}</div>
+                <div className="text-[8px] text-white/20 uppercase tracking-[0.3em]">PRO OPS PLAN</div>
+            </div>
+         </Link>
+      </div>
+    </div>
   )
 
   return (
-    <aside className="w-56 shrink-0 flex flex-col bg-surface-1 border-r border-border">
-      {/* Logo + collapse */}
-      <div className="flex items-center justify-between px-4 py-3.5 border-b border-border">
-        <Link href="/dashboard" className="flex items-center gap-2 min-w-0">
-          <div className="w-6 h-6 bg-brand rounded-md flex items-center justify-center text-white text-xs font-bold shrink-0">A</div>
-          <span className="font-semibold text-sm truncate">AgentForge</span>
-        </Link>
-        <button onClick={() => setSidebar(false)} className="text-text-muted hover:text-text-primary transition-colors ml-1 shrink-0">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6"/></svg>
+    <>
+      <div className="md:hidden fixed top-4 left-4 z-[100]">
+        <button
+          onClick={() => setMobileOpen(true)}
+          className="p-2.5 rounded-xl bg-black/80 backdrop-blur-md border border-white/10 text-white"
+        >
+          <Menu className="w-5 h-5" />
         </button>
       </div>
 
-      {/* New session */}
-      <div className="p-2.5">
-        <button onClick={newSession} className="w-full flex items-center gap-2 px-3 py-2 bg-brand/10 hover:bg-brand/15 border border-brand/25 text-brand rounded-lg text-xs font-medium transition-colors">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>
-          New Session
-        </button>
-      </div>
-
-      {/* Sessions */}
-      <div className="flex-1 overflow-y-auto px-2 py-1">
-        {sessions.length === 0 ? (
-          <p className="text-text-muted text-xs text-center py-6">No sessions yet</p>
-        ) : sessions.map(s => {
-          const active = pathname === `/dashboard/session/${s.id}`
-          return (
-            <Link
-              key={s.id}
-              href={`/dashboard/session/${s.id}`}
-              className={clsx(
-                'group flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs mb-0.5 transition-colors relative',
-                active ? 'bg-brand/10 text-brand' : 'text-text-secondary hover:bg-surface-3 hover:text-text-primary'
-              )}
+      <AnimatePresence>
+        {mobileOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setMobileOpen(false)}
+              className="fixed inset-0 bg-black/80 backdrop-blur-xl z-[110]"
+            />
+            <motion.div
+              initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }}
+              transition={{ type: "spring", damping: 30, stiffness: 300 }}
+              className="fixed inset-y-0 left-0 w-80 z-[120] shadow-[50px_0_100px_rgba(0,0,0,0.5)]"
             >
-              {s.status === 'running' ? (
-                <span className="w-1.5 h-1.5 rounded-full bg-green animate-pulse shrink-0" />
-              ) : s.status === 'error' ? (
-                <span className="w-1.5 h-1.5 rounded-full bg-red shrink-0" />
-              ) : (
-                <span className={clsx('w-1.5 h-1.5 rounded-full shrink-0', active ? 'bg-brand' : 'bg-surface-4')} />
-              )}
-              <span className="flex-1 truncate">{s.title}</span>
-              {s.repo && <span className="shrink-0 text-text-muted text-[10px]">●</span>}
-              <button
-                onClick={e => del(e, s.id)}
-                className="hidden group-hover:flex shrink-0 text-text-muted hover:text-red transition-colors"
-              >
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
-              </button>
-            </Link>
-          )
-        })}
-      </div>
+              <SidebarContent />
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
-      {/* Bottom nav */}
-      <div className="border-t border-border p-2 space-y-0.5">
-        {[
-          { href: '/dashboard/repos', label: 'Repositories', icon: '⎇' },
-          { href: '/dashboard/settings', label: 'Settings', icon: '⚙' },
-        ].map(({ href, label, icon }) => (
-          <Link
-            key={href}
-            href={href}
-            className={clsx(
-              'flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs transition-colors',
-              pathname.startsWith(href) ? 'bg-surface-3 text-text-primary' : 'text-text-muted hover:bg-surface-3 hover:text-text-primary'
-            )}
-          >
-            <span className="text-sm">{icon}</span> {label}
-          </Link>
-        ))}
+      <div className="hidden md:block w-72 shrink-0 h-full">
+        <SidebarContent />
       </div>
-    </aside>
+    </>
   )
 }

@@ -1,26 +1,44 @@
 'use client'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
+import Header from '@/components/Header'
 import { useStore } from '@/lib/store'
-import { getMe, getRepos } from '@/lib/api'
+import { getMe, getRepos, getKeys } from '@/lib/api'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { setUser, setRepos, sidebarOpen } = useStore()
+  const { setUser, setRepos } = useStore()
   const router = useRouter()
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    const token = localStorage.getItem('af_token')
+    const token = localStorage.getItem('token')
     if (!token) { router.replace('/'); return }
-    getMe().then(setUser).catch(() => { localStorage.removeItem('af_token'); router.replace('/') })
-    getRepos().then(setRepos).catch(() => {})
+
+    setMounted(true)
+
+    // Core Init
+    Promise.all([
+        getMe().then(setUser),
+        getRepos().then(setRepos),
+        getKeys()
+    ]).catch((err) => {
+        console.error("Initialization failed", err)
+        localStorage.removeItem('token');
+        router.replace('/')
+    })
   }, [])
 
+  if (!mounted) return null
+
   return (
-    <div className="flex h-screen overflow-hidden bg-surface-0">
+    <div className="flex h-screen overflow-hidden bg-[#09090b] text-white selection:bg-white selection:text-black">
       <Sidebar />
-      <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
-        {children}
+      <div className="flex-1 flex flex-col min-w-0 relative">
+        <Header />
+        <main className="flex-1 min-w-0 flex flex-col relative overflow-hidden bg-background">
+          {children}
+        </main>
       </div>
     </div>
   )
