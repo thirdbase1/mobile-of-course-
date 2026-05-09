@@ -1,6 +1,6 @@
 // Core Workspace
 export { WorkspaceShell, type WorkspaceShellProps } from './WorkspaceShell'
-export { Sidebar } from './Sidebar'
+export { default as Sidebar } from './Sidebar'
 export { ResizablePanel, type ResizablePanelProps } from './ResizablePanel'
 
 // Panels

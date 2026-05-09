@@ -37,16 +37,16 @@ export default function LandingPage() {
 
       <nav className="h-16 border-b border-border/50 bg-background/50 backdrop-blur-md sticky top-0 z-50 flex items-center justify-between px-6 md:px-12">
         <div className="flex items-center gap-2 font-bold text-xl tracking-tighter">
-          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-primary-foreground">
-            <Plus className="w-5 h-5 rotate-45" />
+          <div className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center text-background">
+            <Code2 className="w-5 h-5" />
           </div>
-          AgentForge
+          GITCODE
         </div>
         <button
           onClick={login}
           className="text-sm font-bold uppercase tracking-widest hover:text-primary transition-colors"
         >
-          Sign In
+          Launch
         </button>
       </nav>
 
@@ -54,10 +54,10 @@ export default function LandingPage() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/5 border border-primary/20 text-[10px] font-bold uppercase tracking-widest text-primary mb-10"
+          className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-accent/10 border border-accent/30 text-[10px] font-bold uppercase tracking-widest text-accent mb-10"
         >
           <Sparkles className="w-3.5 h-3.5" />
-          <span>Next-Gen Autonomous Engineering</span>
+          <span>AI-Native Software Engineering OS</span>
         </motion.div>
 
         <motion.h1
@@ -66,7 +66,7 @@ export default function LandingPage() {
           transition={{ delay: 0.1 }}
           className="text-6xl md:text-8xl font-black tracking-tight mb-8 max-w-5xl leading-[0.9]"
         >
-          The Agent That <span className="text-muted-foreground/40 italic">Actually</span> Builds.
+          Supervise Autonomous <span className="text-accent">AI Engineers</span>
         </motion.h1>
 
         <motion.p
@@ -75,7 +75,7 @@ export default function LandingPage() {
           transition={{ delay: 0.2 }}
           className="text-muted-foreground text-lg md:text-xl max-w-2xl mb-12 leading-relaxed font-medium"
         >
-          AgentForge is a sophisticated autonomous development agent. It clones your repository into an isolated sandbox, installs dependencies, runs tests, and pushes verified PRs.
+          GITCODE is an unified workspace where AI agents operate transparently in your repositories, sandboxes, and terminals. Real-time visibility, approval-based security, and multi-agent orchestration.
         </motion.p>
 
         <motion.div
@@ -86,23 +86,23 @@ export default function LandingPage() {
         >
           <button
             onClick={login}
-            className="w-full sm:w-auto h-14 px-10 bg-primary text-primary-foreground rounded-2xl font-bold uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-primary/90 transition-all shadow-2xl shadow-primary/30 group"
+            className="w-full sm:w-auto h-14 px-10 bg-accent text-background rounded-2xl font-bold uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-accent/90 transition-all shadow-2xl shadow-accent/30 group"
           >
-            <GitBranch className="w-5 h-5" />
-            Launch via GitHub
+            <Terminal className="w-5 h-5" />
+            Enter Workspace
             <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
           </button>
-          <button className="w-full sm:w-auto h-14 px-10 bg-secondary text-foreground border border-border rounded-2xl font-bold uppercase tracking-widest hover:bg-accent transition-all">
-            Documentation
+          <button className="w-full sm:w-auto h-14 px-10 bg-secondary text-foreground border border-border rounded-2xl font-bold uppercase tracking-widest hover:border-primary transition-all">
+            Learn More
           </button>
         </motion.div>
 
         {/* Feature Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full mb-32">
           {[
-            { icon: Terminal, title: "Isolated Sandbox", desc: "Full terminal access in secure /tmp workspaces. The agent runs your code, installs npm/pip, and debugs in real-time." },
-            { icon: ShieldCheck, title: "Verified Commits", desc: "No random changes. The agent works on dedicated branches, verifies builds, and only pushes when the job is done." },
-            { icon: Cpu, title: "Extreme Intelligence", desc: "Powered by DeepSeek R1, Groq Compound, and Qwen 2.5 for unmatched architectural reasoning and code quality." }
+            { icon: Terminal, title: "Multi-Panel Workspace", desc: "Chat, code editor, file explorer, diff viewer, terminal, and git panel all synchronized in real-time." },
+            { icon: ShieldCheck, title: "Approval-Based Security", desc: "Granular permissions per tool, workspace, or agent. Approve dangerous operations before execution." },
+            { icon: Cpu, title: "AI Agent Orchestration", desc: "Coordinate multiple specialized agents: planner, coder, debugger, reviewer, devops - working autonomously or supervised." }
           ].map((f, i) => (
             <motion.div
               key={i}
@@ -129,10 +129,10 @@ export default function LandingPage() {
           className="w-full max-w-5xl grid grid-cols-2 md:grid-cols-4 gap-8 mb-32 border-y border-border/50 py-12"
         >
           {[
-            { label: "Execution Time", val: "< 2.5s", icon: Zap },
-            { label: "Supported Stacks", val: "Any", icon: Globe },
-            { label: "Deployment", val: "Render/Vercel", icon: Rocket },
-            { label: "AI Models", val: "10+", icon: Cpu }
+            { label: "AI Models", val: "38+", icon: Cpu },
+            { label: "Workspace Types", val: "4", icon: Globe },
+            { label: "Agent Roles", val: "6", icon: Sparkles },
+            { label: "Permission Levels", val: "Custom", icon: ShieldCheck }
           ].map((s, i) => (
             <div key={i} className="flex flex-col items-center">
               <s.icon className="w-5 h-5 text-primary mb-3" />
@@ -155,22 +155,23 @@ export default function LandingPage() {
               <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/20 border border-yellow-500/30" />
               <div className="w-2.5 h-2.5 rounded-full bg-green-500/20 border border-green-500/30" />
             </div>
-            <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground flex-1 text-center">agentforge@v2.2 — active-session</div>
+            <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground flex-1 text-center">gitcode@workspace — AI Engineers Active</div>
           </div>
           <div className="p-10 font-mono text-sm text-left space-y-3 overflow-x-auto whitespace-nowrap md:whitespace-normal">
-            <div className="flex gap-4"><span className="text-primary font-bold">➜</span> <span className="text-muted-foreground opacity-50">Initializing high-capacity sandbox...</span></div>
-            <div className="flex gap-4"><span className="text-green-500">✓</span> <span className="text-white font-medium">Workspace ready at /tmp/af-92k1</span></div>
-            <div className="flex gap-4"><span className="text-primary font-bold">➜</span> <span className="text-muted-foreground opacity-50">Executing:</span> <span className="text-white">npm install && npm run build</span></div>
-            <div className="flex gap-4"><span className="text-blue-400">ℹ</span> <span className="text-white font-medium">Build successful. Starting architectural refactor.</span></div>
-            <div className="flex gap-4"><span className="animate-pulse w-2 h-5 bg-primary" /></div>
+            <div className="flex gap-4"><span className="text-accent font-bold">➜</span> <span className="text-muted-foreground opacity-50">Starting workspace agents...</span></div>
+            <div className="flex gap-4"><span className="text-green-500">✓</span> <span className="text-white font-medium">Planner Agent: Ready</span></div>
+            <div className="flex gap-4"><span className="text-green-500">✓</span> <span className="text-white font-medium">Coding Agent: Ready</span></div>
+            <div className="flex gap-4"><span className="text-accent font-bold">➜</span> <span className="text-muted-foreground opacity-50">Awaiting human approval for:</span> <span className="text-white">git push origin feature-branch</span></div>
+            <div className="flex gap-4"><span className="text-blue-400">●</span> <span className="text-white font-medium">1 approval required • 38 models available • 0 errors</span></div>
+            <div className="flex gap-4"><span className="animate-pulse w-2 h-5 bg-accent" /></div>
           </div>
         </motion.div>
       </main>
 
       <footer className="border-t border-border/50 py-16 px-6 text-center">
-        <div className="font-bold text-lg mb-4 tracking-tighter">AgentForge</div>
+        <div className="font-bold text-lg mb-4 tracking-tighter">GITCODE</div>
         <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-          © 2026 AgentForge. Securely powered by Groq, xAI & GitHub.
+          © 2026 GITCODE. AI-Native Engineering OS. Powered by 38+ Models & Real-Time Transparency.
         </p>
       </footer>
     </div>
