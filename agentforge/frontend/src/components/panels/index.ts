@@ -1,0 +1,6 @@
+export { ChatPanel } from './ChatPanel'
+export { TimelinePanel } from './TimelinePanel'
+export { InspectorPanel } from './InspectorPanel'
+export { TerminalPanel } from './TerminalPanel'
+export { GitPanel } from './GitPanel'
+export { EditorPanel } from './EditorPanel'

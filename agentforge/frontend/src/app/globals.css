@@ -3,57 +3,186 @@
 @tailwind utilities;
 
 :root {
-  --background: 0 0% 100%;
-  --foreground: 240 10% 3.9%;
-  --card: 0 0% 100%;
-  --card-foreground: 240 10% 3.9%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 240 10% 3.9%;
-  --primary: 240 5.9% 10%;
-  --primary-foreground: 0 0% 98%;
-  --secondary: 240 4.8% 95.9%;
-  --secondary-foreground: 240 5.9% 10%;
-  --muted: 240 4.8% 95.9%;
-  --muted-foreground: 240 3.8% 46.1%;
-  --accent: 240 4.8% 95.9%;
-  --accent-foreground: 240 5.9% 10%;
-  --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 0 0% 98%;
-  --border: 240 5.9% 90%;
-  --input: 240 5.9% 90%;
-  --ring: 240 5.9% 10%;
-  --radius: 0.5rem;
+  /* GITCODE - AI-Native Engineering OS Color System */
+  
+  /* Background & Surface Colors */
+  --background: 0 0% 3.5%;
+  --surface-primary: 0 0% 5%;
+  --surface-secondary: 0 0% 7%;
+  --surface-tertiary: 0 0% 9%;
+  
+  /* Text & Foreground */
+  --foreground: 0 0% 95%;
+  --foreground-secondary: 0 0% 75%;
+  --foreground-tertiary: 0 0% 55%;
+  
+  /* Card & Container */
+  --card: 0 0% 5%;
+  --card-foreground: 0 0% 95%;
+  
+  /* Primary - Blue (Action, Key Elements) */
+  --primary: 206 100% 50%;
+  --primary-foreground: 0 0% 5%;
+  --primary-light: 206 100% 60%;
+  --primary-dark: 206 100% 40%;
+  
+  /* Accent - Teal/Cyan (AI Operations, Highlights) */
+  --accent: 180 100% 50%;
+  --accent-foreground: 0 0% 5%;
+  
+  /* Secondary - Slate (UI Elements) */
+  --secondary: 210 11% 15%;
+  --secondary-foreground: 0 0% 95%;
+  
+  /* Muted (Disabled, Low Priority) */
+  --muted: 210 11% 20%;
+  --muted-foreground: 0 0% 55%;
+  
+  /* Status Colors */
+  --success: 142 76% 36%;
+  --success-foreground: 0 0% 95%;
+  --warning: 38 92% 50%;
+  --warning-foreground: 0 0% 5%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 95%;
+  
+  /* Borders & Separators */
+  --border: 210 11% 12%;
+  --border-light: 210 11% 18%;
+  
+  /* Input & Controls */
+  --input: 210 11% 10%;
+  --input-border: 210 11% 15%;
+  
+  /* Popover */
+  --popover: 0 0% 7%;
+  --popover-foreground: 0 0% 95%;
+  
+  /* Ring (Focus) */
+  --ring: 206 100% 50%;
+  
+  /* Border Radius */
+  --radius: 0.375rem;
 }
 
 .dark {
-  --background: 240 10% 3.9%;
-  --foreground: 0 0% 98%;
-  --card: 240 10% 3.9%;
-  --card-foreground: 0 0% 98%;
-  --popover: 240 10% 3.9%;
-  --popover-foreground: 0 0% 98%;
-  --primary: 0 0% 98%;
-  --primary-foreground: 240 5.9% 10%;
-  --secondary: 240 3.7% 15.9%;
-  --secondary-foreground: 0 0% 98%;
-  --muted: 240 3.7% 15.9%;
-  --muted-foreground: 240 5% 64.9%;
-  --accent: 240 3.7% 15.9%;
-  --accent-foreground: 0 0% 98%;
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 0 0% 98%;
-  --border: 240 3.7% 15.9%;
-  --input: 240 3.7% 15.9%;
-  --ring: 240 4.9% 83.9%;
+  /* Already dark mode by default */
 }
 
 @layer base {
   * {
     @apply border-border;
   }
+  
+  html {
+    @apply bg-background;
+  }
+  
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  /* Typography Scale */
+  h1 {
+    @apply text-3xl font-bold tracking-tight;
+  }
+  
+  h2 {
+    @apply text-2xl font-semibold tracking-tight;
+  }
+  
+  h3 {
+    @apply text-xl font-semibold tracking-tight;
+  }
+  
+  h4 {
+    @apply text-lg font-semibold;
+  }
+  
+  h5 {
+    @apply text-base font-semibold;
+  }
+  
+  h6 {
+    @apply text-sm font-semibold;
+  }
+  
+  p {
+    @apply text-foreground-secondary;
+  }
+  
+  code {
+    @apply font-mono text-sm bg-surface-secondary px-1.5 py-0.5 rounded;
+  }
+  
+  pre {
+    @apply bg-surface-primary border border-border p-3 rounded-md overflow-auto;
+  }
+}
+
+@layer components {
+  /* Button Variants */
+  .btn-primary {
+    @apply px-4 py-2 bg-primary text-primary-foreground rounded font-semibold 
+           hover:bg-primary-light active:bg-primary-dark transition-colors;
+  }
+  
+  .btn-secondary {
+    @apply px-4 py-2 bg-secondary text-secondary-foreground rounded font-semibold 
+           hover:bg-secondary/80 active:bg-secondary/90 transition-colors border border-border;
+  }
+  
+  .btn-ghost {
+    @apply px-4 py-2 text-foreground rounded font-semibold 
+           hover:bg-surface-secondary active:bg-surface-tertiary transition-colors;
+  }
+  
+  .btn-danger {
+    @apply px-4 py-2 bg-destructive text-destructive-foreground rounded font-semibold 
+           hover:bg-destructive/90 active:bg-destructive/80 transition-colors;
+  }
+  
+  /* Input Variants */
+  .input-base {
+    @apply w-full px-3 py-2 bg-input border border-input-border text-foreground 
+           placeholder:text-foreground-tertiary rounded focus:outline-none focus:ring-2 
+           focus:ring-primary focus:border-transparent transition-all;
+  }
+  
+  /* Card Variants */
+  .card {
+    @apply bg-surface-secondary border border-border rounded-lg p-4;
+  }
+  
+  .card-elevated {
+    @apply bg-surface-primary border border-border-light rounded-lg p-4 
+           shadow-lg shadow-black/20;
+  }
+  
+  /* Badge Variants */
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold;
+  }
+  
+  .badge-primary {
+    @apply badge bg-primary/20 text-primary;
+  }
+  
+  .badge-success {
+    @apply badge bg-success/20 text-success;
+  }
+  
+  .badge-warning {
+    @apply badge bg-warning/20 text-warning;
+  }
+  
+  .badge-destructive {
+    @apply badge bg-destructive/20 text-destructive;
   }
 }
 
