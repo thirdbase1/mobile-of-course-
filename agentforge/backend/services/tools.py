@@ -458,8 +458,8 @@ async def _gh_commit_push(args: dict, ctx: dict) -> str:
     branch = args.get("branch", "main")
 
     # Git config
-    await (await asyncio.create_subprocess_exec("git", "config", "user.email", "agent@agentforge.app", cwd=str(ws))).wait()
-    await (await asyncio.create_subprocess_exec("git", "config", "user.name", "AgentForge", cwd=str(ws))).wait()
+    await (await asyncio.create_subprocess_exec("git", "config", "user.email", "agent@gitcode.app", cwd=str(ws))).wait()
+    await (await asyncio.create_subprocess_exec("git", "config", "user.name", "GITCODE", cwd=str(ws))).wait()
 
     # Add, commit, push
     steps = [

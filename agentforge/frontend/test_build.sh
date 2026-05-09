@@ -1,2 +1,2 @@
-cd agentforge/frontend
+cd gitcode/frontend
 npm run build

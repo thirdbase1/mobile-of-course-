@@ -195,7 +195,7 @@ Extreme Detail Plan
 async def _stream_model(url, api_key, provider, model, messages, tools, parallel):
     import httpx
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-    if provider == "openrouter": headers["HTTP-Referer"], headers["X-Title"] = "https://agentforge-frontend-ambi.onrender.com", "AgentForge"
+    if provider == "openrouter": headers["HTTP-Referer"], headers["X-Title"] = "https://gitcode-frontend-ambi.onrender.com", "GITCODE"
     payload = {"model": model, "messages": messages, "tools": tools, "stream": True, "max_tokens": 16384}
     if parallel: payload["parallel_tool_calls"] = True
     acc = {}

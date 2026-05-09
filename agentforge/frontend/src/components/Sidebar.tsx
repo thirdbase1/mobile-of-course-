@@ -1,48 +1,46 @@
 'use client'
-import { useEffect, useState } from 'react'
-import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
-import { useStore, MODELS } from '@/lib/store'
-import { getSessions, createSession, deleteSession } from '@/lib/api'
+import { useState } from 'react'
 import {
   Plus,
   MessageSquare,
+  Settings,
+  LogOut,
   Trash2,
-  Search,
-  Home,
-  Briefcase,
-  LayoutGrid,
-  FileText,
-  ChevronRight,
   ChevronDown,
-  MoreHorizontal,
   GitPullRequest,
+  LayoutGrid,
+  Menu,
   ChevronUp,
-  X,
-  Menu
+  Box,
+  Terminal,
+  Activity,
+  Layers,
+  Search,
+  Code2,
+  FolderKanban
 } from 'lucide-react'
+import { useStore } from '@/lib/store'
+import { useRouter, usePathname } from 'next/navigation'
+import { createSession, deleteSession } from '@/lib/api'
 import clsx from 'clsx'
 import { motion, AnimatePresence } from 'framer-motion'
+import Link from 'next/link'
 
 export default function Sidebar() {
-  const { sessions, setSessions, upsertSession, removeSession, model, user } = useStore()
-  const pathname = usePathname()
   const router = useRouter()
+  const pathname = usePathname()
+  const { user, sessions, upsertSession, removeSession, model } = useStore()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [newChatOpen, setNewChatOpen] = useState(false)
 
-  useEffect(() => {
-    getSessions().then(setSessions).catch(() => {})
-  }, [])
-
-  async function newSession(type: 'blank' | 'github' | 'template' = 'blank') {
+  async function newSession(type: 'blank' | 'github' | 'template') {
     if (type === 'github') {
         router.push('/dashboard/repos')
         setMobileOpen(false)
         setNewChatOpen(false)
         return;
     }
-    const s = await createSession({ title: 'New session', model })
+    const s = await createSession({ title: 'New operational session', model })
     upsertSession(s)
     router.push(`/dashboard/session/${s.id}`)
     setMobileOpen(false)
@@ -57,45 +55,36 @@ export default function Sidebar() {
   }
 
   const navItems = [
-    { icon: Search, label: 'Search' },
-    { icon: Home, label: 'Home', active: pathname === '/dashboard', href: '/dashboard' },
-    { icon: Briefcase, label: 'Projects', active: pathname === '/dashboard/repos', href: '/dashboard/repos' },
-    { icon: MessageSquare, label: 'Chats' },
-    { icon: LayoutGrid, label: 'Design Systems' },
-    { icon: FileText, label: 'Templates' },
+    { icon: Search, label: 'Global Search' },
+    { icon: Activity, label: 'Active Sessions', active: pathname === '/dashboard', href: '/dashboard' },
+    { icon: FolderKanban, label: 'Workspaces', active: pathname === '/dashboard/repos', href: '/dashboard/repos' },
+    { icon: Layers, label: 'Architecture Logs' },
+    { icon: Terminal, label: 'Sandbox Cluster' },
   ]
 
   const SidebarContent = () => (
-    <div className="flex flex-col h-full bg-[#09090b] text-[#a1a1aa] w-full border-r border-border/50">
-      {/* Workspace Switcher */}
-      <div className="px-3 pt-4 mb-2">
-        <button className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-white/5 transition-colors group">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-[10px] font-bold">
-              {user?.name?.[0] || user?.login?.[0] || 'P'}
-            </div>
-            <span className="text-sm font-medium text-white">Personal</span>
-          </div>
-          <div className="flex flex-col gap-0.5 opacity-50 group-hover:opacity-100 transition-opacity">
-            <ChevronUp className="w-3 h-3" />
-            <ChevronDown className="w-3 h-3 -mt-1.5" />
-          </div>
-        </button>
+    <div className="flex flex-col h-full bg-[#0c0c0e] text-[#a1a1aa] w-full border-r border-white/[0.05]">
+      {/* Product Branding */}
+      <div className="px-5 py-6 flex items-center gap-3 font-black text-lg tracking-tighter text-white uppercase border-b border-white/[0.02]">
+        <div className="w-8 h-8 bg-white text-black rounded-lg flex items-center justify-center">
+            <Box className="w-5 h-5" />
+        </div>
+        GITCODE
       </div>
 
-      {/* New Chat Group */}
-      <div className="px-3 mb-6 relative">
-        <div className="flex items-stretch rounded-lg overflow-hidden border border-border/50 bg-[#18181b]">
+      {/* New Session Trigger */}
+      <div className="px-4 pt-6 mb-4 relative">
+        <div className="flex items-stretch rounded-xl overflow-hidden border border-white/5 bg-white/[0.03] hover:border-white/20 transition-all group">
           <button
             onClick={() => newSession('blank')}
-            className="flex-1 flex items-center justify-center py-2 text-sm font-medium text-white hover:bg-white/5 transition-colors"
+            className="flex-1 flex items-center justify-center py-3 text-[10px] font-black uppercase tracking-[0.2em] text-white/80 hover:text-white transition-colors"
           >
-            New Chat
+            New Session
           </button>
-          <div className="w-[1px] bg-border/50" />
+          <div className="w-[1px] bg-white/[0.05]" />
           <button
             onClick={() => setNewChatOpen(!newChatOpen)}
-            className="px-2 hover:bg-white/5 transition-colors"
+            className="px-3 hover:bg-white/10 transition-colors"
           >
             <ChevronDown className={clsx("w-4 h-4 transition-transform", newChatOpen && "rotate-180")} />
           </button>
@@ -107,16 +96,16 @@ export default function Sidebar() {
               <div className="fixed inset-0 z-10" onClick={() => setNewChatOpen(false)} />
               <motion.div
                 initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
-                className="absolute top-full left-3 right-3 mt-1 bg-[#18181b] border border-border/50 rounded-lg shadow-xl z-20 overflow-hidden"
+                className="absolute top-full left-4 right-4 mt-2 bg-[#121214] border border-white/10 rounded-xl shadow-2xl z-20 overflow-hidden"
               >
-                <button onClick={() => newSession('blank')} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-white/5 transition-colors text-left text-white">
-                  <Plus className="w-4 h-4" /> Blank Chat
+                <button onClick={() => newSession('blank')} className="w-full flex items-center gap-4 px-5 py-3 text-[10px] font-black uppercase tracking-widest hover:bg-white/5 transition-colors text-left text-white/60 hover:text-white">
+                  <Plus className="w-4 h-4" /> Blank Operational State
                 </button>
-                <button onClick={() => newSession('github')} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-white/5 transition-colors text-left text-white">
-                  <GitPullRequest className="w-4 h-4" /> Import from GitHub
+                <button onClick={() => newSession('github')} className="w-full flex items-center gap-4 px-5 py-3 text-[10px] font-black uppercase tracking-widest hover:bg-white/5 transition-colors text-left text-white/60 hover:text-white">
+                  <GitPullRequest className="w-4 h-4" /> Sync GitHub Repository
                 </button>
-                <button onClick={() => newSession('template')} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-white/5 transition-colors text-left text-white">
-                  <LayoutGrid className="w-4 h-4" /> Start from Template
+                <button onClick={() => newSession('template')} className="w-full flex items-center gap-4 px-5 py-3 text-[10px] font-black uppercase tracking-widest hover:bg-white/5 transition-colors text-left text-white/60 hover:text-white">
+                  <Code2 className="w-4 h-4" /> Deployment Template
                 </button>
               </motion.div>
             </>
@@ -124,15 +113,15 @@ export default function Sidebar() {
         </AnimatePresence>
       </div>
 
-      {/* Main Nav */}
-      <nav className="flex-1 overflow-y-auto px-2 space-y-0.5 no-scrollbar">
+      {/* Main OS Navigation */}
+      <nav className="flex-1 overflow-y-auto px-4 space-y-1 no-scrollbar">
         {navItems.map((item, idx) => (
           <Link
             key={idx}
             href={item.href || '#'}
             className={clsx(
-              "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors",
-              item.active ? "bg-white/10 text-white" : "hover:bg-white/5 hover:text-white"
+              "w-full flex items-center gap-4 px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all",
+              item.active ? "bg-white/10 text-white shadow-xl" : "text-white/40 hover:bg-white/[0.02] hover:text-white"
             )}
           >
             <item.icon className="w-4 h-4" />
@@ -140,8 +129,8 @@ export default function Sidebar() {
           </Link>
         ))}
 
-        <div className="pt-6 pb-2 px-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50">Recent Chats</div>
-        <div className="space-y-0.5">
+        <div className="pt-8 pb-3 px-4 text-[9px] font-black uppercase tracking-[0.4em] text-white/10">Active Execution Chains</div>
+        <div className="space-y-1">
           {sessions.slice(0, 15).map(s => {
             const active = pathname === `/dashboard/session/${s.id}`
             return (
@@ -149,15 +138,15 @@ export default function Sidebar() {
                 key={s.id}
                 href={`/dashboard/session/${s.id}`}
                 className={clsx(
-                  "group flex items-center gap-3 px-3 py-1.5 rounded-lg text-xs transition-colors relative",
-                  active ? "bg-white/10 text-white" : "hover:bg-white/5 hover:text-white"
+                  "group flex items-center gap-4 px-4 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all relative",
+                  active ? "bg-white/5 text-white border border-white/5" : "text-white/30 hover:text-white"
                 )}
               >
-                <MessageSquare className="w-3.5 h-3.5 opacity-40 group-hover:opacity-100" />
+                <div className={clsx("w-1.5 h-1.5 rounded-full", active ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" : "bg-white/10")} />
                 <span className="truncate flex-1">{s.title}</span>
                 <button
                   onClick={e => del(e, s.id)}
-                  className="opacity-0 group-hover:opacity-100 p-1 hover:text-white transition-opacity"
+                  className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-500 transition-opacity"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
@@ -167,13 +156,13 @@ export default function Sidebar() {
         </div>
       </nav>
 
-      {/* Footer / User Profile */}
-      <div className="p-3 border-t border-border/50">
-         <Link href="/dashboard/settings" className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors text-left">
-            <img src={user?.avatar_url} className="w-6 h-6 rounded-full border border-white/10" />
+      {/* OS Footer */}
+      <div className="p-4 border-t border-white/[0.02]">
+         <Link href="/dashboard/settings" className="w-full flex items-center gap-4 p-3 rounded-xl bg-white/[0.02] hover:bg-white/5 transition-all border border-white/[0.02] hover:border-white/10">
+            <img src={user?.avatar_url} className="w-7 h-7 rounded-lg border border-white/10" />
             <div className="flex-1 text-left">
-                <div className="text-xs font-medium text-white truncate">{user?.name || user?.login}</div>
-                <div className="text-[10px] text-muted-foreground truncate uppercase tracking-tighter">Pro Plan</div>
+                <div className="text-[10px] font-black text-white uppercase tracking-widest">{user?.name || user?.login}</div>
+                <div className="text-[8px] text-white/20 uppercase tracking-[0.3em]">PRO OPS PLAN</div>
             </div>
          </Link>
       </div>
@@ -185,7 +174,7 @@ export default function Sidebar() {
       <div className="md:hidden fixed top-4 left-4 z-[100]">
         <button
           onClick={() => setMobileOpen(true)}
-          className="p-2 rounded-lg bg-black/50 backdrop-blur-md border border-white/10 text-white"
+          className="p-2.5 rounded-xl bg-black/80 backdrop-blur-md border border-white/10 text-white"
         >
           <Menu className="w-5 h-5" />
         </button>
@@ -197,12 +186,12 @@ export default function Sidebar() {
             <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={() => setMobileOpen(false)}
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110]"
+              className="fixed inset-0 bg-black/80 backdrop-blur-xl z-[110]"
             />
             <motion.div
               initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }}
-              transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="fixed inset-y-0 left-0 w-72 z-[120] shadow-2xl"
+              transition={{ type: "spring", damping: 30, stiffness: 300 }}
+              className="fixed inset-y-0 left-0 w-80 z-[120] shadow-[50px_0_100px_rgba(0,0,0,0.5)]"
             >
               <SidebarContent />
             </motion.div>
@@ -210,7 +199,7 @@ export default function Sidebar() {
         )}
       </AnimatePresence>
 
-      <div className="hidden md:block w-64 shrink-0 h-full">
+      <div className="hidden md:block w-72 shrink-0 h-full">
         <SidebarContent />
       </div>
     </>

@@ -12,7 +12,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    const token = localStorage.getItem('af_token')
+    const token = localStorage.getItem('token')
     if (!token) { router.replace('/'); return }
 
     setMounted(true)
@@ -21,11 +21,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     Promise.all([
         getMe().then(setUser),
         getRepos().then(setRepos),
-        getKeys() // Ensure keys are in context/memory if needed, but the backend handles them.
-                 // However, we fetch to ensure session is valid.
+        getKeys()
     ]).catch((err) => {
         console.error("Initialization failed", err)
-        localStorage.removeItem('af_token');
+        localStorage.removeItem('token');
         router.replace('/')
     })
   }, [])
@@ -33,11 +32,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (!mounted) return null
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background text-foreground selection:bg-primary selection:text-primary-foreground">
+    <div className="flex h-screen overflow-hidden bg-[#09090b] text-white selection:bg-white selection:text-black">
       <Sidebar />
       <div className="flex-1 flex flex-col min-w-0 relative">
         <Header />
-        <main className="flex-1 min-w-0 flex flex-col relative overflow-hidden">
+        <main className="flex-1 min-w-0 flex flex-col relative overflow-hidden bg-background">
           {children}
         </main>
       </div>
