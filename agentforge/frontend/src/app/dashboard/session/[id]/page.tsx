@@ -1,94 +1,122 @@
 'use client'
-import { useEffect, useState, useRef } from 'react'
-import { useParams, useRouter } from 'next/navigation'
-import { useStore, MODELS } from '@/lib/store'
-import { getSession, getMessages, openAgentSocket, api } from '@/lib/api'
-import MessageBubble from '@/components/MessageBubble'
-import FileTree from '@/components/FileTree'
-import CodeEditor from '@/components/CodeEditor'
+import { useState, useEffect, useRef } from 'react'
+import { useParams } from 'next/navigation'
 import {
-  Send,
-  Loader2,
-  Cpu,
-  ChevronDown,
-  Files,
-  Plus,
   Terminal as TerminalIcon,
-  RefreshCcw,
   Code2,
+  Cpu,
+  Plus,
+  Loader2,
+  Command,
   Search,
-  Command
+  ChevronDown,
+  RefreshCcw,
+  ShieldCheck,
+  ShieldAlert
 } from 'lucide-react'
 import clsx from 'clsx'
 import { motion, AnimatePresence } from 'framer-motion'
+import MessageBubble from '@/components/MessageBubble'
+import FileTree from '@/components/FileTree'
+import CodeEditor from '@/components/CodeEditor'
+
+const MODELS = [
+  { id: 'groq/gpt-oss-120b', name: 'GPT-OSS 120B (Reasoning)', provider: 'Groq' },
+  { id: 'groq/gpt-oss-20b', name: 'GPT-OSS 20B (Balanced)', provider: 'Groq' },
+  { id: 'groq/qwen-3-32b', name: 'Qwen 3 32B (Tool Use)', provider: 'Groq' },
+  { id: 'groq/llama-4-scout', name: 'Llama 4 Scout', provider: 'Groq' },
+  { id: 'groq/compound', name: 'Groq Compound', provider: 'Groq' },
+  { id: 'groq/compound-mini', name: 'Groq Compound Mini', provider: 'Groq' },
+  { id: 'openrouter/nemotron-3-super', name: 'Nemotron-3 Super', provider: 'OpenRouter' },
+  { id: 'openrouter/owl-alpha', name: 'Owl Alpha', provider: 'OpenRouter' },
+  { id: 'openrouter/qianfan-ocr', name: 'Qianfan OCR', provider: 'OpenRouter' },
+  { id: 'openrouter/laguna-m1', name: 'Laguna M.1', provider: 'OpenRouter' },
+  { id: 'openrouter/laguna-xs2', name: 'Laguna XS.2', provider: 'OpenRouter' },
+  { id: 'openrouter/cobuddy', name: 'Cobuddy', provider: 'OpenRouter' },
+  { id: 'openrouter/qwen3-coder', name: 'Qwen3 Coder', provider: 'OpenRouter' },
+  { id: 'openrouter/minimax-m2.5', name: 'Minimax M2.5', provider: 'OpenRouter' },
+  { id: 'openrouter/glm-4.5-air', name: 'GLM 4.5 Air', provider: 'OpenRouter' },
+  { id: 'openrouter/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet', provider: 'OpenRouter' },
+  { id: 'openrouter/deepseek-r1', name: 'DeepSeek R1', provider: 'OpenRouter' },
+  { id: 'xai/grok-3', name: 'Grok 3 (Beta)', provider: 'xAI' },
+]
 
 export default function SessionPage() {
   const { id } = useParams()
-  const router = useRouter()
-  const { model, setModel } = useStore()
-  const [session, setSession] = useState<any>(null)
   const [messages, setMessages] = useState<any[]>([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [status, setStatus] = useState('Idle')
-  const [loadingHistory, setLoadingHistory] = useState(true)
-  const [showModelPicker, setShowModelPicker] = useState(false)
-  const [activeTab, setActiveTab] = useState<'chat' | 'code' | 'sandbox'>('chat')
-  const [sandboxLogs, setSandboxLogs] = useState<any[]>([])
-  const [loadingLogs, setLoadingLogs] = useState(false)
+  const [activeTab, setActiveTab] = useState('chat')
   const [files, setFiles] = useState<any[]>([])
   const [selectedFile, setSelectedFile] = useState<any>(null)
-  const [loadingFiles, setLoadingFiles] = useState(false)
+  const [sandboxLogs, setSandboxLogs] = useState<any[]>([])
+  const [model, setModel] = useState('groq/gpt-oss-120b')
+  const [showModelPicker, setShowModelPicker] = useState(false)
   const [modelSearch, setModelSearch] = useState('')
+  const [loadingHistory, setLoadingHistory] = useState(true)
+  const [loadingFiles, setLoadingFiles] = useState(false)
+  const [loadingLogs, setLoadingLogs] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const logScrollRef = useRef<HTMLDivElement>(null)
   const wsRef = useRef<WebSocket | null>(null)
 
   useEffect(() => {
-    if (!id) return
-    getSession(id as string).then(setSession).catch(() => router.push('/dashboard'))
-    getMessages(id as string).then(msgs => {
-      setMessages(msgs); setLoadingHistory(false)
-    }).catch(() => setLoadingHistory(false))
+    fetchHistory()
     refreshFiles()
+    fetchLogs()
   }, [id])
 
   useEffect(() => {
-    if (scrollRef.current && activeTab === 'chat') scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-  }, [messages, activeTab])
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+  }, [messages, sending])
 
   useEffect(() => {
-    if (activeTab === 'sandbox' && id) fetchLogs()
-  }, [activeTab, id])
+    if (logScrollRef.current) logScrollRef.current.scrollTop = logScrollRef.current.scrollHeight
+  }, [sandboxLogs])
 
-  async function refreshFiles() {
-    if (!id) return
+  const fetchHistory = async () => {
+    try {
+      const res = await fetch(`/api/sessions/${id}/messages`)
+      const data = await res.json()
+      setMessages(data)
+    } catch (e) { console.error(e) } finally { setLoadingHistory(false) }
+  }
+
+  const refreshFiles = async () => {
     setLoadingFiles(true)
     try {
-        const res = await api.get(`/repos/fs/${id}`)
-        setFiles(res.data)
-    } catch (err) { console.error(err) } finally { setLoadingFiles(false) }
+      const res = await fetch(`/api/workspace/${id}/files`)
+      const data = await res.json()
+      setFiles(data)
+    } catch (e) { console.error(e) } finally { setLoadingFiles(false) }
   }
 
-  async function fetchFile(path: string) {
-      try {
-          const res = await api.get(`/repos/fs/${id}/file`, { params: { path } })
-          setSelectedFile(res.data)
-      } catch (err) { console.error(err) }
+  const fetchFile = async (path: string) => {
+    try {
+      const res = await fetch(`/api/workspace/${id}/file?path=${encodeURIComponent(path)}`)
+      const data = await res.json()
+      setSelectedFile({ path, content: data.content, name: path.split('/').pop() })
+      setActiveTab('code')
+    } catch (e) { console.error(e) }
   }
 
-  async function fetchLogs() {
+  const fetchLogs = async () => {
     setLoadingLogs(true)
     try {
-        const res = await api.get(`/execute/logs/${id}`)
-        setSandboxLogs(res.data)
-    } catch (err) { console.error(err) } finally { setLoadingLogs(false) }
+      const res = await fetch(`/api/sessions/${id}/logs`)
+      const data = await res.json()
+      setSandboxLogs(data)
+    } catch (e) { console.error(e) } finally { setLoadingLogs(false) }
   }
 
-  async function startAgent(text: string) {
+  const startAgent = (text: string) => {
     if (!text.trim() || sending) return
-    setInput(''); setSending(true); setStatus('Thinking')
-    setMessages(prev => [...prev, { role: 'user', content: text, id: 'u-' + Date.now() }])
-    const ws = openAgentSocket(id as string); wsRef.current = ws
+    setSending(true); setStatus('Thinking')
+    setInput('')
+
+    const ws = new WebSocket(`${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws/agent/${id}?token=${localStorage.getItem('token')}`)
+    wsRef.current = ws
     ws.onmessage = (e) => {
       const data = JSON.parse(e.data)
       if (data.type === 'reasoning') {
@@ -108,7 +136,7 @@ export default function SessionPage() {
       } else if (data.type === 'file_changed') {
           refreshFiles(); if (selectedFile && selectedFile.path === data.path) fetchFile(data.path)
       } else if (data.type === 'terminal_log') {
-          setSandboxLogs(prev => [...prev, { type: 'result', output: data.content, timestamp: new Date().toISOString() }])
+          setSandboxLogs(prev => [...prev, { type: 'result', output: data.content, stream: data.stream, timestamp: new Date().toISOString() }])
       } else if (data.type === 'tool_call') {
         setMessages(prev => [...prev, { role: 'tool_call', ...data }])
       } else if (data.type === 'tool_result') {
@@ -116,6 +144,9 @@ export default function SessionPage() {
           const updated = prev.map(m => (m.role === 'tool_call' && m.tc_id === data.tc_id) ? { ...m, result: data.output } : m)
           return [...updated, { role: 'tool_result', content: data.output, tc_id: data.tc_id }]
         })
+      } else if (data.type === 'approval_required') {
+        setStatus('Awaiting Approval')
+        setMessages(prev => [...prev, { role: 'approval_request', ...data }])
       } else if (data.type === 'done') {
         setSending(false); setStatus('Idle'); ws.close()
       } else if (data.type === 'error') {
@@ -126,6 +157,14 @@ export default function SessionPage() {
     ws.onopen = () => ws.send(JSON.stringify({ type: 'start', message: text, model }))
     ws.onerror = () => { setSending(false); setStatus('Error') }
     ws.onclose = () => { setSending(false); if (status !== 'Error') setStatus('Idle') }
+  }
+
+  const handleApproval = (decision: 'approve' | 'reject', tool: string, always: boolean = false) => {
+    if (wsRef.current) {
+        wsRef.current.send(JSON.stringify({ type: 'approval_response', decision, tool, always }))
+        setMessages(prev => prev.filter(m => m.role !== 'approval_request'))
+        setStatus('Thinking')
+    }
   }
 
   const filteredModels = MODELS.filter(m => m.name.toLowerCase().includes(modelSearch.toLowerCase()) || m.provider.toLowerCase().includes(modelSearch.toLowerCase()))
@@ -163,7 +202,7 @@ export default function SessionPage() {
               <div className="h-full flex flex-col items-center justify-center p-8 text-center opacity-30 max-w-md mx-auto"><TerminalIcon className="w-10 h-10 mb-8 text-primary" /><h2 className="text-xl font-black text-white mb-3 tracking-tighter">System Ready</h2><p className="text-xs text-muted-foreground font-medium leading-relaxed">Issue commands to the engine.</p></div>
             ) : (
               <div className="pb-40">
-                {messages.map((m, i) => <MessageBubble key={m.id || i} msg={m} />)}
+                {messages.map((m, i) => <MessageBubble key={m.id || i} msg={m} onApprove={(tool, always) => handleApproval('approve', tool, always)} onReject={(tool) => handleApproval('reject', tool)} />)}
                 {sending && <div className="py-10 px-4 w-full flex justify-end"><div className="max-w-2xl w-full flex flex-col items-end gap-3 opacity-50"><div className="flex items-center gap-2"><Loader2 className="w-3.5 h-3.5 animate-spin text-primary" /><span className="text-[10px] font-black uppercase tracking-widest text-primary">{status}</span></div></div></div>}
               </div>
             )}
@@ -192,8 +231,15 @@ export default function SessionPage() {
 
         <div className={clsx("flex-1 flex flex-col min-w-0 bg-[#09090b] relative border-l border-white/5", activeTab === 'sandbox' ? "flex" : "hidden")}>
           <div className="h-12 border-b border-white/5 flex items-center justify-between px-4 bg-white/[0.02]"><div className="flex items-center gap-2"><TerminalIcon className="w-4 h-4 text-primary" /><span className="text-[10px] font-black uppercase tracking-[0.2em] text-white">Telemetry</span></div><button onClick={fetchLogs} className="p-1.5 hover:bg-white/5 rounded-md"><RefreshCcw className={clsx("w-3.5 h-3.5 text-muted-foreground", loadingLogs && "animate-spin")} /></button></div>
-          <div className="flex-1 overflow-y-auto p-8 font-mono text-[11px] text-muted-foreground/60 space-y-4 no-scrollbar bg-black/40">
-            {sandboxLogs.length === 0 ? (<div className="h-full flex flex-col items-center justify-center opacity-5"><TerminalIcon className="w-20 h-20 mb-6" /><p className="text-[10px] font-black uppercase tracking-[0.4em]">No data</p></div>) : (sandboxLogs.map((log, i) => (<div key={i} className="whitespace-pre-wrap break-words border-l border-white/10 pl-6 py-1 hover:border-primary transition-colors">{log.output}</div>)))}
+          <div ref={logScrollRef} className="flex-1 overflow-y-auto p-8 font-mono text-[11px] space-y-2 no-scrollbar bg-black/40">
+            {sandboxLogs.length === 0 ? (<div className="h-full flex flex-col items-center justify-center opacity-5"><TerminalIcon className="w-20 h-20 mb-6" /><p className="text-[10px] font-black uppercase tracking-[0.4em]">No data</p></div>) : (sandboxLogs.map((log, i) => (
+                <div key={i} className={clsx(
+                    "whitespace-pre-wrap break-words border-l pl-4 py-0.5 transition-colors",
+                    log.stream === 'stderr' ? "text-red-400/80 border-red-500/30" : "text-muted-foreground/60 border-white/10 hover:border-primary"
+                )}>
+                    {log.output}
+                </div>
+            )))}
           </div>
         </div>
       </div>

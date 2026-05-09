@@ -5,8 +5,8 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "AgentForge",
-  description: "AI-Powered Senior Software Engineer",
+  title: "GITCODE | Autonomous AI Engineering OS",
+  description: "Autonomous AI engineering workspace for elite software teams.",
 };
 
 export default function RootLayout({
