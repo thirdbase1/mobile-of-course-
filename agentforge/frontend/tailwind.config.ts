@@ -88,6 +88,15 @@ const config: Config = {
         "2xl": "0 25px 50px -12px rgb(0 0 0 / 0.25)",
         "inner-lg": "inset 0 2px 4px 0 rgb(0 0 0 / 0.05)",
       },
+      textColor: {
+        "foreground-secondary": "hsl(var(--foreground-secondary))",
+        "foreground-tertiary": "hsl(var(--foreground-tertiary))",
+      },
+      backgroundColor: {
+        "surface-primary": "hsl(var(--surface-primary))",
+        "surface-secondary": "hsl(var(--surface-secondary))",
+        "surface-tertiary": "hsl(var(--surface-tertiary))",
+      },
     },
   },
   plugins: [],

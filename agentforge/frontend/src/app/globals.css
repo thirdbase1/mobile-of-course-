@@ -113,11 +113,11 @@
   }
   
   p {
-    @apply text-foreground-secondary;
+    @apply text-sm;
   }
   
   code {
-    @apply font-mono text-sm bg-surface-secondary px-1.5 py-0.5 rounded;
+    @apply font-mono text-xs bg-surface-secondary px-1.5 py-0.5 rounded text-foreground;
   }
   
   pre {
@@ -150,7 +150,7 @@
   /* Input Variants */
   .input-base {
     @apply w-full px-3 py-2 bg-input border border-input-border text-foreground 
-           placeholder:text-foreground-tertiary rounded focus:outline-none focus:ring-2 
+           placeholder:text-gray-500 rounded focus:outline-none focus:ring-2 
            focus:ring-primary focus:border-transparent transition-all;
   }
   
