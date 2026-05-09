@@ -64,8 +64,7 @@ export function EditorPanel() {
               <span className="text-primary">default</span>
               <span> </span>
               <span className="text-accent">function</span>
-              <span> App() </span>
-              <span className="text-foreground">{'{'}</span>
+              <span>{` App() {`}</span>
             </div>
             <div className="ml-4">
               <span className="text-primary">return</span>

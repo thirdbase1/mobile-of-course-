@@ -69,22 +69,12 @@ export function InspectorPanel() {
                 <span className="text-accent">Authorization</span>: Bearer ...
               </div>
               <div className="mt-2 p-2 bg-surface-tertiary rounded">
-                <div className="text-foreground">
-                  {'{'}
-                  <div className="ml-3">
-                    <div>
-                      <span className="text-primary">"tool"</span>: "read_file",
-                    </div>
-                    <div>
-                      <span className="text-primary">"params"</span>: {'{'}
-                    </div>
-                    <div className="ml-3">
-                      <span className="text-primary">"path"</span>: "./src/app.tsx"
-                    </div>
-                    <div>{'}'}</div>
-                  </div>
-                  {'}'}
-                </div>
+                <pre className="text-foreground text-xs overflow-auto">{`{
+  "tool": "read_file",
+  "params": {
+    "path": "./src/app.tsx"
+  }
+}`}</pre>
               </div>
             </div>
           )}
@@ -106,22 +96,12 @@ export function InspectorPanel() {
           </button>
 
           {expandedSections.has('response') && (
-            <div className="px-3 py-2 border-t border-border bg-surface-secondary text-xs text-foreground-secondary font-mono">
-              <div className="text-foreground">
-                {'{'}
-                <div className="ml-3">
-                  <div>
-                    <span className="text-primary">"success"</span>: true,
-                  </div>
-                  <div>
-                    <span className="text-primary">"content"</span>: "export default function App() {"
-                  </div>
-                  <div>
-                    <span className="text-primary">"lines"</span>: 142
-                  </div>
-                </div>
-                {'}'}
-              </div>
+            <div className="px-3 py-2 border-t border-border bg-surface-secondary text-xs">
+              <pre className="text-foreground font-mono overflow-auto">{`{
+  "success": true,
+  "content": "export default function App() {",
+  "lines": 142
+}`}</pre>
             </div>
           )}
         </div>
