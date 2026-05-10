@@ -8,7 +8,7 @@ function Inner() {
   const params = useSearchParams()
   useEffect(() => {
     const token = params.get('token')
-    if (token) { localStorage.setItem('af_token', token); router.replace('/dashboard') }
+    if (token) { localStorage.setItem('token', token); router.replace('/dashboard') }
     else router.replace('/?error=' + (params.get('error') || 'auth_failed'))
   }, [params, router])
   return (

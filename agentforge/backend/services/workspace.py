@@ -7,7 +7,7 @@ from pathlib import Path
 
 log = logging.getLogger(__name__)
 
-BASE_WORKSPACE_DIR = Path("/tmp/agentforge")
+BASE_WORKSPACE_DIR = Path("/tmp/gitcode")
 
 def get_workspace_path(session_id: str) -> Path:
     return BASE_WORKSPACE_DIR / session_id

@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy import String, Text, Boolean, DateTime, ForeignKey, JSON, Integer
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./agentforge.db")
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./gitcode.db")
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
 elif DATABASE_URL.startswith("postgresql://") and "+asyncpg" not in DATABASE_URL:

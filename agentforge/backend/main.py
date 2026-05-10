@@ -7,7 +7,7 @@ from routers import auth, sessions, repos, messages, execute, settings, ws_agent
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
-app = FastAPI(title="AgentForge API", version="2.0.0")
+app = FastAPI(title="GITCODE API", version="2.0.0")
 
 app.add_middleware(
     CORSMiddleware,

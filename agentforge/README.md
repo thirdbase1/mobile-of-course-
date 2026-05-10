@@ -1,12 +1,12 @@
-# AgentForge v2.2 ⚡
+# GITCODE v2.2 ⚡
 
 **The Agent That Actually Builds.**
 
-AgentForge is a sophisticated autonomous engineering environment that goes beyond simple code suggestions. It operates inside persistent, isolated sandboxes, allowing it to execute commands, install dependencies, and verify its own work before pushing changes.
+GITCODE is a sophisticated autonomous engineering environment that goes beyond simple code suggestions. It operates inside persistent, isolated sandboxes, allowing it to execute commands, install dependencies, and verify its own work before pushing changes.
 
 ## 🚀 Key Features
 
-- **Sandbox-First Architecture**: Every session gets a dedicated `/tmp/agentforge` workspace. The agent has full terminal access and awareness of the filesystem.
+- **Sandbox-First Architecture**: Every session gets a dedicated `/tmp/gitcode` workspace. The agent has full terminal access and awareness of the filesystem.
 - **Deep Intelligence**: Support for state-of-the-art models including **DeepSeek R1**, **Groq Compound**, **Qwen 2.5**, and **Grok 3**.
 - **Autonomous Development**: The agent doesn't just chat; it clones repos, runs build scripts, debugs errors, and manages Git branches.
 - **Mandatory Branching**: Protects your `main` branch by automatically creating feature branches (fix/, feat/, refactor/) for all work.
@@ -32,12 +32,12 @@ AgentForge is a sophisticated autonomous engineering environment that goes beyon
 
 ## 📦 Deployment
 
-AgentForge is built with **FastAPI** (Backend) and **Next.js** (Frontend).
+GITCODE is built with **FastAPI** (Backend) and **Next.js** (Frontend).
 
 1. Connect your GitHub account.
 2. Add your API keys in Settings.
 3. Import a repository or start a fresh sandbox project.
-4. Let AgentForge build for you.
+4. Let GITCODE build for you.
 
 ---
-© 2026 AgentForge. Securely powered by Groq, xAI & GitHub.
+© 2026 GITCODE. Securely powered by Groq, xAI & GitHub.
